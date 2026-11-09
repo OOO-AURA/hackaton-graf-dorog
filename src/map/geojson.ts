@@ -16,6 +16,7 @@ function roadFeature(doc: OsmDoc, w: OsmWay): Feature<LineString, Props> {
     properties: {
       id: w.id,
       color: highwayColor(w.tags.highway ?? ''),
+      highway: (w.tags.highway ?? '').replace(/_link$/, ''),
       lanes: lanesOf(w),
       dir: direction(w.tags),
       bridge: Boolean(w.tags.bridge && w.tags.bridge !== 'no'),

@@ -1,25 +1,34 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { LayerId } from '../state/ui';
+import { roadColorExpression, type MapPalette } from './palette';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
 export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
-export const HIT_LAYERS = { nodes: ['nodes'], roads: ['roads', 'roads-bridge'] } as const;
+export const HIT_LAYERS = { nodes: ['signals', 'nodes', 'crossings'], roads: ['roads', 'roads-bridge'] } as const;
 
-function addArrowImage(map: MapLibreMap): void {
+function arrowImage(color: string): ImageData | null {
   const size = 24;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  ctx.fillStyle = '#212529';
+  if (!ctx) return null;
+  ctx.fillStyle = color;
   ctx.beginPath();
   ctx.moveTo(6, 5); ctx.lineTo(18, 12); ctx.lineTo(6, 19); ctx.lineTo(9, 12);
   ctx.closePath();
   ctx.fill();
-  map.addImage('arrow', ctx.getImageData(0, 0, size, size), { pixelRatio: 2 });
+  return ctx.getImageData(0, 0, size, size);
+}
+
+function setArrowImage(map: MapLibreMap, color: string): void {
+  const image = arrowImage(color);
+  if (!image) return;
+  if (map.hasImage('arrow')) map.updateImage('arrow', image);
+  else map.addImage('arrow', image, { pixelRatio: 2 });
 }
 
 /** Road width grows with zoom and lane count; `extra` px is added for casings and highlights. */
@@ -29,66 +38,87 @@ const laneWidth = (extra: unknown = 0) => [
   18, ['+', ['*', 4, ['get', 'lanes']], extra],
 ] as never;
 
-export function addEditorLayers(map: MapLibreMap): void {
-  SOURCES.forEach((id) => map.addSource(id, { type: 'geojson', data: EMPTY as never }));
-  addArrowImage(map);
+const GRAPH_NODE_KINDS = ['junction', 'end', 'vertex'];
 
-  map.addLayer({ id: 'buildings', type: 'fill', source: 'buildings', paint: { 'fill-color': '#868e96', 'fill-opacity': 0.25, 'fill-outline-color': '#495057' } });
-  map.addLayer({
-    id: 'context', type: 'line', source: 'context',
-    paint: {
-      'line-color': ['match', ['get', 'kind'], 'rail', '#5f3dc4', '#adb5bd'],
-      'line-width': ['match', ['get', 'kind'], 'rail', 2, 1],
-      'line-dasharray': [2, 2],
-    },
-  });
-  map.addLayer({
-    id: 'roads-casing', type: 'line', source: 'roads', layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': ['case', ['get', 'bridge'], '#000000', '#495057'], 'line-width': laneWidth(['case', ['get', 'bridge'], 5, 2]) },
-  });
+export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
+  SOURCES.forEach((id) => map.addSource(id, { type: 'geojson', data: EMPTY as never }));
+  setArrowImage(map, p.arrow);
+
+  map.addLayer({ id: 'buildings', type: 'fill', source: 'buildings', paint: { 'fill-opacity': 0.55 } });
+  map.addLayer({ id: 'context', type: 'line', source: 'context', filter: ['!=', ['get', 'kind'], 'rail'], paint: { 'line-width': 1, 'line-dasharray': [2, 2] } });
+  map.addLayer({ id: 'tram', type: 'line', source: 'context', filter: ['==', ['get', 'kind'], 'rail'], paint: { 'line-width': 2, 'line-dasharray': [3, 1.5] } });
+  map.addLayer({ id: 'roads-casing', type: 'line', source: 'roads', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': laneWidth(['case', ['get', 'bridge'], 5, 2]) } });
   map.addLayer({
     id: 'roads', type: 'line', source: 'roads', filter: ['!', ['get', 'bridge']], layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': ['get', 'color'], 'line-width': laneWidth(), 'line-opacity': ['case', ['get', 'tunnel'], 0.5, 1] },
+    paint: { 'line-width': laneWidth(), 'line-opacity': ['case', ['get', 'tunnel'], 0.45, 1] },
   });
-  map.addLayer({
-    id: 'roads-bridge', type: 'line', source: 'roads', filter: ['get', 'bridge'], layout: { 'line-cap': 'butt', 'line-join': 'round' },
-    paint: { 'line-color': ['get', 'color'], 'line-width': laneWidth() },
-  });
+  map.addLayer({ id: 'roads-bridge', type: 'line', source: 'roads', filter: ['get', 'bridge'], layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-width': laneWidth() } });
   map.addLayer({
     id: 'roads-arrows', type: 'symbol', source: 'roads', filter: ['!=', ['get', 'dir'], 'both'], minzoom: 15,
-    layout: {
-      'symbol-placement': 'line', 'symbol-spacing': 60, 'icon-image': 'arrow', 'icon-allow-overlap': true,
-      'icon-rotate': ['case', ['==', ['get', 'dir'], 'backward'], 180, 0],
-    },
+    layout: { 'symbol-placement': 'line', 'symbol-spacing': 60, 'icon-image': 'arrow', 'icon-allow-overlap': true, 'icon-rotate': ['case', ['==', ['get', 'dir'], 'backward'], 180, 0] },
+  });
+  map.addLayer({ id: 'selection-line', type: 'line', source: 'selection', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': laneWidth(10), 'line-opacity': 0.55 } }, 'roads-casing');
+  map.addLayer({
+    id: 'nodes', type: 'circle', source: 'nodes', minzoom: 14,
+    filter: ['all', ['!=', ['get', 'kind'], 'signal'], ['any', ['in', ['get', 'kind'], ['literal', GRAPH_NODE_KINDS]], ['>=', ['zoom'], 17]]],
+    paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, ['match', ['get', 'kind'], 'vertex', 4, 1.8], 17, ['match', ['get', 'kind'], 'end', 3, 4]], 'circle-stroke-width': 1.2 },
   });
   map.addLayer({
-    id: 'selection-line', type: 'line', source: 'selection', filter: ['==', ['geometry-type'], 'LineString'],
-    paint: { 'line-color': '#1c7ed6', 'line-width': laneWidth(8), 'line-opacity': 0.45 },
-  }, 'roads-casing');
-  map.addLayer({
-    id: 'nodes', type: 'circle', source: 'nodes',
-    filter: ['any', ['in', ['get', 'kind'], ['literal', ['signal', 'junction', 'end', 'vertex']]], ['>=', ['zoom'], 17]],
-    minzoom: 14,
-    paint: {
-      'circle-radius': ['match', ['get', 'kind'], 'signal', 6, 'junction', 4, 'vertex', 4, 3],
-      'circle-color': ['match', ['get', 'kind'], 'signal', '#e03131', 'junction', '#ffffff', 'end', '#ffd43b', 'vertex', '#1c7ed6', '#dee2e6'],
-      'circle-stroke-color': '#212529',
-      'circle-stroke-width': ['match', ['get', 'kind'], 'signal', 2, 1],
-    },
+    id: 'crossings', type: 'circle', source: 'nodes', minzoom: 15, filter: ['get', 'crossing'],
+    paint: { 'circle-radius': 4.5, 'circle-stroke-width': 2 },
   });
-  map.addLayer({
-    id: 'selection-node', type: 'circle', source: 'selection', filter: ['==', ['geometry-type'], 'Point'],
-    paint: { 'circle-radius': 9, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': '#1c7ed6', 'circle-stroke-width': 3 },
-  });
-  map.addLayer({
-    id: 'issues', type: 'circle', source: 'issues',
-    paint: {
-      'circle-radius': ['case', ['get', 'focused'], 16, 10],
-      'circle-color': ['match', ['get', 'severity'], 'error', 'rgba(224,49,49,0.25)', 'rgba(247,103,7,0.25)'],
-      'circle-stroke-color': ['match', ['get', 'severity'], 'error', '#e03131', '#f76707'],
-      'circle-stroke-width': ['case', ['get', 'focused'], 3, 2],
-    },
-  });
-  map.addLayer({ id: 'draw-line', type: 'line', source: 'draw', paint: { 'line-color': '#1c7ed6', 'line-width': 3, 'line-dasharray': [2, 1] } });
-  map.addLayer({ id: 'draw-points', type: 'circle', source: 'draw', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-color': '#1c7ed6' } });
+  map.addLayer({ id: 'signals', type: 'circle', source: 'nodes', minzoom: 13, filter: ['==', ['get', 'kind'], 'signal'], paint: { 'circle-radius': 6, 'circle-stroke-width': 2 } });
+  map.addLayer({ id: 'selection-node', type: 'circle', source: 'selection', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 10, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 3 } });
+  map.addLayer({ id: 'issues-halo', type: 'circle', source: 'issues', paint: { 'circle-radius': ['case', ['get', 'focused'], 22, 13], 'circle-opacity': 0.18, 'circle-blur': 0.4 } });
+  map.addLayer({ id: 'issues', type: 'circle', source: 'issues', paint: { 'circle-radius': ['case', ['get', 'focused'], 15, 9], 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': ['case', ['get', 'focused'], 3, 2] } });
+  map.addLayer({ id: 'draw-line', type: 'line', source: 'draw', paint: { 'line-width': 3, 'line-dasharray': [2, 1] } });
+  map.addLayer({ id: 'draw-points', type: 'circle', source: 'draw', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-stroke-width': 2 } });
+  applyPalette(map, p);
+}
+
+/** Colours every editor layer for the current theme; called on load and on theme change. */
+export function applyPalette(map: MapLibreMap, p: MapPalette): void {
+  const set = (layer: string, prop: string, value: unknown) => map.setPaintProperty(layer, prop as never, value as never);
+  const issueColor = ['case', ['==', ['get', 'kind'], 'cordon'], p.cordon, ['==', ['get', 'severity'], 'error'], p.error, p.warning];
+  setArrowImage(map, p.arrow);
+  set('buildings', 'fill-color', p.building);
+  set('buildings', 'fill-outline-color', p.buildingLine);
+  set('context', 'line-color', p.path);
+  set('tram', 'line-color', p.tram);
+  set('roads-casing', 'line-color', ['case', ['get', 'bridge'], p.bridgeCasing, p.casing]);
+  set('roads', 'line-color', roadColorExpression(p));
+  set('roads-bridge', 'line-color', roadColorExpression(p));
+  set('selection-line', 'line-color', p.selection);
+  set('nodes', 'circle-color', ['match', ['get', 'kind'], 'end', p.roads.secondary, 'vertex', p.vertex, p.nodeFill]);
+  set('nodes', 'circle-stroke-color', p.nodeStroke);
+  set('crossings', 'circle-color', p.crossing);
+  set('crossings', 'circle-stroke-color', p.nodeStroke);
+  set('signals', 'circle-color', p.signal);
+  set('signals', 'circle-stroke-color', p.nodeStroke);
+  set('selection-node', 'circle-stroke-color', p.selection);
+  set('issues-halo', 'circle-color', issueColor);
+  set('issues', 'circle-stroke-color', issueColor);
+  set('draw-line', 'line-color', p.draw);
+  set('draw-points', 'circle-color', p.nodeFill);
+  set('draw-points', 'circle-stroke-color', p.draw);
+}
+
+const ROAD_LAYERS = ['roads-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line'];
+
+/** Applies the layer toggles from the bottom bar. Bridges and tunnels are filters on the road layers. */
+export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boolean>): void {
+  const show = (layer: string, visible: boolean) => map.setLayoutProperty(layer, 'visibility', visible ? 'visible' : 'none');
+  ROAD_LAYERS.forEach((l) => show(l, on.roads));
+  show('roads-bridge', on.roads && on.bridges);
+  show('nodes', on.junctions);
+  show('signals', on.signals);
+  show('crossings', on.crossings);
+  show('buildings', on.buildings);
+  show('tram', on.tram);
+  const structure: unknown[] = ['all'];
+  if (!on.bridges) structure.push(['!', ['get', 'bridge']]);
+  if (!on.tunnels) structure.push(['!', ['get', 'tunnel']]);
+  map.setFilter('roads-casing', structure as never);
+  map.setFilter('roads', ['all', ['!', ['get', 'bridge']], structure] as never);
+  map.setFilter('roads-arrows', ['all', ['!=', ['get', 'dir'], 'both'], structure] as never);
 }
