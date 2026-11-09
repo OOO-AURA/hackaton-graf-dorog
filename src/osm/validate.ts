@@ -4,15 +4,17 @@ import { haversine, projector, segmentIntersection, type LonLat } from './geo';
 import { directedArcs, drivableWays } from './roads';
 import { falseTunnels } from './structures';
 import { speedMismatches } from './speeds';
+import { unsafeTags } from './pipelineSafety';
 import type { OsmDoc, OsmWay } from './types';
 
-export type IssueKind = 'isolated' | 'trap' | 'cordon' | 'crossing' | 'near-nodes' | 'false-tunnel' | 'speed';
+export type IssueKind = 'isolated' | 'trap' | 'cordon' | 'crossing' | 'near-nodes' | 'false-tunnel' | 'speed' | 'webots-crash';
 
 export type IssueFix =
   | { type: 'connect'; a: { wayId: string; index: number }; b: { wayId: string; index: number }; at: LonLat }
   | { type: 'merge'; keep: string; remove: string }
   | { type: 'ground'; wayId: string }
-  | { type: 'speed'; wayId: string };
+  | { type: 'speed'; wayId: string }
+  | { type: 'sanitize'; wayId: string };
 
 export interface Issue {
   readonly id: string;
@@ -188,6 +190,15 @@ export function validate(doc: OsmDoc): ValidationReport {
       message: `Дорога под мостом отмечена тоннелем (${Math.round(t.lengthM)} м): Webots не построит её, под мостом будет дыра`,
       at: t.at, wayIds: [t.wayId, t.bridgeId], nodeIds: [], fix: { type: 'ground', wayId: t.wayId },
     })),
+    ...unsafeTags(doc).map((u): Issue => {
+      const w = doc.ways[u.wayId];
+      const mid = doc.nodes[w.refs[Math.floor(w.refs.length / 2)]] ?? doc.nodes[w.refs[0]];
+      return {
+        id: `crash:${u.wayId}:${u.key}`, kind: 'webots-crash', severity: 'error',
+        message: `${u.key}=${u.value}: импорт в Webots упадёт, видео не будет (${u.reason})`,
+        at: mid ? [mid.lon, mid.lat] : [0, 0], wayIds: [u.wayId], nodeIds: [], fix: { type: 'sanitize', wayId: u.wayId },
+      };
+    }),
     ...speedMismatches(doc).map((m): Issue => {
       const w = doc.ways[m.wayId];
       const mid = doc.nodes[w.refs[Math.floor(w.refs.length / 2)]];

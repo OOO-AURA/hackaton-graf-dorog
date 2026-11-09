@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { connectCrossing, mergeNodes, setWayTags } from '../osm/edit';
 import { groundTags } from '../osm/structures';
 import { applyLegalSpeeds } from '../osm/speeds';
+import { sanitizeDoc } from '../osm/pipelineSafety';
 import type { Issue } from '../osm/validate';
 import { useEditor } from '../state/store';
 import { closeCordon } from '../state/actions';
@@ -10,7 +11,7 @@ import { refreshReport } from '../state/validation';
 import { VirtualList } from './VirtualList';
 
 const KIND_LABELS: Readonly<Record<Issue['kind'], string>> = {
-  isolated: 'Изолированные участки', trap: 'Тупики по направлению', cordon: 'Обрезано границей фрагмента', crossing: 'Пересечения без узла', 'near-nodes': 'Разорванные перекрёстки', 'false-tunnel': 'Ложные тоннели под мостами', speed: 'Разная скорость в MATSim и SUMO',
+  isolated: 'Изолированные участки', trap: 'Тупики по направлению', cordon: 'Обрезано границей фрагмента', crossing: 'Пересечения без узла', 'near-nodes': 'Разорванные перекрёстки', 'false-tunnel': 'Ложные тоннели под мостами', speed: 'Разная скорость в MATSim и SUMO', 'webots-crash': 'Значения, на которых падает Webots',
 };
 
 function applyFix(issue: Issue): void {
@@ -21,6 +22,7 @@ function applyFix(issue: Issue): void {
     if (fix.type === 'merge') return mergeNodes(d, fix.keep, fix.remove);
     if (fix.type === 'ground') return d.ways[fix.wayId] ? setWayTags(d, fix.wayId, groundTags(d.ways[fix.wayId].tags)) : d;
     if (fix.type === 'speed') return applyLegalSpeeds(d, [fix.wayId]);
+    if (fix.type === 'sanitize') return sanitizeDoc(d, [fix.wayId]);
     return connectCrossing(d, fix.a, fix.b, fix.at[0], fix.at[1]);
   });
   void refreshReport();

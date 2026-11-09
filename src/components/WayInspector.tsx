@@ -12,6 +12,7 @@ import { capacity, normTags, roadProfile } from '../osm/profile';
 import { streetWays } from '../osm/street';
 import { webotsElevation } from '../osm/structures';
 import { simulatorSpeeds } from '../osm/speeds';
+import { safeInput } from '../osm/pipelineSafety';
 
 export const HIGHWAY_LABELS: Readonly<Record<string, string>> = {
   motorway: 'Автомагистраль', trunk: 'Скоростная', primary: 'Магистральная', secondary: 'Районная', tertiary: 'Улица местного значения',
@@ -56,7 +57,13 @@ export function WayInspector({ way }: { way: OsmWay }) {
   const doc = useEditor((s) => s.doc);
   const t = way.tags;
   const streetParts = t.name ? streetWays(doc, t.name).length : 0;
-  const set = (key: string) => (value: string) => apply((d) => setWayTag(d, way.id, key, value || null));
+  const notify = useEditor((s) => s.notify);
+  // Lane counts and layer go through the same guard as validation: other values stop the Webots import.
+  const set = (key: string) => (value: string) => {
+    const safe = safeInput(key, value);
+    if (value.trim() && safe !== value.trim()) notify(safe ? `${key}: записано ${safe}, Webots принимает только целое число` : `${key}: значение «${value}» не подходит, тег не записан`);
+    apply((d) => setWayTag(d, way.id, key, safe));
+  };
   const dir = direction(t);
   const profile = roadProfile(t);
   const structure = t.bridge && t.bridge !== 'no' ? 'bridge' : t.tunnel && t.tunnel !== 'no' ? 'tunnel' : 'none';
