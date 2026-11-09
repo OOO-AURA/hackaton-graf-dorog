@@ -17,7 +17,7 @@ export const STRIDE = 7;
 export type Scene3dMesh = {
   /** Mercator x, y of the origin and metres per Mercator unit there. */
   origin: { x: number; y: number; metersPerUnit: number };
-  /** Building triangles, wound counter-clockwise seen from outside. */
+  /** Building triangles, wound the same way as the roofs seen from outside. */
   solid: Float32Array;
   /** Bridge decks, piers and tunnel portals: opaque, never cut away. */
   structures: Float32Array;
@@ -164,7 +164,7 @@ function addBuilding(solid: Buf, edges: Buf, ring: P2[], base: number, height: n
   for (let i = 0; i < n; i += 1) {
     const a = ring[i];
     const b = ring[(i + 1) % n];
-    quad(solid, c, 1, [a[0], a[1], base], [b[0], b[1], base], [b[0], b[1], height], [a[0], a[1], height]);
+    quad(solid, c, 1, [a[0], a[1], base], [a[0], a[1], height], [b[0], b[1], height], [b[0], b[1], base]);
   }
   const flat = ring.flatMap((p) => p);
   const idx = earcut(flat);
