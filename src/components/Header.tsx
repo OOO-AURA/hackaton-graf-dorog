@@ -4,6 +4,7 @@ import { isDesktop } from '../platform';
 import { useUi, type Workspace } from '../state/ui';
 import { CheckButton } from './CheckPanel';
 import { ExportMenu } from './ExportMenu';
+import { AreaMenu } from './AreaMenu';
 import { openBrowserFile, openExample } from './fileActions';
 import { Icon } from './icons';
 import { Petals } from './EmptyState';
@@ -59,6 +60,7 @@ export function Header() {
           <button className="icon-btn" onClick={() => void openFile()} title="Открыть .osm (⌘O)" aria-label="Открыть"><Icon name="open" /></button>
           {!isDesktop && <input id={BROWSER_FILE_INPUT} type="file" accept=".osm,.xml" hidden onChange={(e) => { void openBrowserFile(e.target.files?.[0]); e.target.value = ''; }} />}
           <button className="btn btn-quiet" onClick={() => void openExample()}>Пример</button>
+          <AreaMenu align="left" />
         </div>
         <div className="btn-group">
           <button className="icon-btn" onClick={undo} disabled={!canUndo} title="Отменить (⌘Z)" aria-label="Отменить"><Icon name="undo" /></button>

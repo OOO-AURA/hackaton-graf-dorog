@@ -2,6 +2,9 @@ import { currentSelection, useEditor } from '../state/store';
 import { HOTKEYS } from '../state/useHotkeys';
 import { WayInspector } from './WayInspector';
 import { NodeInspector } from './NodeInspector';
+import { BuildingInspector } from './BuildingInspector';
+import { StreetInspector } from './StreetInspector';
+import { isBuildingWay } from '../osm/building';
 import { Why } from './Why';
 
 function Nothing() {
@@ -9,7 +12,7 @@ function Nothing() {
     <div className="insp-empty">
       <div className="insp-empty-mark" aria-hidden="true" />
       <p>Ничего не выбрано</p>
-      <p className="hint">Кликните дорогу или узел на карте либо улицу в списке слева.</p>
+      <p className="hint">Кликните дорогу, узел или здание на карте либо улицу в списке слева.</p>
       <details className="hotkeys">
         <summary className="micro">Горячие клавиши</summary>
         <dl>{HOTKEYS.map(([k, v]) => <div key={k}><dt className="mono">{k}</dt><dd>{v}</dd></div>)}</dl>
@@ -25,8 +28,11 @@ export function Inspector() {
     <aside className="panel inspector-panel" aria-label="Инспектор" data-tour="inspector">
       <div className="panel-title micro"><span>Инспектор</span><Why id="inspector" /></div>
       <div key={selection ? `${selection.type}${selection.id}` : 'none'} className="insp-swap">
-        {selection?.type === 'way' && <WayInspector way={doc.ways[selection.id]} />}
+        {selection?.type === 'way' && (isBuildingWay(doc.ways[selection.id])
+          ? <BuildingInspector way={doc.ways[selection.id]} />
+          : <WayInspector way={doc.ways[selection.id]} />)}
         {selection?.type === 'node' && <NodeInspector node={doc.nodes[selection.id]} />}
+        {selection?.type === 'street' && <StreetInspector name={selection.id} />}
         {!selection && <Nothing />}
       </div>
     </aside>

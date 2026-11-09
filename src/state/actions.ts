@@ -101,6 +101,7 @@ export function deleteSelection(): void {
   const s = useEditor.getState();
   const sel = currentSelection(s);
   if (!sel) return;
+  if (sel.type === 'street') return;
   s.apply((d) => (sel.type === 'node' ? deleteNode(d, sel.id) : deleteWay(d, sel.id)));
   s.select(null);
 }

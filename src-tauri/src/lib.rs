@@ -1,8 +1,17 @@
 mod check;
+mod net;
 mod sim;
 
 use std::fs;
 use std::path::PathBuf;
+
+/// Downloads map data for the area loader; see net.rs for why this is not done in the web view.
+#[tauri::command]
+async fn http_request(url: String, form: Option<String>) -> Result<net::HttpReply, String> {
+    tauri::async_runtime::spawn_blocking(move || net::request(&url, form.as_deref()))
+        .await
+        .map_err(|e| e.to_string())?
+}
 
 #[tauri::command]
 fn read_osm(path: PathBuf) -> Result<String, String> {
@@ -81,7 +90,7 @@ pub fn run() {
     use tauri::{Emitter, Manager};
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![read_osm, write_osm, check_osm, simulate, export_sumo, sumo_status, quit_app])
+        .invoke_handler(tauri::generate_handler![http_request, read_osm, write_osm, check_osm, simulate, export_sumo, sumo_status, quit_app])
         .setup(|_app| {
             #[cfg(target_os = "macos")]
             install_menu(_app.handle())?;
