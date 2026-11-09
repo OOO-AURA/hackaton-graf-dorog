@@ -122,6 +122,18 @@ describe('3D scene geometry', () => {
     expect(top('3')).toBeGreaterThanOrEqual(3 * LAYER_HEIGHT);
   });
 
+  test('a tunnel is a tube under the ground, as deep as its level', () => {
+    const nodes = `<node id="1" lat="52.0" lon="104.000"/><node id="2" lat="52.0" lon="104.003"/>`;
+    const tube = (layer: string) => buildScene3d(osm(`${nodes}<way id="10"><nd ref="1"/><nd ref="2"/><tag k="highway" v="primary"/><tag k="tunnel" v="yes"/><tag k="layer" v="${layer}"/></way>`), COLORS)!;
+    const z1 = zOf(tube('-1').underground, STRIDE);
+    const z3 = zOf(tube('-3').underground, STRIDE);
+    expect(Math.min(...z1)).toBeCloseTo(-LAYER_HEIGHT);
+    expect(Math.min(...z3)).toBeCloseTo(-3 * LAYER_HEIGHT);
+    // Never above the ground.
+    expect(Math.max(...z3)).toBeLessThanOrEqual(0);
+    expect(tube('-1').pickIds).toEqual(['10']);
+  });
+
   test('a tunnel gets a portal only where it meets an open road', () => {
     const nodes = `
       <node id="1" lat="52.0" lon="104.000"/><node id="2" lat="52.0" lon="104.002"/><node id="3" lat="52.0" lon="104.004"/>`;

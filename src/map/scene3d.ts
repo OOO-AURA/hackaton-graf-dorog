@@ -30,6 +30,8 @@ const CUT_TEX_WIDTH = 2048;
 
 /** Opacity of extruded buildings, as the old fill-extrusion layer had it. */
 const BUILDING_OPACITY = 0.85;
+/** Opacity of tunnel tubes drawn through the ground. */
+const TUNNEL_OPACITY = 0.45;
 /** Length of the fade below the cut, in CSS pixels. */
 const FADE_PX = 26;
 
@@ -179,10 +181,11 @@ uniform vec2 u_size;
 uniform float u_fade;
 uniform float u_cutaway;
 uniform float u_opacity;
+uniform float u_ghost;
 varying vec3 v_color;
 varying float v_id;
 void main() {
-  float alpha = 1.0;
+  float alpha = u_ghost > 0.0 ? u_ghost : 1.0;
   if (v_id > 0.5 && u_cutaway > 0.0) {
     float id = floor(v_id + 0.5);
     vec2 uv = vec2((mod(id, ${CUT_TEX_WIDTH}.0) + 0.5) / ${CUT_TEX_WIDTH}.0, (floor(id / ${CUT_TEX_WIDTH}.0) + 0.5) / u_cutRows);
@@ -262,7 +265,7 @@ function mul(a: ArrayLike<number>, b: ArrayLike<number>): Float32Array {
   return new Float32Array(out);
 }
 
-type Buffers = { solid: WebGLBuffer; solidCount: number; structures: WebGLBuffer; structuresCount: number; mask: WebGLBuffer; maskCount: number };
+type Buffers = { solid: WebGLBuffer; solidCount: number; structures: WebGLBuffer; structuresCount: number; underground: WebGLBuffer; undergroundCount: number; mask: WebGLBuffer; maskCount: number };
 
 export class Scene3dLayer implements CustomLayerInterface {
   readonly id = SCENE3D_LAYER;
@@ -377,7 +380,7 @@ export class Scene3dLayer implements CustomLayerInterface {
   private dropBuffers(gl: GL) {
     if (!this.buffers) return;
     const b = this.buffers;
-    [b.solid, b.structures, b.mask].forEach((x) => gl.deleteBuffer(x));
+    [b.solid, b.structures, b.underground, b.mask].forEach((x) => gl.deleteBuffer(x));
     this.buffers = null;
   }
 
@@ -396,6 +399,7 @@ export class Scene3dLayer implements CustomLayerInterface {
     this.buffers = {
       solid: make(m.solid), solidCount: m.solid.length / STRIDE,
       structures: make(m.structures), structuresCount: m.structures.length / STRIDE,
+      underground: make(m.underground), undergroundCount: m.underground.length / STRIDE,
       mask: make(m.roadMask), maskCount: m.roadMask.length / 3,
     };
   }
@@ -479,7 +483,7 @@ export class Scene3dLayer implements CustomLayerInterface {
     const W = gl.drawingBufferWidth;
     const H = gl.drawingBufferHeight;
     for (const job of jobs) {
-      if (!b || (!b.solidCount && !b.structuresCount)) { job.resolve(null); continue; }
+      if (!b || (!b.solidCount && !b.structuresCount && !b.undergroundCount)) { job.resolve(null); continue; }
       // Clip space shifted and scaled so that the clicked pixel fills the 1×1 target.
       const nx = ((job.x / canvas.clientWidth) * 2 - 1);
       const ny = (1 - (job.y / canvas.clientHeight) * 2);
@@ -515,11 +519,12 @@ export class Scene3dLayer implements CustomLayerInterface {
       gl.enableVertexAttribArray(pick);
       gl.vertexAttribPointer(pick, 1, gl.FLOAT, false, STRIDE * 4, 11 * 4);
       if (this.showBuildings) gl.drawArrays(gl.TRIANGLES, 0, b.solidCount);
-      if (this.showStructures && b.structuresCount) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, b.structures);
+      for (const [buffer, count] of [[b.structures, b.structuresCount], [b.underground, b.undergroundCount]] as const) {
+        if (!this.showStructures || !count) continue;
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         gl.vertexAttribPointer(pos, 3, gl.FLOAT, false, STRIDE * 4, 0);
         gl.vertexAttribPointer(pick, 1, gl.FLOAT, false, STRIDE * 4, 11 * 4);
-        gl.drawArrays(gl.TRIANGLES, 0, b.structuresCount);
+        gl.drawArrays(gl.TRIANGLES, 0, count);
       }
       gl.disableVertexAttribArray(pos);
       gl.disableVertexAttribArray(pick);
@@ -635,6 +640,8 @@ export class Scene3dLayer implements CustomLayerInterface {
     gl.uniform1f(gl.getUniformLocation(p, 'u_fade'), FADE_PX * (window.devicePixelRatio || 1));
     gl.uniform1f(gl.getUniformLocation(p, 'u_cutaway'), this.hasCuts ? this.cutStrength() : 0);
     gl.uniform1f(gl.getUniformLocation(p, 'u_opacity'), BUILDING_OPACITY);
+    const ghost = gl.getUniformLocation(p, 'u_ghost');
+    gl.uniform1f(ghost, 0);
     gl.uniform3fv(gl.getUniformLocation(p, 'u_lightpos'), lightPosition(this.map?.getBearing() ?? 0));
     gl.uniform1f(gl.getUniformLocation(p, 'u_cutRows'), this.cutRows);
     gl.activeTexture(gl.TEXTURE0);
@@ -688,6 +695,14 @@ export class Scene3dLayer implements CustomLayerInterface {
       gl.depthMask(false);
       draw(b.solid, b.solidCount);
       gl.disable(gl.CULL_FACE);
+      gl.depthMask(true);
+    }
+    // Tunnels last, see-through: the ground does not hide them, so they read as under it.
+    if (this.showStructures && b.undergroundCount) {
+      gl.depthMask(false);
+      gl.uniform1f(ghost, TUNNEL_OPACITY);
+      draw(b.underground, b.undergroundCount);
+      gl.uniform1f(ghost, 0);
       gl.depthMask(true);
     }
     gl.disable(gl.BLEND);

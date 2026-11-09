@@ -31,6 +31,8 @@ export type Scene3dMesh = {
   solid: Float32Array;
   /** Bridge decks, piers and tunnel portals: opaque, never cut away. */
   structures: Float32Array;
+  /** Tunnels as see-through tubes under the ground. */
+  underground: Float32Array;
   /** Road ribbons as triangles with x, y, z only: what the cutaway looks for behind buildings. */
   roadMask: Float32Array;
 };
@@ -252,6 +254,35 @@ function addBridge(solid: Buf, mask: Buf, raw: P2[], tags: Record<string, string
   addPiers(solid, pts, z, colors);
 }
 
+/** Depth of a tunnel's road below the ground: its OSM `layer` (at least −1) times one step. */
+export function tunnelDepth(tags: Record<string, string>): number {
+  const layer = Number.parseInt(tags.layer ?? '', 10);
+  return (Number.isFinite(layer) && layer < 0 ? -layer : 1) * LAYER_HEIGHT;
+}
+
+const TUNNEL_HEIGHT = 5;
+
+/**
+ * A tunnel as a tube under the ground: the road at its depth, walls and a roof up to the
+ * clearance, never above the ground. It dives from the ground at both ends like a bridge rises.
+ */
+function addTunnel(buf: Buf, raw: P2[], tags: Record<string, string>, colors: Scene3dColors) {
+  const pts = densify(raw, RAMP_STEP);
+  const half = roadWidth(tags) / 2 + 0.5;
+  const z = deckProfile(cumulative(pts), tunnelDepth(tags)).map((d) => -d);
+  const { left, right } = offsets(pts, half);
+  const road = colors.deck((tags.highway ?? '').replace(/_link$/, ''));
+  for (let i = 0; i < pts.length - 1; i += 1) {
+    const [l0, l1, r0, r1] = [left[i], left[i + 1], right[i], right[i + 1]];
+    const [z0, z1] = [z[i], z[i + 1]];
+    const [t0, t1] = [Math.min(0, z0 + TUNNEL_HEIGHT), Math.min(0, z1 + TUNNEL_HEIGHT)];
+    quad(buf, road, 0, [r0[0], r0[1], z0], [r1[0], r1[1], z1], [l1[0], l1[1], z1], [l0[0], l0[1], z0]);
+    quad(buf, colors.deckSide, 0, [l0[0], l0[1], z0], [l1[0], l1[1], z1], [l1[0], l1[1], t1], [l0[0], l0[1], t0]);
+    quad(buf, colors.deckSide, 0, [r1[0], r1[1], z1], [r0[0], r0[1], z0], [r0[0], r0[1], t0], [r1[0], r1[1], t1]);
+    quad(buf, colors.deckSide, 0, [l0[0], l0[1], t0], [l1[0], l1[1], t1], [r1[0], r1[1], t1], [r0[0], r0[1], t0]);
+  }
+}
+
 /** Piers every 30 m where the deck is high enough to stand on one. */
 function addPiers(solid: Buf, pts: P2[], z: number[], colors: Scene3dColors) {
   const dist = cumulative(pts);
@@ -370,6 +401,7 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
 
   const solid = new Buf();
   const structures = new Buf();
+  const underground = new Buf();
   const mask = new Buf();
 
   // How many drivable non-tunnel ways touch each node: a tunnel end there is a portal.
@@ -405,9 +437,15 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     }
     if (isTunnel(w)) {
       const half = roadWidth(w.tags) / 2;
+      const start = structures.length;
       if (openAir.has(w.refs[0])) addPortal(structures, pts[0], pts[1], half, colors);
       const last = w.refs.length - 1;
       if (openAir.has(w.refs[last])) addPortal(structures, pts[pts.length - 1], pts[pts.length - 2], half, colors);
+      const tubeStart = underground.length;
+      addTunnel(underground, pts, w.tags, colors);
+      pickIds.push(w.id);
+      structures.fill(start, 11, pickIds.length);
+      underground.fill(tubeStart, 11, pickIds.length);
       return;
     }
     // Yard driveways and parking aisles are drawn thin, like paths, and do not cut buildings.
@@ -416,5 +454,5 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     for (let i = 0; i < pts.length - 1; i += 1) ribbon(mask, left[i], left[i + 1], right[i], right[i + 1], 0, 0);
   });
 
-  return { origin, buildings, pickIds, solid: solid.array, structures: structures.array, roadMask: mask.array };
+  return { origin, buildings, pickIds, solid: solid.array, structures: structures.array, underground: underground.array, roadMask: mask.array };
 }

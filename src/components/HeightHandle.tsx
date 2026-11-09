@@ -21,7 +21,7 @@ function anchorOf(doc: OsmDoc, way: OsmWay): Anchor | null {
   const mid = nodes[Math.floor(nodes.length / 2)];
   const prev = nodes[Math.max(0, Math.floor(nodes.length / 2) - 1)];
   const { layer } = roadLevel(way.tags);
-  return { lon: (mid.lon + prev.lon) / 2, lat: (mid.lat + prev.lat) / 2, metres: Math.max(0, layer) * LAYER_STEP };
+  return { lon: (mid.lon + prev.lon) / 2, lat: (mid.lat + prev.lat) / 2, metres: layer * LAYER_STEP };
 }
 
 const label = (way: OsmWay) => {
