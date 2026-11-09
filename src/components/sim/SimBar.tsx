@@ -34,6 +34,7 @@ export function SimBar() {
   const end = simEnd(s.result);
   return (
     <div className="float sim-bar" role="toolbar" aria-label="Симуляция">
+      <div className="sim-group">
       <select value={s.minutes} onChange={(e) => s.setMinutes(Number(e.target.value))} aria-label="Длительность модели" disabled={s.running}>
         {MINUTES.map((m) => <option key={m} value={m}>{m} мин</option>)}
       </select>
@@ -43,7 +44,8 @@ export function SimBar() {
         <option value="od">Из макромодели</option>
       </select>
       <button className="btn btn-ink" onClick={() => void runSimulation()} disabled={s.running}>{s.running ? 'Считаю…' : s.result ? 'Пересчитать' : 'Запустить SUMO'}</button>
-      <span className="sim-sep" aria-hidden="true" />
+      </div>
+      <div className="sim-group">
       <button className="tool" onClick={s.playing ? s.pause : s.play} disabled={!s.result} aria-label={s.playing ? 'Пауза' : 'Пуск'}>
         <Icon name={s.playing ? 'pause' : 'play'} />
       </button>
@@ -54,6 +56,7 @@ export function SimBar() {
       </div>
       <input type="range" min={0} max={end || 1} step={1} value={s.time} disabled={!s.result} onChange={(e) => s.seek(Number(e.target.value))} aria-label="Время модели" />
       <span className="mono sim-clock">{clock(s.time)} / {clock(end)}</span>
+      </div>
     </div>
   );
 }

@@ -69,3 +69,7 @@ input[type='range'] { height: auto; padding: 0; border: 0; background: none; acc
   content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.09;
   background-image: radial-gradient(circle at 1px 1px, var(--ink) 0.6px, transparent 1.2px); background-size: 4px 4px;
 }
+
+/* App chrome is not a document: no stray selection highlights on clicks and drags. */
+body { -webkit-user-select: none; user-select: none; }
+input, textarea, [contenteditable], .mono, .hint { -webkit-user-select: text; user-select: text; }

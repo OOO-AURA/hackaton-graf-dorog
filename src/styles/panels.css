@@ -154,7 +154,9 @@
 .los-letter { display: grid; place-items: center; width: 52px; height: 52px; border-radius: var(--r-md); background: var(--los); color: #1B110A; font-family: var(--font-display); font-weight: 900; font-size: 40px; line-height: 1; }
 .kpis { display: grid; grid-template-columns: repeat(3, 1fr); margin: 0 var(--sp-4) var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--r-md); }
 .kpis > div { display: grid; gap: 3px; padding: 8px 10px; min-width: 0; }
-.kpis .micro { overflow-wrap: anywhere; hyphens: auto; }
+.micro-panel .kpi { font-size: 21px; }
+.micro-panel .kpis > div { padding: 8px; }
+.micro-panel .kpis .micro { font-size: 9.5px; letter-spacing: 0.04em; }
 .kpis > div:nth-child(n + 4) { border-top: 1px solid var(--line); }
 .kpis > div:not(:nth-child(3n + 1)) { border-left: 1px solid var(--line); }
 .kpi { font-family: var(--font-display); font-weight: 900; font-size: 24px; line-height: 1; }
