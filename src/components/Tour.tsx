@@ -48,7 +48,12 @@ function useAnchorRect(anchor: string | null): DOMRect | null {
   const [rect, setRect] = useState<DOMRect | null>(null);
   useLayoutEffect(() => {
     if (!anchor) { setRect(null); return undefined; }
-    const update = () => setRect(document.querySelector(`[data-tour="${anchor}"]`)?.getBoundingClientRect() ?? null);
+    const same = (a: DOMRect | null, b: DOMRect | null) => a === b || (!!a && !!b && a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height);
+    // Polled because panels move without resizing the window; unchanged boxes do not re-render.
+    const update = () => {
+      const next = document.querySelector(`[data-tour="${anchor}"]`)?.getBoundingClientRect() ?? null;
+      setRect((prev) => (same(prev, next) ? prev : next));
+    };
     update();
     const timer = setInterval(update, 500);
     window.addEventListener('resize', update);
