@@ -1,4 +1,3 @@
-import { homeShare } from './purposes';
 import { capacity } from '../osm/profile';
 import { direction, isDrivable } from '../osm/tags';
 import type { OsmDoc } from '../osm/types';
@@ -199,6 +198,12 @@ export function nearestNode(net: Network, p: readonly [number, number]): number 
   net.lonlat.forEach((q, i) => { const d = metres(p, q); if (d < bd) { bd = d; best = i; } });
   return best;
 }
+
+const HOME = new Set(['apartments', 'house', 'residential', 'detached', 'semidetached_house', 'terrace', 'dormitory', 'bungalow']);
+const JOBS = new Set(['commercial', 'retail', 'office', 'industrial', 'warehouse', 'school', 'university', 'college', 'kindergarten', 'hospital', 'public', 'civic', 'government', 'supermarket', 'hotel']);
+/** Share of a building's floor area that is homes: 1 for housing, 0 for jobs and services, half for building=yes. */
+/** Share of a building's floor area that is homes: 1 for housing, 0 for jobs and services, half for building=yes. */
+export const homeShare = (building: string) => (HOME.has(building) ? 1 : JOBS.has(building) ? 0 : 0.5);
 
 /** Floor area proxy of every building: footprint area times levels, at its centroid. */
 export function buildingMass(doc: OsmDoc): Array<{ c: [number, number]; w: number; home?: number }> {

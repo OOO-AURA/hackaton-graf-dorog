@@ -268,7 +268,7 @@ pub fn parse_edgedata(xml: &str) -> Vec<WayStat> {
         .collect()
 }
 
-/// Delay per way and per interval of the timeline edgeData: seconds lost per vehicle that entered.
+/// Delay per way and per interval of the timeline edgeData: seconds lost per vehicle on the way.
 /// Keeps the `top` ways with the largest total time lost.
 #[derive(Serialize, Clone, Default)]
 pub struct Timeline {
@@ -295,8 +295,9 @@ pub fn parse_timeline(xml: &str, step: f64, top: usize) -> Timeline {
             if row.len() <= cur {
                 row.resize(cur + 1, (0.0, 0.0));
             }
+            // Vehicles that entered, or for a queue that stopped moving, the ones sitting on the edge.
             row[cur].0 += num(l, "timeLoss");
-            row[cur].1 += num(l, "entered");
+            row[cur].1 += num(l, "entered").max(num(l, "sampledSeconds") / step);
         }
     }
     let mut rows: Vec<(f64, TimelineRow)> = acc.into_iter().map(|(way, mut cells)| {
@@ -660,6 +661,12 @@ mod timeline_tests {
         assert_eq!(t.ways[0].way, "5");
         assert_eq!(t.ways[0].delay, vec![10.0, 30.0]);
         assert_eq!(t.ways[1].delay, vec![1.0, 0.0]);
+    }
+
+    #[test]
+    fn stuck_queue_still_counts() {
+        let xml = "<interval begin=\"0.00\" end=\"60.00\">\n<edge id=\"9#0\" timeLoss=\"240\" entered=\"0\" sampledSeconds=\"240\"/>\n</interval>";
+        assert_eq!(super::parse_timeline(xml, 60.0, 10).ways[0].delay, vec![60.0]);
     }
 }
 

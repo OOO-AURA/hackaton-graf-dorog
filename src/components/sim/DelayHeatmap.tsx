@@ -1,5 +1,4 @@
-import { LOS_COLORS } from '../../sim/overlay';
-import { levelOfService } from '../../sim/store';
+import { heatCell } from '../../sim/overlay';
 import type { SimResult } from '../../sim/types';
 
 /** Time × road heat map: each cell is the mean delay of vehicles entering the way in that minute. */
@@ -20,8 +19,9 @@ export function DelayHeatmap({ result, time, label, onPick, rows = 12 }: {
             <button className="link heat-label" role="rowheader" onClick={() => onPick(w.way)} title={label(w.way)}>{label(w.way)}</button>
             {Array.from({ length: cols }, (_, i) => {
               const d = w.delay[i] ?? 0;
+              const c = heatCell(d);
               return <i key={i} role="cell" className={`heat-cell${i === now ? ' now' : ''}`} title={`${i}–${i + 1} мин: ${d.toFixed(1)} с`}
-                style={{ background: d > 0 ? LOS_COLORS[levelOfService(d)] : 'var(--field)', opacity: d > 0 ? 0.35 + Math.min(0.65, d / 80) : 1 }} />;
+                style={{ background: c?.color ?? 'var(--field)', opacity: c?.opacity ?? 1 }} />;
             })}
           </div>
         ))}

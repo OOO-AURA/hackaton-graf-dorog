@@ -11,10 +11,12 @@ export function mapSnapshot(): Promise<string | null> {
   if (!map) return Promise.resolve(null);
   return new Promise((resolve) => {
     // The WebGL buffer is only readable right after a frame is drawn.
-    map.once('render', () => {
+    const onRender = () => {
+      clearTimeout(timer);
       try { resolve(map.getCanvas().toDataURL('image/jpeg', 0.85)); } catch { resolve(null); }
-    });
+    };
+    const timer = setTimeout(() => { map.off('render', onRender); resolve(null); }, 3000);
+    map.once('render', onRender);
     map.triggerRepaint();
-    setTimeout(() => resolve(null), 3000);
   });
 }

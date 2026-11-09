@@ -4,6 +4,11 @@ import type { Signal, SimResult, WayStat } from './types';
 
 /** LOS colours reuse the speed and load bands so all three scales read the same way. */
 export const LOS_COLORS: Readonly<Record<string, string>> = { A: '#3D9F47', B: '#3D9F47', C: '#F0BC2A', D: '#F09131', E: '#E5392A', F: '#E5392A' };
+
+/** Heat map cell for a mean delay, seconds: LOS colour, more opaque as the delay grows; null when there is none. */
+export function heatCell(delay: number): { color: string; opacity: number } | null {
+  return delay > 0 ? { color: LOS_COLORS[levelOfService(delay)], opacity: 0.35 + Math.min(0.65, delay / 80) } : null;
+}
 export const SIGNAL_COLORS = { green: '#3D9F47', yellow: '#F0BC2A', red: '#E5392A', off: '#8A8178' } as const;
 
 export const statsByWay = (r: SimResult | null): Map<string, WayStat> => new Map((r?.ways ?? []).map((w) => [w.way, w]));

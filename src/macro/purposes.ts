@@ -1,5 +1,7 @@
 import { dijkstra, type Network, type Zone } from './model';
 
+export { homeShare } from './model';
+
 /** Trip purposes of the peak hour: share of all trips and a default distance decay, 1/min. */
 export const PURPOSES = [
   { id: 'hbw', label: 'Дом–работа', share: 0.45, betaFactor: 0.5 },
@@ -18,10 +20,6 @@ export function purposeMatrices(times: number[][], zones: ReadonlyArray<{ home?:
 }
 export type PurposeId = (typeof PURPOSES)[number]['id'];
 
-const HOME = new Set(['apartments', 'house', 'residential', 'detached', 'semidetached_house', 'terrace', 'dormitory', 'bungalow']);
-const JOBS = new Set(['commercial', 'retail', 'office', 'industrial', 'warehouse', 'school', 'university', 'college', 'kindergarten', 'hospital', 'public', 'civic', 'government', 'supermarket', 'hotel']);
-/** Share of a building's floor area that is homes: 1 for housing, 0 for jobs and services, half for building=yes. */
-export const homeShare = (building: string) => (HOME.has(building) ? 1 : JOBS.has(building) ? 0 : 0.5);
 
 /** Free-flow (or any cost) travel time between zone nodes, minutes. */
 export function skim(net: Network, zones: readonly Zone[], cost: ArrayLike<number> = net.links.map((l) => l.t0)): number[][] {
@@ -54,12 +52,16 @@ export function meanTime(od: number[][], times: number[][]): number {
   return n ? t / n : 0;
 }
 
-/** β that makes `meanAt(β)` hit the target mean trip time, by bisection on a log scale; null when out of reach. */
-export function solveBeta(meanAt: (beta: number) => number, target: number): number | null {
+/**
+ * β that makes `meanAt(β)` hit the target mean trip time, by bisection on a log scale; null when out of reach.
+ * `ends` are meanAt at the two ends of the range when the caller already has them.
+ */
+export function solveBeta(meanAt: (beta: number) => number, target: number, steps = 40, ends?: readonly [number, number]): number | null {
   let lo = 0.001;
   let hi = 2;
-  if (target > meanAt(lo) || target < meanAt(hi)) return null;
-  for (let k = 0; k < 40; k++) {
+  const [atHi, atLo] = ends ?? [meanAt(hi), meanAt(lo)];
+  if (target > atLo || target < atHi) return null;
+  for (let k = 0; k < steps; k++) {
     const mid = Math.sqrt(lo * hi);
     if (meanAt(mid) > target) lo = mid; else hi = mid;
   }

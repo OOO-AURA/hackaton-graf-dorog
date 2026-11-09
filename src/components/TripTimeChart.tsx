@@ -22,8 +22,7 @@ export function TripTimeChart({ bins, mean }: { bins: ReadonlyArray<{ from: numb
           </rect>
         ))}
         <line x1={x(mean)} x2={x(mean)} y1={pad.t} y2={H - pad.b} className="mean" />
-        {ticks.map((t) => <text key={t} x={x(t)} y={H - 4} className="tick" textAnchor="middle">{t}</text>)}
-        <text x={W - pad.r} y={H - 4} className="tick" textAnchor="end">мин</text>
+        {ticks.map((t, i) => <text key={t} x={x(t)} y={H - 4} className="tick" textAnchor={i === 2 ? 'end' : 'middle'}>{i === 2 ? `${t} мин` : t}</text>)}
       </svg>
     </figure>
   );

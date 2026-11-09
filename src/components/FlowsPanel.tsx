@@ -8,6 +8,7 @@ import { useEditor } from '../state/store';
 export function FlowsPanel() {
   const { side, trips, busy, error, result, isoFrom, setSide, setTrips, run, isochrone, clear, points, placing, setPlacing, setPoints, odEdited, setCell, resetOd, beta, setBeta, calibrate } = useMacro();
   const [target, setTarget] = useState('');
+  const [fitted, setFitted] = useState(0);
   const selection = useEditor((s) => s.selection);
   const node = selection?.type === 'node' ? selection.id : null;
 
@@ -34,7 +35,7 @@ export function FlowsPanel() {
           <input type="number" min={100} step={500} value={trips} onChange={(e) => setTrips(Math.max(0, Number(e.target.value) || 0))} />
         </label>
         <label className="field field-beta"><span className="micro"><span className="greek">β</span> гравитации: {beta.toFixed(3)}</span>
-          <input type="range" min={0.02} max={0.4} step={0.005} value={beta} onChange={(e) => setBeta(Number(e.target.value))} onPointerUp={() => void run()} onKeyUp={() => void run()}
+          <input type="range" min={0.02} max={0.4} step={0.005} value={beta} onChange={(e) => setBeta(Number(e.target.value))} onPointerUp={() => void run()} onKeyUp={(e) => { if (e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End' || e.key.startsWith('Page')) void run(); }}
             title="Чем больше β, тем короче поездки: люди реже ездят далеко" />
         </label>
         <button className="btn btn-primary" onClick={() => void run()} disabled={busy}>{busy ? 'Считаю…' : 'Распределить потоки'}</button>
@@ -46,8 +47,8 @@ export function FlowsPanel() {
           <label className="field"><span className="micro">Средняя поездка, мин</span>
             <input type="number" min={1} max={60} step={0.5} value={target} placeholder={result.meanTime.toFixed(1)} onChange={(e) => setTarget(e.target.value)} />
           </label>
-          <button className="btn" disabled={busy || !(Number(target) > 0)} onClick={() => void calibrate(Number(target))}>Подобрать β</button>
-          {result.calibrated === 'ok' && <span className="hint">β подобран под {Number(target || 0).toFixed(1)} мин с учётом загрузки сети.</span>}
+          <button className="btn" disabled={busy || !(Number(target) > 0)} onClick={() => { setFitted(Number(target)); void calibrate(Number(target)); }}>Подобрать β</button>
+          {result.calibrated === 'ok' && <span className="hint">β подобран под {fitted.toFixed(1)} мин с учётом загрузки сети.</span>}
           {result.calibrated === 'unreachable' && <span className="hint err">На этом фрагменте средняя поездка бывает только {result.reachable ? `от ${result.reachable[0].toFixed(1)} до ${result.reachable[1].toFixed(1)} мин` : 'в узких пределах'}: выберите значение в этом диапазоне.</span>}
         </div>
       )}

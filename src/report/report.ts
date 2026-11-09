@@ -2,7 +2,7 @@ import type { MacroResult } from '../macro/compute';
 import { haversine } from '../osm/geo';
 import type { OsmDoc } from '../osm/types';
 import type { Scenario } from '../scenarios/store';
-import { LOS_COLORS } from '../sim/overlay';
+import { heatCell, LOS_COLORS } from '../sim/overlay';
 import { levelOfService, series } from '../sim/store';
 import type { SimResult } from '../sim/types';
 
@@ -67,7 +67,8 @@ function heatTable(sim: SimResult, name: (id: string) => string): string {
   const head = `<tr><th></th>${Array.from({ length: cols }, (_, i) => `<th>${i % 5 === 0 ? i : ''}</th>`).join('')}</tr>`;
   const body = rows.map((r) => `<tr><th>${esc(name(r.way))}</th>${Array.from({ length: cols }, (_, i) => {
     const d = r.delay[i] ?? 0;
-    return `<td title="${fmt(d, 1)} с" style="background:${d > 0 ? LOS_COLORS[levelOfService(d)] : '#F3ECE0'};opacity:${d > 0 ? (0.35 + Math.min(0.65, d / 80)).toFixed(2) : 1}"></td>`;
+    const c = heatCell(d);
+    return `<td title="${fmt(d, 1)} с" style="background:${c?.color ?? '#F3ECE0'};opacity:${c ? c.opacity.toFixed(2) : 1}"></td>`;
   }).join('')}</tr>`).join('');
   return `<table class="heat">${head}${body}</table><p class="note">Средняя задержка машины на дороге по минутам модели, цвет по уровню обслуживания.</p>`;
 }

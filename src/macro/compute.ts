@@ -64,12 +64,13 @@ export function computeFlows(doc: OsmDoc, opts: FlowsOptions): MacroResult {
   let calibrated: MacroResult['calibrated'] = null;
   let reachable: [number, number] | null = null;
   if (opts.targetMinutes) {
-    // Calibrate on the loaded network: one assignment with the current β gives the congested times.
-    const first = assign(net, zones, roundOd(purposeMatrices(free, zones, opts.trips, beta).od), 20);
-    const congested = skim(net, zones, first.time);
-    const at = (b: number) => meanTime(purposeMatrices(congested, zones, 1000, b).od, congested);
-    const solved = solveBeta(at, opts.targetMinutes);
+    // Each probe runs a short assignment, so the mean is measured on the times its own matrix loads.
+    const at = (b: number) => {
+      const od = roundOd(purposeMatrices(free, zones, opts.trips, b).od);
+      return meanTime(od, skim(net, zones, assign(net, zones, od, 15).time));
+    };
     reachable = [at(2), at(0.001)];
+    const solved = solveBeta(at, opts.targetMinutes, 14, reachable);
     calibrated = solved === null ? 'unreachable' : 'ok';
     if (solved !== null) beta = solved;
   }
