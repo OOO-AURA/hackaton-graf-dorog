@@ -26,7 +26,7 @@
   --r-sm: 3px; --r-md: 5px; --r-lg: 8px;
   --shadow-float: 0 1px 0 rgba(58, 37, 22, 0.08), 0 6px 18px -6px rgba(58, 37, 22, 0.28);
   --shadow-pop: 0 12px 32px -8px rgba(58, 37, 22, 0.35);
-  --header-h: 48px; --nav-w: 264px; --insp-w: 320px; --dock-h: 196px;
+  --header-h: 48px; --nav-w: 264px; --insp-w: 320px; --dock-h: clamp(132px, 24vh, 240px);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --dur: 160ms;
   color-scheme: light;

@@ -29,7 +29,7 @@
 .search { position: relative; display: block; }
 .search svg { position: absolute; left: 8px; top: 7px; color: var(--ink-2); }
 .search input { width: 100%; padding-left: 28px; }
-.street-list { overflow-y: auto; max-height: 34vh; margin: 0 -4px; scrollbar-width: thin; }
+.street-list { overflow-y: auto; max-height: max(120px, 30vh); margin: 0 -4px; scrollbar-width: thin; }
 .street-list button, .link-list button {
   display: flex; justify-content: space-between; gap: 8px; width: 100%; padding: 4px 6px; border: 0; border-radius: var(--r-sm);
   background: none; text-align: left; font-size: var(--fs-sm);
