@@ -56,3 +56,4 @@
 .sim-clock { min-width: 92px; font-size: 11.5px; white-space: nowrap; }
 .sim-bar .tool { width: 28px; height: 28px; }
 .sim-bar .tool:disabled { opacity: 0.4; }
+.sim-check { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; white-space: nowrap; }

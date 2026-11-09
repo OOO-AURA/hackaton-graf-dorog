@@ -43,6 +43,9 @@ export function SimBar() {
         <option value="random">Случайный спрос</option>
         <option value="od">Из макромодели</option>
       </select>
+      <label className="sim-check" title="Тротуары, переходы и пешие поездки: машины уступают людям на зебрах и светофорах">
+        <input type="checkbox" checked={s.pedestrians} onChange={(e) => s.setPedestrians(e.target.checked)} disabled={s.running} /> Пешеходы
+      </label>
       <button className="btn btn-ink" onClick={() => void runSimulation()} disabled={s.running}>{s.running ? 'Считаю…' : s.result ? 'Пересчитать' : 'Запустить SUMO'}</button>
       </div>
       <div className="sim-group">

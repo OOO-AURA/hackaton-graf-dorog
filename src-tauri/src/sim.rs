@@ -42,6 +42,17 @@ pub struct Demand {
 pub struct Extras {
     #[serde(default)]
     pub transit: Vec<TransitLine>,
+    /// Adds sidewalks, crossings and walking trips.
+    #[serde(default)]
+    pub pedestrians: bool,
+}
+
+/// A pedestrian crossing and how many people used it over the run.
+#[derive(Serialize, Clone, Debug)]
+pub struct CrossingStat {
+    lon: f64,
+    lat: f64,
+    peds: usize,
 }
 
 /// A bus route: stops in travel order and the headway in minutes.
@@ -99,6 +110,11 @@ pub struct SimResult {
     transit_lines: usize,
     pt_finished: usize,
     pt_mean_speed_kmh: f64,
+    persons: usize,
+    ped_finished: usize,
+    /// Mean time lost per walk, mostly waiting at crossings and signals.
+    ped_mean_time_loss_s: f64,
+    crossings: Vec<CrossingStat>,
 }
 
 fn attr<'a>(line: &'a str, name: &str) -> Option<&'a str> {
@@ -113,27 +129,63 @@ fn num(line: &str, name: &str) -> f64 {
 }
 
 /// Reads `--fcd-output` written with `--fcd-output.geo`, so x/y are lon/lat.
-pub fn parse_fcd(xml: &str) -> (Vec<Frame>, usize) {
+/// Returns the frames, the number of vehicles and the number of pedestrians seen.
+pub fn parse_fcd(xml: &str) -> (Vec<Frame>, usize, usize) {
     let mut frames = Vec::new();
     let mut ids: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut persons = 0;
     for line in xml.lines() {
         let l = line.trim_start();
         if l.starts_with("<timestep") {
             frames.push(Frame { t: num(l, "time"), v: Vec::new() });
-        } else if l.starts_with("<vehicle") {
-            let Some(frame) = frames.last_mut() else { continue };
-            let id = attr(l, "id").unwrap_or_default().to_string();
-            let next = ids.len();
-            let idx = *ids.entry(id).or_insert(next);
-            let ty = match attr(l, "type") {
+            continue;
+        }
+        let person = l.starts_with("<person");
+        if !person && !l.starts_with("<vehicle") {
+            continue;
+        }
+        let Some(frame) = frames.last_mut() else { continue };
+        let raw = attr(l, "id").unwrap_or_default();
+        let id = if person { format!("p:{raw}") } else { raw.to_string() };
+        let next = ids.len();
+        let idx = *ids.entry(id).or_insert_with(|| {
+            persons += usize::from(person);
+            next
+        });
+        let ty = if person {
+            VTYPES.len() + 1
+        } else {
+            match attr(l, "type") {
                 Some("ptbus") => VTYPES.len(),
                 Some(t) => VTYPES.iter().position(|(n, _, _)| *n == t).unwrap_or(0),
                 None => 0,
-            };
-            frame.v.extend([idx as f64, num(l, "x"), num(l, "y"), num(l, "angle"), num(l, "speed"), ty as f64]);
-        }
+            }
+        };
+        frame.v.extend([idx as f64, num(l, "x"), num(l, "y"), num(l, "angle"), num(l, "speed"), ty as f64]);
     }
-    (frames, ids.len())
+    let total = ids.len();
+    (frames, total - persons, persons)
+}
+
+/// People per pedestrian crossing (internal edges named ":node_cN"), positioned where they were first seen on it.
+pub fn crossing_stats(xml: &str) -> Vec<CrossingStat> {
+    let mut seen: std::collections::HashMap<String, (f64, f64, std::collections::HashSet<String>)> = std::collections::HashMap::new();
+    for line in xml.lines() {
+        let l = line.trim_start();
+        if !l.starts_with("<person") {
+            continue;
+        }
+        let Some(edge) = attr(l, "edge") else { continue };
+        let Some((_, tail)) = edge.rsplit_once('_') else { continue };
+        if !edge.starts_with(':') || !tail.starts_with('c') {
+            continue;
+        }
+        let entry = seen.entry(edge.to_string()).or_insert_with(|| (num(l, "x"), num(l, "y"), Default::default()));
+        entry.2.insert(attr(l, "id").unwrap_or_default().to_string());
+    }
+    let mut out: Vec<CrossingStat> = seen.into_values().map(|(lon, lat, p)| CrossingStat { lon, lat, peds: p.len() }).collect();
+    out.sort_by(|a, b| b.peds.cmp(&a.peds));
+    out
 }
 
 fn mean(values: &[f64]) -> f64 {
@@ -251,6 +303,9 @@ struct ZoneEdges {
 const NETCONVERT_ARGS: &[&str] = &["--geometry.remove", "--ramps.guess", "--junctions.join", "--tls.guess-signals", "--tls.discard-simple",
     "--tls.join", "--tls.default-type", "actuated", "--roundabouts.guess"];
 
+/// Sidewalks along urban roads and zebra crossings where OSM has them or junctions need them.
+const PEDESTRIAN_ARGS: &[&str] = &["--sidewalks.guess", "--crossings.guess", "--osm.sidewalks", "--osm.crossings"];
+
 /// Writes the SUMO network of the graph to `target`, with the same options the micro run uses.
 pub fn export_net(osm_text: &str, target: &Path) -> Result<(), String> {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
@@ -306,8 +361,12 @@ const PT_VTYPE: &str = r#"<vType id="ptbus" vClass="bus" length="12" accel="1.2"
 
 fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras: &Extras) -> Result<SimResult, String> {
     let net = dir.join("map.net.xml");
-    let (out, log) = run(Command::new(sumo_bin("netconvert"))
-        .arg("--osm-files").arg(osm).arg("-o").arg(&net).args(NETCONVERT_ARGS))
+    let mut netconvert = Command::new(sumo_bin("netconvert"));
+    netconvert.arg("--osm-files").arg(osm).arg("-o").arg(&net).args(NETCONVERT_ARGS);
+    if extras.pedestrians {
+        netconvert.args(PEDESTRIAN_ARGS);
+    }
+    let (out, log) = run(&mut netconvert)
         .map_err(|e| format!("{e}. Установите SUMO или задайте GRAF_SUMO_BIN."))?;
     if !out.status.success() || !net.exists() {
         return Err(format!("netconvert не собрал сеть:\n{}", tail(&log, 15)));
@@ -375,11 +434,23 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
         label = "random";
     }
 
+    let mut route_files = vec![routes.display().to_string()];
+    if extras.pedestrians {
+        let peds = dir.join("ped.rou.xml");
+        let (_, plog) = run(Command::new(&python).env("SUMO_HOME", &sh)
+            .arg(sh.join("tools/randomTrips.py")).arg("-n").arg(&net).arg("-o").arg(&peds)
+            .args(["--pedestrians", "--max-distance", "1500", "-e", &insert_end.to_string(), "-p", "1.5", "--seed", "7", "--prefix", "ped"]))?;
+        if !peds.exists() {
+            return Err(format!("randomTrips не построил пешеходов:\n{}", tail(&plog, 15)));
+        }
+        route_files.push(peds.display().to_string());
+    }
+
     let fcd = dir.join("fcd.xml");
     let tripinfo = dir.join("tripinfo.xml");
     let edgedata = dir.join("edges.xml");
     let mut sumo = Command::new(sumo_bin("sumo"));
-    sumo.current_dir(dir).env("SUMO_HOME", &sh).arg("-n").arg(&net).arg("-r").arg(&routes);
+    sumo.current_dir(dir).env("SUMO_HOME", &sh).arg("-n").arg(&net).arg("-r").arg(route_files.join(","));
     // randomTrips copies the vehicle types into its route file; OD trips need them, signals need the events.
     let mut additional: Vec<PathBuf> = Vec::new();
     if demand.is_some() {
@@ -408,12 +479,14 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
         return Err(format!("SUMO остановился с ошибкой:\n{}", tail(&slog, 15)));
     }
     let fcd_xml = fs::read_to_string(&fcd).map_err(|_| format!("SUMO не записал траектории:\n{}", tail(&slog, 15)))?;
-    let (frames, vehicles) = parse_fcd(&fcd_xml);
+    let (frames, vehicles, persons) = parse_fcd(&fcd_xml);
+    let crossings = if extras.pedestrians { crossing_stats(&fcd_xml) } else { Vec::new() };
 
     let trip_xml = fs::read_to_string(&tripinfo).unwrap_or_default();
     let all: Vec<&str> = trip_xml.lines().filter(|l| l.trim_start().starts_with("<tripinfo ")).collect();
     // Route buses are reported apart: their dwell time at stops is not delay.
     let (pt_lines, lines): (Vec<&str>, Vec<&str>) = all.into_iter().partition(|l| attr(l, "vType") == Some("ptbus"));
+    let walks: Vec<&str> = trip_xml.lines().map(str::trim_start).filter(|l| l.starts_with("<walk ")).collect();
     let pt_speeds: Vec<f64> = pt_lines.iter().filter(|l| num(l, "duration") > 0.0).map(|l| num(l, "routeLength") / num(l, "duration") * 3.6).collect();
     let pick = |name: &str| lines.iter().map(|l| num(l, name)).collect::<Vec<_>>();
     let durations = pick("duration");
@@ -427,7 +500,7 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
 
     Ok(SimResult {
         frames,
-        types: VTYPES.iter().map(|(n, _, _)| *n).chain(["ptbus"]).collect(),
+        types: VTYPES.iter().map(|(n, _, _)| *n).chain(["ptbus", "ped"]).collect(),
         demand: label,
         trips,
         vehicles,
@@ -444,6 +517,10 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
         transit_lines,
         pt_finished: pt_lines.len(),
         pt_mean_speed_kmh: mean(&pt_speeds),
+        persons,
+        ped_finished: trip_xml.matches("<personinfo ").count(),
+        ped_mean_time_loss_s: mean(&walks.iter().map(|l| num(l, "timeLoss")).collect::<Vec<_>>()),
+        crossings: crossings.into_iter().take(40).collect(),
     })
 }
 
@@ -466,7 +543,7 @@ mod tests {
     <vehicle id="a" x="104.261" y="52.26" angle="90.00" type="truck" speed="6.00" pos="1" lane="e_0" slope="0.00"/>
   </timestep>
 </fcd-export>"#;
-        let (frames, n) = parse_fcd(xml);
+        let (frames, n, _) = parse_fcd(xml);
         assert_eq!(n, 2);
         assert_eq!(frames.len(), 2);
         assert_eq!(frames[0].v, vec![0.0, 104.26, 52.26, 90.0, 5.0, 2.0]);
@@ -491,10 +568,13 @@ mod local_run {
         println!("od trips {} vehicles {} finished {}", r.trips, r.vehicles, r.finished);
         assert!(r.trips > 10);
         let transit: Vec<super::TransitLine> = serde_json::from_str(include_str!("testdata/transit.json")).unwrap();
-        let r = super::simulate(&text, 10, None, Some(super::Extras { transit })).unwrap();
+        let r = super::simulate(&text, 10, None, Some(super::Extras { transit, pedestrians: false })).unwrap();
         println!("transit lines {} buses finished {} speed {:.1}", r.transit_lines, r.pt_finished, r.pt_mean_speed_kmh);
         let pt = r.frames.iter().map(|f| f.v.chunks(6).filter(|v| v[5] as usize == super::VTYPES.len()).count()).max().unwrap_or(0);
         println!("buses on the map at peak {pt}\n{}", r.log_tail);
         assert!(r.transit_lines > 0);
+        let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: true })).unwrap();
+        println!("persons {} walked {} loss {:.1} crossings {:?}", r.persons, r.ped_finished, r.ped_mean_time_loss_s, r.crossings.iter().take(3).collect::<Vec<_>>());
+        assert!(r.persons > 10);
     }
 }

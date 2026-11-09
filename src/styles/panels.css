@@ -234,3 +234,8 @@
 .check { display: inline-flex; gap: 6px; align-items: center; font-size: 12.5px; }
 @media (max-width: 1100px) { .transit { grid-template-columns: 1fr; } }
 .micro-pt { margin: 0 var(--sp-4) var(--sp-3); }
+.micro-section { display: grid; gap: 6px; margin: 0 var(--sp-4) var(--sp-3); }
+.micro-section .kpis { margin: 0; }
+.kpis.kpis-2 { grid-template-columns: repeat(2, 1fr); }
+.kpis.kpis-2 > div:not(:nth-child(3n + 1)) { border-left: 0; }
+.kpis.kpis-2 > div:nth-child(2n) { border-left: 1px solid var(--line); }

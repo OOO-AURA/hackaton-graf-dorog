@@ -1,5 +1,6 @@
 import { ROAD_CLASSES } from '../../map/palette';
 import { useMemo } from 'react';
+import { useUi } from '../../state/ui';
 import { saveTextFile } from '../../platform';
 import { levelOfService, series, simEnd, SPEED_BANDS, useSim } from '../../sim/store';
 import { LOS_COLORS, SIGNAL_COLORS, statsByWay } from '../../sim/overlay';
@@ -7,7 +8,7 @@ import type { SimResult } from '../../sim/types';
 import { currentSelection, useEditor } from '../../state/store';
 
 const TYPE_LABELS: Readonly<Record<string, string>> = {
-  car: 'Легковой, 4,5 м', van: 'Фургон до 3,5 т, 5,5 м', truck: 'Грузовой, 9 м', trailer: 'Автопоезд, 16,5 м', bus: 'Автобус, 12 м', bus18: 'Автобус, 18 м', ptbus: 'Автобус маршрута ОТ',
+  car: 'Легковой, 4,5 м', van: 'Фургон до 3,5 т, 5,5 м', truck: 'Грузовой, 9 м', trailer: 'Автопоезд, 16,5 м', bus: 'Автобус, 12 м', bus18: 'Автобус, 18 м', ptbus: 'Автобус маршрута ОТ', ped: 'Пешеход',
 };
 
 const LOS_TONE: Readonly<Record<string, string>> = { A: 'var(--green)', B: 'var(--green)', C: 'var(--yellow)', D: 'var(--orange)', E: 'var(--red)', F: 'var(--red)' };
@@ -83,6 +84,32 @@ function SelectedWay({ result, baseline }: { result: SimResult; baseline: SimRes
   );
 }
 
+/** Walking people: delay at crossings and the busiest crossings, which also slow cars down. */
+function Pedestrians({ result, baseline }: { result: SimResult; baseline: SimResult | null }) {
+  const flyTo = useUi((s) => s.flyTo);
+  const d = 0.0006;
+  return (
+    <section className="micro-section">
+      <div className="micro">Пешеходы</div>
+      <div className="kpis kpis-2">
+        <Kpi value={result.persons ?? 0} base={baseline?.persons} label="Людей вышло" digits={0} better="up" />
+        <Kpi value={result.ped_mean_time_loss_s ?? 0} base={baseline?.ped_mean_time_loss_s} label="Задержка на проход, с" better="down" />
+      </div>
+      {!!result.crossings?.length && (
+        <ul className="changes">
+          {result.crossings.slice(0, 5).map((c, i) => (
+            <li key={`${c.lon},${c.lat}`}>
+              <button className="link" onClick={() => flyTo([c.lon - d, c.lat - d, c.lon + d, c.lat + d])}>Переход {i + 1}</button>
+              <span className="mono">{c.peds} чел.</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="hint">Задержка пешехода включает ожидание зелёного и разрыва в потоке. Влияние переходов на машины видно в сравнении: запомните прогон без пешеходов как базовый и пересчитайте с ними.</p>
+    </section>
+  );
+}
+
 export function MicroPanel() {
   const { result, time, running, error, baseline, keepBaseline, dropBaseline } = useSim();
   const select = useEditor((s) => s.select);
@@ -121,6 +148,7 @@ export function MicroPanel() {
           {!!result.transit_lines && (
             <p className="hint micro-pt">Общественный транспорт: {result.transit_lines} маршр., доехало автобусов {result.pt_finished ?? 0}{result.pt_finished ? `, средняя скорость ${(result.pt_mean_speed_kmh ?? 0).toFixed(1)} км/ч` : ''}.</p>
           )}
+          {!!result.persons && <Pedestrians result={result} baseline={b} />}
           {result.trips > 0 && result.finished < result.trips / 2 && (
             <p className="cordon-hint">Доехали {result.finished} из {result.trips} поездок: остальные стоят в очереди на въезд или ещё в пути, когда модель кончилась. Увеличьте длительность до 20 мин или проверьте разрывы сети во вкладке «Валидация».</p>
           )}

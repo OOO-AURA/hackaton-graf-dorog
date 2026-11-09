@@ -42,6 +42,11 @@ export interface SimResult {
   transit_lines?: number;
   pt_finished?: number;
   pt_mean_speed_kmh?: number;
+  /** Walking people when pedestrians were on: count, finished walks, mean time lost per walk. */
+  persons?: number;
+  ped_finished?: number;
+  ped_mean_time_loss_s?: number;
+  crossings?: Array<{ lon: number; lat: number; peds: number }>;
   traffic_lights: number;
   teleports: number;
   log_tail: string;

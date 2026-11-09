@@ -14,6 +14,8 @@ interface SimState {
   error: string | null;
   result: SimResult | null;
   minutes: number;
+  pedestrians: boolean;
+  setPedestrians: (on: boolean) => void;
   demand: DemandKind;
   /** Run kept for comparison after the graph is edited. */
   baseline: SimResult | null;
@@ -34,8 +36,9 @@ interface SimState {
 }
 
 export const useSim = create<SimState>((set, get) => ({
-  running: false, error: null, result: null, minutes: 10, demand: 'random', baseline: null, playing: false, speed: 10, time: 0,
+  running: false, error: null, result: null, minutes: 10, pedestrians: false, demand: 'random', baseline: null, playing: false, speed: 10, time: 0,
   setMinutes: (minutes) => set({ minutes }),
+  setPedestrians: (pedestrians) => set({ pedestrians }),
   setDemand: (demand) => set(demand === 'od' ? { demand, minutes: Math.max(get().minutes, 15) } : { demand }),
   keepBaseline: () => set(({ result }) => ({ baseline: result })),
   dropBaseline: () => set({ baseline: null }),
@@ -65,7 +68,7 @@ export async function runSimulation(): Promise<void> {
       od = { zones: macro.zones.map((z) => z.lonlat), od: macro.od };
     }
     const doc = useEditor.getState().doc;
-    const extras = { transit: useTransit.getState().inSim ? transitDemand(transitRoutes(doc)) : [] };
+    const extras = { transit: useTransit.getState().inSim ? transitDemand(transitRoutes(doc)) : [], pedestrians: useSim.getState().pedestrians };
     const result = await invoke<SimResult>('simulate', { text: serializeOsm(doc), minutes, demand: od, extras });
     useSim.setState({ result, playing: true });
   } catch (err) {
@@ -105,7 +108,13 @@ export function vehiclesAt(r: SimResult, t: number) {
     const kmh = a.v[j + 4] * 3.6;
     features.push({
       type: 'Feature',
-      properties: { angle: a.v[j + 3], color: bandColor(kmh), type: r.types[a.v[j + 5]] ?? 'car', big: a.v[j + 5] >= 2 },
+      properties: (() => {
+        const type = r.types[a.v[j + 5]] ?? 'car';
+        // Walking speed would read as a jam on the speed scale, so people get their own colour.
+        return type === 'ped'
+          ? { angle: a.v[j + 3], color: '#3F8BC4', type, big: false }
+          : { angle: a.v[j + 3], color: bandColor(kmh), type, big: a.v[j + 5] >= 2 };
+      })(),
       geometry: { type: 'Point', coordinates: [lon, lat] },
     });
   }
