@@ -4,9 +4,12 @@ export type Theme = 'light' | 'dark';
 export type ThemeChoice = Theme | 'system';
 export type Workspace = 'macro' | 'micro';
 export type BottomTab = 'issues' | 'check' | 'flows' | 'transit' | 'scenarios' | 'journal';
-export type LayerId = 'roads' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs' | 'transit';
+export type LayerId = 'roads' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs' | 'transit' | 'changes';
 
-export const LAYER_IDS: readonly LayerId[] = ['roads', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'tram', 'signs', 'transit'];
+export const LAYER_IDS: readonly LayerId[] = ['roads', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'tram', 'signs', 'transit', 'changes'];
+
+/** Layers that start hidden: they are overlays for a particular task. */
+const OFF_BY_DEFAULT: ReadonlySet<LayerId> = new Set(['transit', 'changes']);
 
 const THEME_KEY = 'graf.theme';
 
@@ -62,7 +65,7 @@ export const useUi = create<UiState>((set, get) => ({
   workspace: 'macro',
   bottomTab: 'issues',
   bottomOpen: true,
-  layers: Object.fromEntries(LAYER_IDS.map((id) => [id, id !== 'transit'])) as Record<LayerId, boolean>,
+  layers: Object.fromEntries(LAYER_IDS.map((id) => [id, !OFF_BY_DEFAULT.has(id)])) as Record<LayerId, boolean>,
   basemapOpacity: 0.7,
   loading: null,
   view3d: false,

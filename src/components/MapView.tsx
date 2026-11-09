@@ -19,6 +19,7 @@ import { currentSelection, useEditor } from '../state/store';
 import { streetWays } from '../osm/street';
 import { bridgeFeatures } from '../map/bridges3d';
 import { useBundle } from '../macro/bundleStore';
+import { diffFeatures, docDiff } from '../osm/diff';
 import type { OsmDoc } from '../osm/types';
 
 const IRKUTSK_CENTER: [number, number] = [104.262, 52.26];
@@ -73,6 +74,13 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
       .map((r) => r.members.find((m) => m.role === 'via' && m.type === 'node')?.ref).filter((id): id is string => Boolean(id && doc.nodes[id])));
     setData(map, 'turns', { type: 'FeatureCollection', features: [...via].map((id) => ({ type: 'Feature', properties: { id }, geometry: { type: 'Point', coordinates: [doc.nodes[id].lon, doc.nodes[id].lat] } })) });
   }, [map, doc]);
+
+  const baseDoc = useEditor((s) => s.baseDoc);
+  const changesOn = useUi((s) => s.layers.changes);
+  useEffect(() => {
+    // The diff walks every object, so it runs only while the layer is shown.
+    if (map) setData(map, 'changes', { type: 'FeatureCollection', features: changesOn ? diffFeatures(docDiff(baseDoc, doc), baseDoc, doc) : [] });
+  }, [map, doc, baseDoc, changesOn]);
 
   const view3d = useUi((s) => s.view3d);
   useEffect(() => {

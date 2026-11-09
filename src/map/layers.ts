@@ -4,7 +4,7 @@ import { roadColorExpression, type MapPalette } from './palette';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'bridges3d', 'turns'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'bridges3d', 'turns', 'changes'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
 export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'], buildings: ['buildings', 'buildings-3d'] } as const;
@@ -144,6 +144,12 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   map.addLayer({ id: 'signals', type: 'circle', source: 'nodes', minzoom: 13, filter: ['==', ['get', 'kind'], 'signal'], paint: { 'circle-radius': 6, 'circle-stroke-width': 2 } });
   // Junctions with turn bans: a dashed-looking double ring around the node.
   map.addLayer({ id: 'turn-bans', type: 'circle', source: 'turns', minzoom: 14, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 6, 18, 13], 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 2.5, 'circle-stroke-opacity': 0.9 } });
+  // What changed against the opened file: new green, edited orange, removed red dashed.
+  const changeColor = ['match', ['get', 'kind'], 'added', '#2E9E4F', 'deleted', '#D92D20', '#E07B12'];
+  map.addLayer({ id: 'changes-line', type: 'line', source: 'changes', filter: ['==', ['geometry-type'], 'LineString'], layout: { visibility: 'none', 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': changeColor as never, 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 4, 18, 14], 'line-opacity': 0.55 } });
+  map.addLayer({ id: 'changes-point', type: 'circle', source: 'changes', filter: ['==', ['geometry-type'], 'Point'], layout: { visibility: 'none' },
+    paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 5, 18, 12], 'circle-color': changeColor as never, 'circle-opacity': 0.6 } });
   map.addLayer({ id: 'selection-node', type: 'circle', source: 'selection', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 10, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 3 } });
   map.addLayer({ id: 'issues-halo', type: 'circle', source: 'issues', filter: ['any', ['get', 'focused'], ['!=', ['get', 'kind'], 'cordon']], paint: { 'circle-radius': ['case', ['get', 'focused'], 22, 13], 'circle-opacity': 0.18, 'circle-blur': 0.4 } });
   map.addLayer({ id: 'issues', type: 'circle', source: 'issues', paint: {
@@ -242,6 +248,8 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   show('buildings', on.buildings);
   map.setPaintProperty('buildings-3d', 'fill-extrusion-opacity', on.buildings ? 0.85 : 0);
   show('tram', on.tram);
+  show('changes-line', on.changes);
+  show('changes-point', on.changes);
   show('transit-line', on.transit);
   show('transit-stop', on.transit);
   const structure: unknown[] = ['all'];
