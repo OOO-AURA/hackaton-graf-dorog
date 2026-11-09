@@ -18,6 +18,7 @@ import { useMapInteractions } from '../map/useMapInteractions';
 import { currentSelection, useEditor } from '../state/store';
 import { streetWays } from '../osm/street';
 import { bridgeFeatures } from '../map/bridges3d';
+import { useBundle } from '../macro/bundleStore';
 import type { OsmDoc } from '../osm/types';
 
 const IRKUTSK_CENTER: [number, number] = [104.262, 52.26];
@@ -136,6 +137,7 @@ function useMapLook(map: MapLibreMap | null): void {
     setData(map, 'vehicles', workspace === 'micro' && simResult ? vehiclesAt(simResult, simTime) : empty);
   }, [map, simResult, simTime, workspace]);
   const flows = useMacro((s) => s.result?.flows);
+  const bundle = useBundle((s) => s.features);
   const iso = useMacro((s) => s.iso);
   const placing = useMacro((s) => s.placing);
   const points = useMacro((s) => s.points);
@@ -145,10 +147,10 @@ function useMapLook(map: MapLibreMap | null): void {
   useEffect(() => {
     if (!alive(map)) return;
     const features = workspace === 'macro'
-      ? [...macroFeatures(flows?.features ?? [], placing ? points : null), ...(iso?.features ?? [])]
+      ? [...macroFeatures(flows?.features ?? [], placing ? points : null), ...(iso?.features ?? []), ...bundle]
       : los;
     setData(map, 'macro', { type: 'FeatureCollection', features });
-  }, [map, flows, iso, workspace, los, placing, points]);
+  }, [map, flows, iso, workspace, los, placing, points, bundle]);
   // Signal heads change every frame, so they live in a small source of their own.
   useEffect(() => {
     if (!alive(map)) return;

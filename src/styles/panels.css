@@ -310,3 +310,5 @@ button.link:hover { text-decoration: underline; }
 .turn-list .turn-arrow { width: 16px; text-align: center; font-size: 14px; }
 .turn-list .turn-to { opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .turn-list li.banned label { text-decoration: line-through; color: var(--red, #d92d20); }
+.bundle { display: grid; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.bundle-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

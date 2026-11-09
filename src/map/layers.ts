@@ -160,6 +160,14 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     },
   });
   map.addLayer({
+    id: 'macro-bundle', type: 'line', source: 'macro', filter: ['==', ['get', 'kind'], 'bundle'],
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-color': ['case', ['get', 'own'], '#E54489', '#EE5C9C'], 'line-opacity': ['case', ['get', 'own'], 1, 0.8],
+      'line-width': ['interpolate', ['linear'], ['get', 'share'], 0, 2, 1, 14],
+    },
+  });
+  map.addLayer({
     id: 'transit-line', type: 'line', source: 'transit', filter: ['==', ['get', 'kind'], 'line'], layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: { 'line-color': ['get', 'color'], 'line-width': ['case', ['get', 'on'], 5, 2], 'line-opacity': ['case', ['get', 'on'], 0.95, 0.45], 'line-offset': 3 },
   });

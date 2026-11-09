@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { saveTextFile } from '../platform';
 import { TripTimeChart } from './TripTimeChart';
+import { BundleSection } from './BundleSection';
 import { ISO_BANDS, useMacro, VC_BANDS } from '../macro/store';
 import { useEditor } from '../state/store';
 
@@ -95,6 +96,7 @@ export function FlowsPanel() {
             {!result.purposes.length && <p className="hint">Матрица правилась вручную, поэтому разбивки по целям нет.</p>}
           </div>
           <ul className="legend">{VC_BANDS.map((b) => <li key={b.label}><i className="swatch-dot" style={{ background: b.color }} />V/C {b.label}</li>)}</ul>
+          <BundleSection />
         </div>
       )}
       {isoFrom && <ul className="legend">{ISO_BANDS.map((b) => <li key={b.label}><i className="swatch-dot" style={{ background: b.color }} />{b.label}</li>)}</ul>}
