@@ -5,7 +5,9 @@ import { CheckPanel, useCheck } from './CheckPanel';
 import { IssuesPanel } from './IssuesPanel';
 import { Journal } from './Journal';
 import { FlowsPanel } from './FlowsPanel';
+import { ScenariosPanel } from './ScenariosPanel';
 import { Icon } from './icons';
+import { useScenarios } from '../scenarios/store';
 
 function Badge({ tab }: { tab: BottomTab }) {
   const report = useEditor((s) => s.report);
@@ -25,7 +27,7 @@ function Badge({ tab }: { tab: BottomTab }) {
   return null;
 }
 
-const TABS: ReadonlyArray<[BottomTab, string]> = [['issues', 'Валидация'], ['check', 'Проверка как на сервере'], ['flows', 'Потоки'], ['journal', 'Журнал']];
+const TABS: ReadonlyArray<[BottomTab, string]> = [['issues', 'Валидация'], ['check', 'Проверка как на сервере'], ['flows', 'Потоки'], ['scenarios', 'Сценарии'], ['journal', 'Журнал']];
 
 export function BottomDock() {
   const tab = useUi((s) => s.bottomTab);
@@ -34,6 +36,7 @@ export function BottomDock() {
   const toggle = useUi((s) => s.toggleBottom);
   const running = useCheck((s) => s.running);
   const edits = useEditor((s) => s.past.length);
+  const scenarios = useScenarios((s) => s.list.length);
 
   useEffect(() => { if (running) openBottom('check'); }, [running, openBottom]);
 
@@ -43,7 +46,7 @@ export function BottomDock() {
         {TABS.map(([id, label]) => (
           <button key={id} role="tab" aria-selected={open && tab === id} className={open && tab === id ? 'on' : ''}
             onClick={() => (open && tab === id ? toggle() : openBottom(id))}>
-            {label}{id === 'journal' && edits > 0 && <span className="mono count">{edits}</span>}<Badge tab={id} />
+            {label}{id === 'scenarios' && scenarios > 0 && <span className="mono count">{scenarios}</span>}{id === 'journal' && edits > 0 && <span className="mono count">{edits}</span>}<Badge tab={id} />
           </button>
         ))}
         <button className="icon-btn dock-toggle" onClick={toggle} aria-label={open ? 'Свернуть панель' : 'Развернуть панель'} aria-expanded={open}>
@@ -55,6 +58,7 @@ export function BottomDock() {
           {tab === 'issues' && <IssuesPanel />}
           {tab === 'check' && <CheckPanel />}
           {tab === 'flows' && <FlowsPanel />}
+          {tab === 'scenarios' && <ScenariosPanel />}
           {tab === 'journal' && <Journal />}
         </div>
       )}
