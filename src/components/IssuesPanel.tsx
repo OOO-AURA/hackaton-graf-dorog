@@ -1,9 +1,11 @@
 import { connectCrossing, mergeNodes } from '../osm/edit';
 import type { Issue } from '../osm/validate';
 import { useEditor } from '../state/store';
+import { closeCordon } from '../state/actions';
+import { cordonPairs } from '../osm/cordon';
 
 const KIND_LABELS: Readonly<Record<Issue['kind'], string>> = {
-  isolated: 'Изолированные участки', trap: 'Тупики по направлению', crossing: 'Пересечения без узла', 'near-nodes': 'Разорванные перекрёстки',
+  isolated: 'Изолированные участки', trap: 'Тупики по направлению', cordon: 'Обрезано границей фрагмента', crossing: 'Пересечения без узла', 'near-nodes': 'Разорванные перекрёстки',
 };
 
 function applyFix(issue: Issue): void {
@@ -40,6 +42,7 @@ export function IssuesPanel() {
             {report.stats.ways} дорог · {report.stats.lengthKm.toFixed(1)} км · {report.stats.signals} светофоров · компонент связности: {report.stats.components}
           </p>
           {report.issues.length === 0 && <p className="ok">Ошибок не найдено ✓</p>}
+          <CordonHint />
           {(Object.keys(KIND_LABELS) as Issue['kind'][]).map((kind) => {
             const items = report.issues.filter((i) => i.kind === kind);
             if (!items.length) return null;
@@ -60,5 +63,21 @@ export function IssuesPanel() {
         </>
       )}
     </div>
+  );
+}
+
+/** Offers to join cut carriageways at the fragment edge when the check found such roads. */
+function CordonHint() {
+  const doc = useEditor((s) => s.doc);
+  const hasCordonIssues = useEditor((s) => s.report?.issues.some((i) => i.kind === 'cordon') ?? false);
+  if (!hasCordonIssues) return null;
+  const pairs = cordonPairs(doc).length;
+  if (!pairs) return null;
+  return (
+    <p className="hint cordon-hint">
+      Найдено разрезанных границей двусторонних дорог: {pairs}. Кордонный разворот соединяет их проезжие части за краем фрагмента,
+      и MATSim перестаёт выкидывать эти дороги из сети.{' '}
+      <button className="fix" onClick={closeCordon}>Замкнуть кордон</button>
+    </p>
   );
 }

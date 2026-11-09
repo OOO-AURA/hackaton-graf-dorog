@@ -3,6 +3,7 @@ import { serializeOsm } from '../osm/serialize';
 import { commitDrawing } from '../osm/draw';
 import { deleteNode, deleteWay, flipDirection, reverseWay, splitWay, toggleSignal, waysOfNode } from '../osm/edit';
 import { ROAD_TEMPLATES } from '../osm/tags';
+import { addAllCordonConnectors } from '../osm/cordon';
 import { currentSelection, useEditor } from './store';
 import { baseName, downloadText, isDesktop, openOsmFile, saveOsmFile } from '../platform';
 
@@ -117,4 +118,17 @@ export function splitAtSelected(): void {
   if (sel?.type !== 'node') return;
   s.apply((d) => waysOfNode(d, sel.id).reduce((acc, w) => splitWay(acc, w.id, sel.id).doc, d));
   s.notify('Дороги разделены в узле');
+}
+
+/** Joins carriageways cut by the fragment edge with one-way connectors (see osm/cordon.ts). */
+export function closeCordon(): void {
+  const s = useEditor.getState();
+  let added = 0;
+  s.apply((d) => {
+    const r = addAllCordonConnectors(d);
+    added = r.added;
+    return r.doc;
+  });
+  s.runValidation();
+  s.notify(added ? `Добавлено кордонных разворотов: ${added}` : 'Разрезанных границей пар не найдено');
 }
