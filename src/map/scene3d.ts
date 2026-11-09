@@ -417,9 +417,16 @@ export class Scene3dLayer implements CustomLayerInterface {
       gl.cullFace(gl.BACK);
       // Mercator y grows southwards, which mirrors the winding on screen.
       gl.frontFace(gl.CW);
+      // Depth first, then colour only where a fragment is the nearest one. A faded wall then
+      // shows the road behind it, never the courtyard walls or edges of the same building.
+      gl.colorMask(false, false, false, false);
+      draw(b.solid, gl.TRIANGLES, b.solidCount);
+      gl.colorMask(true, true, true, true);
+      gl.depthMask(false);
       draw(b.solid, gl.TRIANGLES, b.solidCount);
       gl.disable(gl.CULL_FACE);
       draw(b.edges, gl.LINES, b.edgesCount);
+      gl.depthMask(true);
     }
     gl.disable(gl.BLEND);
   }
