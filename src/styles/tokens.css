@@ -32,18 +32,18 @@
   color-scheme: light;
 }
 
-/* Dark: the paper goes to roasted brown, the ink becomes cream. Fills lift slightly so they read on dark. */
+/* Dark: neutral graphite with cream text. Fills lift slightly so they read on dark. */
 :root[data-theme='dark'] {
-  --paper: #1C140E;
-  --paper-dk: #2C2118;
-  --panel: #241A12;
-  --field: #2F2319;
+  --paper: #17171A;
+  --paper-dk: #2A2A30;
+  --panel: #1F1F23;
+  --field: #28282D;
   --ink: #F1E6CB;
-  --ink-2: #BBA685;
+  --ink-2: #A9A49B;
   --line: rgba(241, 230, 203, 0.13);
   --line-strong: rgba(241, 230, 203, 0.36);
   --hover: rgba(241, 230, 203, 0.07);
-  --on-ink: #1C140E;
+  --on-ink: #17171A;
   --red: #F0503F; --pink: #EE5C9C; --orange: #F5A04A; --green: #55B45F; --blue: #5FA3D6; --yellow: #F3C640;
   --red-text: #FF7A68; --orange-text: #F5A75A; --green-text: #6BC475; --blue-text: #7DB6E3; --pink-text: #F27BB0;
   --red-wash: rgba(240, 80, 63, 0.16); --orange-wash: rgba(245, 160, 74, 0.16); --green-wash: rgba(85, 180, 95, 0.16); --blue-wash: rgba(95, 163, 214, 0.16);

@@ -74,6 +74,9 @@
   flex: 1; min-width: 24px; display: grid; place-items: center; border-radius: 2px; background: #6A5847; color: #F1E6CB; font-size: 15px; font-weight: 700;
 }
 .lane.back { background: #5A4A3B; color: #C9B48A; }
+:root[data-theme='dark'] .lane-strip { background: #2E2E33; }
+:root[data-theme='dark'] .lane { background: #45454C; color: #F1E6CB; }
+:root[data-theme='dark'] .lane.back { background: #3A3A40; color: #A9A49B; }
 .lane-divider { width: 3px; background: var(--yellow); border-radius: 1px; flex-shrink: 0; }
 
 .tags table { width: 100%; border-collapse: collapse; }
