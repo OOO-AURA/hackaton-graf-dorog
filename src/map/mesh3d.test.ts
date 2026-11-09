@@ -31,6 +31,24 @@ describe('3D scene geometry', () => {
     for (let i = 0; i < mesh.solid.length / STRIDE; i += 1) expect(mesh.solid[i * STRIDE + 6]).toBe(1);
   });
 
+  test('roof normals point up, wall normals point inwards as MapLibre lights them', () => {
+    const doc = osm(`${SQUARE}<way id="10"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/><tag k="building" v="yes"/><tag k="height" v="10"/></way>`);
+    const { solid } = buildScene3d(doc, COLORS)!;
+    const verts = Array.from({ length: solid.length / STRIDE }, (_, i) => solid.slice(i * STRIDE, (i + 1) * STRIDE));
+    const cx = verts.reduce((s, v) => s + v[0], 0) / verts.length;
+    const cy = verts.reduce((s, v) => s + v[1], 0) / verts.length;
+    for (let t = 0; t < verts.length; t += 3) {
+      const [a, b, c] = verts.slice(t, t + 3);
+      const n = [a[7], a[8], a[9]];
+      if (a[2] === 10 && b[2] === 10 && c[2] === 10) expect(n[2]).toBeCloseTo(1);
+      else {
+        const mx = (a[0] + b[0] + c[0]) / 3 - cx;
+        const my = (a[1] + b[1] + c[1]) / 3 - cy;
+        expect(n[0] * mx + n[1] * my).toBeLessThan(0);
+      }
+    }
+  });
+
   test('min_height lifts the base of a building', () => {
     const doc = osm(`${SQUARE}<way id="10"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/><tag k="building" v="roof"/><tag k="height" v="8"/><tag k="min_height" v="5"/></way>`);
     expect(Math.min(...zOf(buildScene3d(doc, COLORS)!.solid, STRIDE))).toBe(5);

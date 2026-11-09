@@ -11,8 +11,12 @@ import { buildingHeight } from './geojson';
 export type Rgb = readonly [number, number, number];
 export type Scene3dColors = { building: Rgb; edge: Rgb; deck: (highway: string) => Rgb; deckSide: Rgb; pier: Rgb; portal: Rgb };
 
-/** Interleaved x, y, z, r, g, b, cut. `cut` is 1 for geometry that the road cutaway may remove. */
-export const STRIDE = 7;
+/**
+ * Interleaved x, y, z, r, g, b, cut, nx, ny, nz, shade. `cut` is 1 for geometry that the road
+ * cutaway may remove; the normal and `shade` (the wall gradient) feed the same lighting MapLibre
+ * gives its extruded buildings.
+ */
+export const STRIDE = 11;
 
 export type Scene3dMesh = {
   /** Mercator x, y of the origin and metres per Mercator unit there. */
@@ -21,7 +25,7 @@ export type Scene3dMesh = {
   solid: Float32Array;
   /** Bridge decks, piers and tunnel portals: opaque, never cut away. */
   structures: Float32Array;
-  /** Building outlines as line pairs. */
+  /** Building outlines as line pairs, shown only where the cutaway removes the building. */
   edges: Float32Array;
   /** Road ribbons as triangles with x, y, z only: what the cutaway looks for behind buildings. */
   roadMask: Float32Array;
@@ -119,14 +123,35 @@ function offsets(pts: readonly P2[], half: number): { left: P2[]; right: P2[] } 
 
 type V3 = readonly [number, number, number];
 
-function tri(buf: Buf, c: Rgb, cut: number, a: V3, b: V3, d: V3) {
-  for (const v of [a, b, d]) buf.push(v[0], v[1], v[2], c[0], c[1], c[2], cut);
+/**
+ * Sign applied to the cross product of a triangle to get the normal used for lighting. Roofs take
+ * the opposite sign to point up; walls keep this one, which points inwards: MapLibre lights its
+ * extruded walls with that normal, and the 3D view is meant to look the same.
+ */
+const OUTWARD = -1;
+
+/** Wall shade of MapLibre's vertical gradient (light intensity 0.5): darker low, 1 at 150 m. */
+export function wallShade(base: number, top: boolean, height: number): number {
+  const t = top ? 1 : 0;
+  return Math.min(1, Math.max(0.84, (t + base) * Math.sqrt(Math.max(0, height) / 150)));
+}
+
+type Shade = (v: V3) => number;
+const FLAT: Shade = () => 1;
+
+function tri(buf: Buf, c: Rgb, cut: number, a: V3, b: V3, d: V3, shade: Shade = FLAT, sign = OUTWARD) {
+  const ux = b[0] - a[0]; const uy = b[1] - a[1]; const uz = b[2] - a[2];
+  const vx = d[0] - a[0]; const vy = d[1] - a[1]; const vz = d[2] - a[2];
+  let nx = uy * vz - uz * vy; let ny = uz * vx - ux * vz; let nz = ux * vy - uy * vx;
+  const l = Math.hypot(nx, ny, nz) || 1;
+  nx = (nx / l) * sign; ny = (ny / l) * sign; nz = (nz / l) * sign;
+  for (const v of [a, b, d]) buf.push(v[0], v[1], v[2], c[0], c[1], c[2], cut, nx, ny, nz, shade(v));
 }
 
 /** Quad a-b-c-d, wound the same way as given. */
-function quad(buf: Buf, c: Rgb, cut: number, a: V3, b: V3, d: V3, e: V3) {
-  tri(buf, c, cut, a, b, d);
-  tri(buf, c, cut, a, d, e);
+function quad(buf: Buf, c: Rgb, cut: number, a: V3, b: V3, d: V3, e: V3, shade: Shade = FLAT, sign = OUTWARD) {
+  tri(buf, c, cut, a, b, d, shade, sign);
+  tri(buf, c, cut, a, d, e, shade, sign);
 }
 
 /** Axis-free box on a footprint (4 corners counter-clockwise seen from above) between z0 and z1. */
@@ -161,24 +186,28 @@ function addBuilding(solid: Buf, edges: Buf, ring: P2[], base: number, height: n
   ring = ccw(ring);
   const c = colors.building;
   const n = ring.length;
+  const shade: Shade = (v) => wallShade(base, v[2] >= height, height);
   for (let i = 0; i < n; i += 1) {
     const a = ring[i];
     const b = ring[(i + 1) % n];
-    quad(solid, c, 1, [a[0], a[1], base], [a[0], a[1], height], [b[0], b[1], height], [b[0], b[1], base]);
+    quad(solid, c, 1, [a[0], a[1], base], [a[0], a[1], height], [b[0], b[1], height], [b[0], b[1], base], shade, OUTWARD);
   }
   const flat = ring.flatMap((p) => p);
   const idx = earcut(flat);
   for (let i = 0; i < idx.length; i += 3) {
     const t = [ring[idx[i]], ring[idx[i + 1]], ring[idx[i + 2]]];
-    if (signedArea(t) < 0) t.reverse();
-    tri(solid, c, 1, [t[0][0], t[0][1], height], [t[1][0], t[1][1], height], [t[2][0], t[2][1], height]);
+    // Wound clockwise seen from above, like the walls seen from outside: both face the camera.
+    if (signedArea(t) > 0) t.reverse();
+    tri(solid, c, 1, [t[0][0], t[0][1], height], [t[1][0], t[1][1], height], [t[2][0], t[2][1], height], FLAT, -OUTWARD);
   }
   const e = colors.edge;
   for (let i = 0; i < n; i += 1) {
     const a = ring[i];
     const b = ring[(i + 1) % n];
-    edges.push(a[0], a[1], height, e[0], e[1], e[2], 1, b[0], b[1], height, e[0], e[1], e[2], 1);
-    edges.push(a[0], a[1], base, e[0], e[1], e[2], 1, a[0], a[1], height, e[0], e[1], e[2], 1);
+    const v = (x: number, y: number, z: number) => edges.push(x, y, z, e[0], e[1], e[2], 1, 0, 0, 0, 1);
+    v(a[0], a[1], height); v(b[0], b[1], height);
+    v(a[0], a[1], base); v(a[0], a[1], height);
+    v(a[0], a[1], base); v(b[0], b[1], base);
   }
 }
 

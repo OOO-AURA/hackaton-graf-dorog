@@ -115,7 +115,7 @@ export function sceneColors(p: MapPalette): Scene3dColors {
   ROAD_CLASSES.forEach((c) => c.match.forEach((h) => byHighway.set(h, rgb(p.roads[c.id]))));
   const service = rgb(p.roads.service);
   return {
-    building: rgb(p.building3d), edge: rgb(p.buildingLine), deck: (h) => byHighway.get(h) ?? service,
+    building: rgb(p.building3d), edge: rgb(p.buildingGhost), deck: (h) => byHighway.get(h) ?? service,
     deckSide: rgb(p.bridgeSide), pier: rgb(p.bridgeSide), portal: rgb(p.bridgeSide),
   };
 }

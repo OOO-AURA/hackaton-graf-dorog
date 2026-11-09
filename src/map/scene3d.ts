@@ -16,6 +16,23 @@ export const SCENE3D_LAYER = 'scene-3d';
 /** The cutaway fades in between these zooms and is off when the map is further out. */
 const CUT_ZOOM_FROM = 16.5;
 const CUT_ZOOM_FULL = 17.2;
+/** Opacity of extruded buildings, as the old fill-extrusion layer had it. */
+const BUILDING_OPACITY = 0.85;
+
+/**
+ * MapLibre's default light: position [1.15, 210°, 30°] anchored to the viewport, so it turns with
+ * the map bearing.
+ */
+export function lightPosition(bearing: number): [number, number, number] {
+  const az = ((210 + 90) * Math.PI) / 180;
+  const polar = (30 * Math.PI) / 180;
+  const x = 1.15 * Math.cos(az) * Math.sin(polar);
+  const y = 1.15 * Math.sin(az) * Math.sin(polar);
+  const z = 1.15 * Math.cos(polar);
+  const a = (bearing * Math.PI) / 180;
+  return [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a), z];
+}
+
 /** Length of the fade below the cut, in CSS pixels. */
 const FADE_PX = 26;
 /** The column pass samples at most this many rows; taller canvases are sampled with a step. */
@@ -29,18 +46,23 @@ vec4 packDepth(float v) {
 float unpackDepth(vec4 c) { return dot(c, vec4(1.0, 1.0 / 255.0, 1.0 / 65025.0, 1.0 / 16581375.0)); }
 vec2 pack16(float v) { float h = floor(v * 255.0) / 255.0; return vec2(h, fract(v * 255.0)); }
 float unpack16(vec2 c) { return c.x + c.y / 255.0; }
+// Distance from the camera (clip w) on a log scale in 0..1. Window depth is too flat this far
+// from the near plane to tell a wall from the road just behind it.
+float linearDepth(float w) { return clamp(log2(max(w, 1e-6)) / 48.0 + 0.5, 0.0, 0.999999); }
 `;
 
 const VS_POS = `
 attribute vec3 a_pos;
 uniform mat4 u_matrix;
-void main() { gl_Position = u_matrix * vec4(a_pos, 1.0); }
+varying float v_w;
+void main() { gl_Position = u_matrix * vec4(a_pos, 1.0); v_w = gl_Position.w; }
 `;
 
 const FS_DEPTH = `
 precision highp float;
 ${PACK}
-void main() { gl_FragColor = packDepth(gl_FragCoord.z); }
+varying float v_w;
+void main() { gl_FragColor = packDepth(linearDepth(v_w)); }
 `;
 
 const FS_MASK = `
@@ -48,10 +70,12 @@ precision highp float;
 ${PACK}
 uniform sampler2D u_depth;
 uniform vec2 u_size;
+varying float v_w;
 void main() {
+  float road = linearDepth(v_w);
   float building = unpackDepth(texture2D(u_depth, gl_FragCoord.xy / u_size));
-  if (building >= gl_FragCoord.z - 0.00002) discard;
-  gl_FragColor = packDepth(max(gl_FragCoord.z, 0.000001));
+  if (building >= road - 0.00002) discard;
+  gl_FragColor = packDepth(max(road, 0.000001));
 }
 `;
 
@@ -83,17 +107,32 @@ void main() {
 }
 `;
 
+/** MapLibre's fill-extrusion lighting with its default light (intensity 0.5, white). */
 const VS_COLOR = `
 attribute vec3 a_pos;
 attribute vec3 a_color;
 attribute float a_cut;
+attribute vec3 a_normal;
+attribute float a_shade;
 uniform mat4 u_matrix;
+uniform vec3 u_lightpos;
+uniform float u_edges;
 varying vec3 v_color;
 varying float v_cut;
+varying float v_w;
 void main() {
-  v_color = a_color;
   v_cut = a_cut;
   gl_Position = u_matrix * vec4(a_pos, 1.0);
+  v_w = gl_Position.w;
+  if (u_edges > 0.5) { v_color = a_color; return; }
+  float colorvalue = dot(a_color, vec3(0.2126, 0.7152, 0.0722));
+  vec3 color = a_color + 0.03;
+  float d = dot(a_normal, u_lightpos);
+  // Bridges and portals are lit from both sides; their winding is not kept outward.
+  if (a_cut < 0.5) d = abs(d);
+  float directional = mix(0.5, max(1.5 - colorvalue, 1.0), clamp(d, 0.0, 1.0));
+  if (abs(a_normal.z) < 0.5) directional *= a_shade;
+  v_color = clamp(color * directional, 0.0, 1.0);
 }
 `;
 
@@ -104,16 +143,21 @@ uniform sampler2D u_columns;
 uniform vec2 u_size;
 uniform float u_fade;
 uniform float u_cutaway;
+uniform float u_opacity;
+uniform float u_edges;
 varying vec3 v_color;
 varying float v_cut;
+varying float v_w;
 void main() {
   float alpha = 1.0;
   if (v_cut > 0.5 && u_cutaway > 0.0) {
     vec4 c = texture2D(u_columns, vec2(gl_FragCoord.x / u_size.x, 0.5));
     float y = unpack16(c.rg) * (u_size.y + 1.0);
     float road = unpack16(c.ba);
-    if (y > 0.0 && gl_FragCoord.z < road) alpha = mix(1.0, clamp((y - gl_FragCoord.y) / u_fade, 0.0, 1.0), u_cutaway);
+    if (y > 0.0 && linearDepth(v_w) < road) alpha = mix(1.0, clamp((y - gl_FragCoord.y) / u_fade, 0.0, 1.0), u_cutaway);
   }
+  // Outlines show only where the building has been cut away, so its shape stays readable.
+  alpha = u_edges > 0.5 ? (1.0 - alpha) * 0.8 : alpha * (v_cut > 0.5 ? u_opacity : 1.0);
   if (alpha < 0.004) discard;
   gl_FragColor = vec4(v_color * alpha, alpha);
 }
@@ -376,6 +420,10 @@ export class Scene3dLayer implements CustomLayerInterface {
     const strength = this.columnTarget ? this.cutStrength() : 0;
     const cut = strength > 0;
     gl.uniform1f(gl.getUniformLocation(p, 'u_cutaway'), strength);
+    gl.uniform1f(gl.getUniformLocation(p, 'u_opacity'), BUILDING_OPACITY);
+    gl.uniform3fv(gl.getUniformLocation(p, 'u_lightpos'), lightPosition(this.map?.getBearing() ?? 0));
+    const edgesLoc = gl.getUniformLocation(p, 'u_edges');
+    gl.uniform1f(edgesLoc, 0);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, cut ? this.columnTarget!.tex : null);
     gl.uniform1i(gl.getUniformLocation(p, 'u_columns'), 0);
@@ -402,10 +450,14 @@ export class Scene3dLayer implements CustomLayerInterface {
       gl.vertexAttribPointer(col, 3, gl.FLOAT, false, STRIDE * 4, 12);
       gl.enableVertexAttribArray(cutLoc);
       gl.vertexAttribPointer(cutLoc, 1, gl.FLOAT, false, STRIDE * 4, 24);
+      const nLoc = gl.getAttribLocation(p, 'a_normal');
+      const sLoc = gl.getAttribLocation(p, 'a_shade');
+      gl.enableVertexAttribArray(nLoc);
+      gl.vertexAttribPointer(nLoc, 3, gl.FLOAT, false, STRIDE * 4, 28);
+      gl.enableVertexAttribArray(sLoc);
+      gl.vertexAttribPointer(sLoc, 1, gl.FLOAT, false, STRIDE * 4, 40);
       gl.drawArrays(mode, 0, count);
-      gl.disableVertexAttribArray(pos);
-      gl.disableVertexAttribArray(col);
-      gl.disableVertexAttribArray(cutLoc);
+      [pos, col, cutLoc, nLoc, sLoc].forEach((l) => gl.disableVertexAttribArray(l));
     };
 
     // Opaque structures first, so cut buildings blend over them.
@@ -425,7 +477,11 @@ export class Scene3dLayer implements CustomLayerInterface {
       gl.depthMask(false);
       draw(b.solid, gl.TRIANGLES, b.solidCount);
       gl.disable(gl.CULL_FACE);
-      draw(b.edges, gl.LINES, b.edgesCount);
+      if (cut) {
+        gl.uniform1f(edgesLoc, 1);
+        draw(b.edges, gl.LINES, b.edgesCount);
+        gl.uniform1f(edgesLoc, 0);
+      }
       gl.depthMask(true);
     }
     gl.disable(gl.BLEND);
