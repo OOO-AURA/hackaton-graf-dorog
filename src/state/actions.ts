@@ -65,7 +65,7 @@ export async function saveOsm(saveAs = false): Promise<void> {
     const reuse = !saveAs && s.filePath && baseName(s.filePath) === name ? s.filePath : null;
     const path = await saveOsmFile(text, name, reuse);
     if (!path) return;
-    s.markSaved(baseName(path), path);
+    s.markSaved(baseName(path), path, s.doc);
     s.notify(`Сохранено ${path}`);
   } catch (err) {
     s.notify(String(err));

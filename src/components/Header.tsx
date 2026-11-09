@@ -16,11 +16,10 @@ const WORKSPACES: ReadonlyArray<[Workspace, string, string]> = [
 function SaveStatus() {
   const empty = useEditor((s) => !Object.keys(s.doc.nodes).length);
   const dirty = useEditor(isDirty);
-  const edits = useEditor((s) => s.past.length);
   if (empty) return null;
   return (
     <span className={`save-status${dirty ? ' dirty' : ''}`} role="status">
-      <i aria-hidden="true" />{dirty ? `Есть изменения · ${edits}` : 'Сохранено'}
+      <i aria-hidden="true" />{dirty ? 'Есть изменения' : 'Сохранено'}
     </span>
   );
 }

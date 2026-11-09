@@ -23,7 +23,7 @@ function streetsOf(doc: OsmDoc): Street[] {
     });
     byName.set(name, s);
   });
-  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  return [...byName.values()].filter((s) => Number.isFinite(s.bounds[0])).sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 }
 
 function Tools() {

@@ -65,7 +65,7 @@
 
 .badge {
   display: inline-grid; place-items: center; min-width: 18px; height: 16px; padding: 0 5px; border-radius: 8px;
-  font-family: var(--font-mono); font-size: 10px; font-weight: 600; color: #fff; background: var(--ink-2);
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600; color: var(--on-ink); background: var(--ink-2);
 }
 .badge.err { background: var(--red-text); }
 .badge.warn { background: var(--orange-text); }

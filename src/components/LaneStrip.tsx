@@ -12,7 +12,7 @@ export function LaneStrip({ tags }: { tags: Tags }) {
   const dir = direction(tags);
   const total = Number.parseInt(tags.lanes ?? '', 10) || (dir === 'both' ? 2 : 1);
   const fwdTagged = Number.parseInt(tags['lanes:forward'] ?? '', 10);
-  const forward = dir === 'both' ? (Number.isFinite(fwdTagged) ? fwdTagged : Math.ceil(total / 2)) : total;
+  const forward = dir === 'both' ? (Number.isFinite(fwdTagged) ? Math.min(Math.max(fwdTagged, 0), total) : Math.ceil(total / 2)) : total;
   const backward = Math.max(0, total - forward);
   const turns = (tags['turn:lanes'] ?? tags['turn:lanes:forward'] ?? '').split('|');
   if (total > 12) return null;

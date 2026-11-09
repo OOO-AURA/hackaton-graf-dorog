@@ -34,13 +34,24 @@ function describe(a: OsmDoc, b: OsmDoc): { title: string; detail: string } {
   return { title: name ? `${title} · ${name}` : title, detail: parts.join(' · ') || 'без изменений' };
 }
 
+/** Descriptions are cached per pair of documents, so a new edit only diffs the newest pair. */
+const cache = new WeakMap<OsmDoc, WeakMap<OsmDoc, { title: string; detail: string }>>();
+
+function describeCached(a: OsmDoc, b: OsmDoc) {
+  let inner = cache.get(a);
+  if (!inner) { inner = new WeakMap(); cache.set(a, inner); }
+  let hit = inner.get(b);
+  if (!hit) { hit = describe(a, b); inner.set(b, hit); }
+  return hit;
+}
+
 /** Undo history as a list; clicking an entry steps the history to that point. */
 export function Journal() {
   const past = useEditor((s) => s.past);
   const future = useEditor((s) => s.future);
   const doc = useEditor((s) => s.doc);
   const timeline = useMemo(() => [...past, doc, ...future], [past, doc, future]);
-  const entries = useMemo(() => timeline.slice(1).map((d, i) => describe(timeline[i], d)), [timeline]);
+  const entries = useMemo(() => timeline.slice(1).map((d, i) => describeCached(timeline[i], d)), [timeline]);
   const current = past.length;
 
   const goTo = (target: number) => {

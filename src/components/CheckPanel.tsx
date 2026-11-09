@@ -6,20 +6,17 @@ import { useEditor } from '../state/store';
 
 interface CheckState {
   running: boolean;
-  open: boolean;
   report: CheckReport | null;
   error: string | null;
-  setOpen: (open: boolean) => void;
 }
 
-export const useCheck = create<CheckState>((set) => ({
-  running: false, open: false, report: null, error: null,
-  setOpen: (open) => set({ open }),
+export const useCheck = create<CheckState>(() => ({
+  running: false, report: null, error: null,
 }));
 
 async function runCheck(): Promise<void> {
   const { doc } = useEditor.getState();
-  useCheck.setState({ running: true, open: true, error: null });
+  useCheck.setState({ running: true, error: null });
   try {
     const report = await runServerCheck(serializeOsm(doc));
     useCheck.setState({ report });

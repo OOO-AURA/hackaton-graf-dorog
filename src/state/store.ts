@@ -34,7 +34,8 @@ interface EditorState {
   message: string | null;
 
   load: (doc: OsmDoc, fileName: string, filePath?: string | null) => void;
-  markSaved: (fileName: string, filePath: string | null) => void;
+  /** `doc` is the document that was written; edits made while the save dialog was open stay unsaved. */
+  markSaved: (fileName: string, filePath: string | null, doc: OsmDoc) => void;
   /** Applies an edit and records it in the undo history. */
   apply: (edit: (doc: OsmDoc) => OsmDoc) => void;
   /** Starts a continuous edit (e.g. dragging) — one undo step for the whole gesture. */
@@ -73,7 +74,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   focusIssue: null,
   message: null,
 
-  markSaved: (fileName, filePath) => set(({ doc }) => ({ fileName, filePath, saveName: fileName, savedDoc: doc })),
+  markSaved: (fileName, filePath, savedDoc) => set({ fileName, filePath, saveName: fileName, savedDoc }),
   load: (doc, fileName, filePath = null) => set({ doc, savedDoc: doc, fileName, filePath, past: [], future: [], selection: null, drawing: [], report: null, mode: 'select' }),
   apply: (edit) => {
     const { doc, past } = get();
