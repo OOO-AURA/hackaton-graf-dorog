@@ -7334,6 +7334,8 @@
    <tag k="postal_code" v="664074"/>
    <tag k="source" v="GPS tracks"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="26759334" visible="true" version="19" changeset="163484632" timestamp="2025-03-11T13:13:52Z" user="SkArCh" uid="403931">
    <nd ref="293507640"/>
@@ -7355,6 +7357,8 @@
    <tag k="oneway" v="no"/>
    <tag k="postal_code" v="664074"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="28525056" visible="true" version="7" changeset="181472551" timestamp="2026-04-17T18:46:19Z" user="zaqwedcxsx" uid="23955951">
    <nd ref="313332557"/>
@@ -7417,6 +7421,8 @@
    <tag k="name" v="улица Лермонтова"/>
    <tag k="name:etymology:wikidata" v="Q46599"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="43932683" visible="true" version="6" changeset="180663891" timestamp="2026-03-31T09:38:56Z" user="zaqwedcxsx" uid="23955951">
    <nd ref="558686304"/>
@@ -7673,6 +7679,8 @@
    <tag k="oneway" v="no"/>
    <tag k="surface" v="asphalt"/>
    <tag k="width" v="5.5"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="80269802" visible="true" version="6" changeset="99236645" timestamp="2021-02-14T03:49:12Z" user="Sowa1980" uid="4256181">
    <nd ref="936939435"/>
@@ -7708,6 +7716,8 @@
    <tag k="highway" v="residential"/>
    <tag k="name" v="улица Грибоедова"/>
    <tag k="oneway" v="yes"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="80269824" visible="true" version="3" changeset="25656680" timestamp="2014-09-25T02:35:57Z" user="snovvfall" uid="534447">
    <nd ref="936938791"/>
@@ -7741,6 +7751,8 @@
    <tag k="highway" v="residential"/>
    <tag k="name" v="улица Белинского"/>
    <tag k="name:etymology:wikidata" v="Q192885"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="80269864" visible="true" version="5" changeset="157326457" timestamp="2024-10-01T08:35:11Z" user="sonyam4" uid="22005151">
    <nd ref="936939588"/>
@@ -7816,6 +7828,8 @@
    <tag k="highway" v="residential"/>
    <tag k="name" v="улица Герцена"/>
    <tag k="name:etymology:wikidata" v="Q201221"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="80269967" visible="true" version="14" changeset="105464167" timestamp="2021-05-28T05:49:12Z" user="Vladimir Syroezhkin" uid="3871350">
    <nd ref="936938010"/>
@@ -7916,6 +7930,8 @@
    <tag k="highway" v="residential"/>
    <tag k="name" v="4-я Железнодорожная улица"/>
    <tag k="oneway" v="no"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="80347129" visible="true" version="10" changeset="181472551" timestamp="2026-04-17T18:46:19Z" user="zaqwedcxsx" uid="23955951">
    <nd ref="937706626"/>
@@ -8133,6 +8149,8 @@
    <tag k="highway" v="residential"/>
    <tag k="name" v="улица Академика Курчатова"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="80348392" visible="true" version="7" changeset="108666628" timestamp="2021-07-27T07:26:06Z" user="Neo9GodNik" uid="11898522">
    <nd ref="3801892966"/>
@@ -8273,6 +8291,8 @@
    <tag k="lanes" v="2"/>
    <tag k="name" v="улица Игошина"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="80402421" visible="true" version="4" changeset="105412494" timestamp="2021-05-27T09:24:47Z" user="Vladimir Syroezhkin" uid="3871350">
    <nd ref="938271828"/>
@@ -8496,6 +8516,8 @@
    <tag k="name:etymology:wikidata" v="Q46599"/>
    <tag k="oneway" v="yes"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="80738241" visible="true" version="3" changeset="25656680" timestamp="2014-09-25T02:35:58Z" user="snovvfall" uid="534447">
    <nd ref="941608366"/>
@@ -8589,6 +8611,8 @@
    <nd ref="942541841"/>
    <tag k="highway" v="unclassified"/>
    <tag k="surface" v="ground"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="80838268" visible="true" version="4" changeset="180753581" timestamp="2026-04-02T07:40:15Z" user="Alexey_ND" uid="515330">
    <nd ref="942541686"/>
@@ -8660,6 +8684,8 @@
    <tag k="name" v="улица Лермонтова"/>
    <tag k="name:etymology:wikidata" v="Q46599"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="80838277" visible="true" version="1" changeset="5993234" timestamp="2010-10-09T13:12:33Z" user="LexIgnatov" uid="316868">
    <nd ref="942541504"/>
@@ -8899,6 +8925,8 @@
    <nd ref="1276977902"/>
    <tag k="highway" v="unclassified"/>
    <tag k="surface" v="ground"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="80838322" visible="true" version="2" changeset="65146223" timestamp="2018-12-04T04:26:39Z" user="Natalia18" uid="3429710">
    <nd ref="942541722"/>
@@ -9368,6 +9396,8 @@
    <tag k="highway" v="residential"/>
    <tag k="name" v="улица Грибоедова"/>
    <tag k="oneway" v="yes"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="85161562" visible="true" version="6" changeset="14836253" timestamp="2013-01-29T15:39:37Z" user="Takuto" uid="383200">
    <nd ref="987785369"/>
@@ -9575,6 +9605,8 @@
    <tag k="postal_code" v="664074"/>
    <tag k="source" v="GPS tracks"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="107668193" visible="true" version="4" changeset="48972207" timestamp="2017-05-25T12:22:32Z" user="HighwayStar" uid="167595">
    <nd ref="1498865640"/>
@@ -9586,6 +9618,8 @@
    <tag k="highway" v="secondary_link"/>
    <tag k="oneway" v="yes"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="107677812" visible="true" version="9" changeset="170995044" timestamp="2025-08-25T19:41:39Z" user="Jaloliddin Pölatov" uid="23197928">
    <nd ref="1237048846"/>
@@ -9738,6 +9772,8 @@
    <tag k="name" v="улица Ивана Франко"/>
    <tag k="sidewalk" v="left"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="112319049" visible="true" version="1" changeset="8081910" timestamp="2011-05-08T12:25:45Z" user="htower" uid="377332">
    <nd ref="1276977882"/>
@@ -10722,6 +10758,8 @@
    <tag k="oneway" v="no"/>
    <tag k="postal_code" v="664074"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="138431831" visible="true" version="6" changeset="144812298" timestamp="2023-12-06T02:58:29Z" user="Neo9GodNik" uid="11898522">
    <nd ref="2071425329"/>
@@ -10881,10 +10919,11 @@
    <tag k="foot" v="no"/>
    <tag k="highway" v="primary"/>
    <tag k="lanes" v="2"/>
-   <tag k="maxspeed" v="RU:urban"/>
+   <tag k="maxspeed" v="60"/>
    <tag k="name" v="Объездная дорога Первомайский-Университетский"/>
    <tag k="oneway" v="yes"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="140226631" visible="true" version="14" changeset="181472551" timestamp="2026-04-17T18:46:19Z" user="zaqwedcxsx" uid="23955951">
    <nd ref="286124717"/>
@@ -10929,10 +10968,11 @@
    <tag k="highway" v="primary"/>
    <tag k="lanes" v="3"/>
    <tag k="maxheight" v="default"/>
-   <tag k="maxspeed" v="RU:urban"/>
+   <tag k="maxspeed" v="60"/>
    <tag k="name" v="Объездная дорога Первомайский-Университетский"/>
    <tag k="oneway" v="yes"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="140233102" visible="true" version="7" changeset="181472551" timestamp="2026-04-17T18:46:19Z" user="zaqwedcxsx" uid="23955951">
    <nd ref="1498827398"/>
@@ -10975,11 +11015,12 @@
    <tag k="highway" v="primary"/>
    <tag k="lanes" v="3"/>
    <tag k="lit" v="yes"/>
-   <tag k="maxspeed" v="RU:urban"/>
+   <tag k="maxspeed" v="60"/>
    <tag k="name" v="Объездная дорога Первомайский-Университетский"/>
    <tag k="oneway" v="yes"/>
    <tag k="sidewalk" v="right"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="142025776" visible="true" version="3" changeset="55156080" timestamp="2018-01-04T12:21:21Z" user="Meersbrook" uid="412560">
    <nd ref="1554362587"/>
@@ -11045,6 +11086,8 @@
    <tag k="lane_markings" v="no"/>
    <tag k="oneway" v="yes"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="154258541" visible="true" version="8" changeset="178057856" timestamp="2026-02-03T16:09:52Z" user="Semaa1" uid="8994827">
    <nd ref="13522106119"/>
@@ -11262,6 +11305,8 @@
    <tag k="source:width" v="ARCore"/>
    <tag k="surface" v="asphalt"/>
    <tag k="width" v="6"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="196047108" visible="true" version="4" changeset="157326465" timestamp="2024-10-01T08:47:38Z" user="sonyam4" uid="22005151">
    <nd ref="2064126219"/>
@@ -11882,6 +11927,8 @@
    <tag k="highway" v="secondary_link"/>
    <tag k="oneway" v="yes"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="224472427" visible="true" version="1" changeset="16430167" timestamp="2013-06-05T10:03:46Z" user="VkD" uid="80593">
    <nd ref="1460006308"/>
@@ -13240,6 +13287,8 @@
    <nd ref="2643227252"/>
    <tag k="highway" v="residential"/>
    <tag k="name" v="улица Короленко"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="259006336" visible="true" version="1" changeset="20277509" timestamp="2014-01-30T05:30:44Z" user="snovvfall" uid="534447">
    <nd ref="2643227252"/>
@@ -13249,6 +13298,8 @@
    <nd ref="545558098"/>
    <tag k="highway" v="residential"/>
    <tag k="name" v="переулок Короленко"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="259006337" visible="true" version="1" changeset="20277509" timestamp="2014-01-30T05:30:44Z" user="snovvfall" uid="534447">
    <nd ref="2643227252"/>
@@ -13842,6 +13893,8 @@
    <nd ref="4457396601"/>
    <nd ref="3446185949"/>
    <tag k="highway" v="residential"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="363479239" visible="true" version="2" changeset="163484632" timestamp="2025-03-11T13:13:52Z" user="SkArCh" uid="403931">
    <nd ref="3676417764"/>
@@ -13882,6 +13935,8 @@
    <tag k="foot" v="no"/>
    <tag k="highway" v="residential"/>
    <tag k="name" v="проезд Юрия Тена"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="376777879" visible="true" version="5" changeset="181472551" timestamp="2026-04-17T18:46:19Z" user="zaqwedcxsx" uid="23955951">
    <nd ref="3801656573"/>
@@ -13903,6 +13958,8 @@
    <tag k="foot" v="no"/>
    <tag k="highway" v="residential"/>
    <tag k="name" v="проезд Юрия Тена"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="376777900" visible="true" version="6" changeset="181472551" timestamp="2026-04-17T18:46:19Z" user="zaqwedcxsx" uid="23955951">
    <nd ref="3801656569"/>
@@ -13930,6 +13987,8 @@
    <tag k="foot" v="no"/>
    <tag k="highway" v="residential"/>
    <tag k="name" v="проезд Юрия Тена"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="376777921" visible="true" version="3" changeset="181472551" timestamp="2026-04-17T18:46:19Z" user="zaqwedcxsx" uid="23955951">
    <nd ref="3801656486"/>
@@ -13938,6 +13997,8 @@
    <nd ref="3801657135"/>
    <tag k="foot" v="no"/>
    <tag k="highway" v="residential"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="376777982" visible="true" version="4" changeset="180663891" timestamp="2026-03-31T09:38:56Z" user="zaqwedcxsx" uid="23955951">
    <nd ref="3801657318"/>
@@ -13966,6 +14027,8 @@
    <nd ref="938271913"/>
    <tag k="foot" v="no"/>
    <tag k="highway" v="residential"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="382974085" visible="true" version="4" changeset="181472551" timestamp="2026-04-17T18:46:19Z" user="zaqwedcxsx" uid="23955951">
    <nd ref="1522887575"/>
@@ -13976,6 +14039,8 @@
    <tag k="name" v="улица Лермонтова"/>
    <tag k="name:etymology:wikidata" v="Q46599"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="383944395" visible="true" version="4" changeset="85634717" timestamp="2020-05-23T00:28:41Z" user="Tzene19" uid="10228239">
    <nd ref="938271954"/>
@@ -13998,6 +14063,8 @@
    <nd ref="1274009913"/>
    <tag k="highway" v="unclassified"/>
    <tag k="oneway" v="no"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="383944871" visible="true" version="1" changeset="35701353" timestamp="2015-12-02T08:47:44Z" user="Ivan38" uid="3127221">
    <nd ref="987785174"/>
@@ -14005,6 +14072,8 @@
    <nd ref="938271954"/>
    <tag k="highway" v="residential"/>
    <tag k="name" v="улица Грибоедова"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="401559377" visible="true" version="5" changeset="180663891" timestamp="2026-03-31T09:38:56Z" user="zaqwedcxsx" uid="23955951">
    <nd ref="4039728462"/>
@@ -14107,6 +14176,8 @@
    <tag k="postal_code" v="664074"/>
    <tag k="source" v="GPS tracks"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="448424774" visible="true" version="12" changeset="181679843" timestamp="2026-04-22T15:42:46Z" user="ылоаритйтЗЩВ" uid="24031307">
    <nd ref="1668223381"/>
@@ -15380,10 +15451,11 @@
    <tag k="lanes" v="2"/>
    <tag k="lit" v="yes"/>
    <tag k="maxheight" v="default"/>
-   <tag k="maxspeed" v="RU:urban"/>
+   <tag k="maxspeed" v="60"/>
    <tag k="name" v="Объездная дорога Первомайский-Университетский"/>
    <tag k="oneway" v="yes"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="677185648" visible="true" version="4" changeset="181472551" timestamp="2026-04-17T18:46:19Z" user="zaqwedcxsx" uid="23955951">
    <nd ref="938272214"/>
@@ -15951,6 +16023,8 @@
    <tag k="foot" v="no"/>
    <tag k="highway" v="residential"/>
    <tag k="name" v="проезд Юрия Тена"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="842913458" visible="true" version="4" changeset="181472551" timestamp="2026-04-17T18:46:19Z" user="zaqwedcxsx" uid="23955951">
    <nd ref="7627578121"/>
@@ -15960,6 +16034,8 @@
    <tag k="lanes" v="2"/>
    <tag k="name" v="проезд Юрия Тена"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="851543673" visible="true" version="1" changeset="91513707" timestamp="2020-09-25T13:42:29Z" user="trolleway" uid="397326">
    <nd ref="7942373680"/>
@@ -18955,10 +19031,11 @@
    <tag k="lanes" v="2"/>
    <tag k="lit" v="yes"/>
    <tag k="maxheight" v="default"/>
-   <tag k="maxspeed" v="RU:urban"/>
+   <tag k="maxspeed" v="60"/>
    <tag k="name" v="Объездная дорога Первомайский-Университетский"/>
    <tag k="oneway" v="yes"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="1199781529" visible="true" version="3" changeset="180753581" timestamp="2026-04-02T07:40:15Z" user="Alexey_ND" uid="515330">
    <nd ref="11127517890"/>
@@ -18968,10 +19045,11 @@
    <tag k="lanes" v="2"/>
    <tag k="lit" v="yes"/>
    <tag k="maxheight" v="default"/>
-   <tag k="maxspeed" v="RU:urban"/>
+   <tag k="maxspeed" v="60"/>
    <tag k="name" v="Объездная дорога Первомайский-Университетский"/>
    <tag k="oneway" v="yes"/>
    <tag k="surface" v="asphalt"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="1199781530" visible="true" version="2" changeset="166311652" timestamp="2025-05-15T15:48:06Z" user="Mateusz Konieczny - bot account" uid="3199858">
    <nd ref="1498865586"/>
@@ -19806,6 +19884,8 @@
    <tag k="motor_vehicle" v="no"/>
    <tag k="oneway" v="yes"/>
    <tag k="psv" v="yes"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="1482925129" visible="true" version="1" changeset="179043213" timestamp="2026-02-25T15:40:50Z" user="Amor_fu2" uid="23794712">
    <nd ref="13598340582"/>
@@ -22067,6 +22147,8 @@
    <tag k="foot" v="no"/>
    <tag k="highway" v="secondary"/>
    <tag k="name:etymology:wikidata" v="Q46599"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="1499812932" visible="true" version="1" changeset="181397520" timestamp="2026-04-16T06:53:43Z" user="loik1112" uid="23921064">
    <nd ref="13734031699"/>
@@ -22189,7 +22271,8 @@
    <tag k="oneway" v="yes"/>
    <tag k="lanes" v="1"/>
    <tag k="note" v="cordon connector"/>
-   <tag k="maxspeed" v="RU:urban"/>
+   <tag k="maxspeed" v="60"/>
+   <tag k="source:maxspeed" v="RU:urban"/>
  </way>
  <way id="14332300382" version="1">
    <nd ref="286123821"/>

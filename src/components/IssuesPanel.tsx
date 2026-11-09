@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { connectCrossing, mergeNodes, setWayTags } from '../osm/edit';
 import { groundTags } from '../osm/structures';
+import { applyLegalSpeeds } from '../osm/speeds';
 import type { Issue } from '../osm/validate';
 import { useEditor } from '../state/store';
 import { closeCordon } from '../state/actions';
@@ -8,7 +10,7 @@ import { refreshReport } from '../state/validation';
 import { VirtualList } from './VirtualList';
 
 const KIND_LABELS: Readonly<Record<Issue['kind'], string>> = {
-  isolated: 'Изолированные участки', trap: 'Тупики по направлению', cordon: 'Обрезано границей фрагмента', crossing: 'Пересечения без узла', 'near-nodes': 'Разорванные перекрёстки', 'false-tunnel': 'Ложные тоннели под мостами',
+  isolated: 'Изолированные участки', trap: 'Тупики по направлению', cordon: 'Обрезано границей фрагмента', crossing: 'Пересечения без узла', 'near-nodes': 'Разорванные перекрёстки', 'false-tunnel': 'Ложные тоннели под мостами', speed: 'Разная скорость в MATSim и SUMO',
 };
 
 function applyFix(issue: Issue): void {
@@ -18,6 +20,7 @@ function applyFix(issue: Issue): void {
   apply((d) => {
     if (fix.type === 'merge') return mergeNodes(d, fix.keep, fix.remove);
     if (fix.type === 'ground') return d.ways[fix.wayId] ? setWayTags(d, fix.wayId, groundTags(d.ways[fix.wayId].tags)) : d;
+    if (fix.type === 'speed') return applyLegalSpeeds(d, [fix.wayId]);
     return connectCrossing(d, fix.a, fix.b, fix.at[0], fix.at[1]);
   });
   void refreshReport();
@@ -56,6 +59,7 @@ export function IssuesPanel() {
         <>
           {report.issues.length === 0 && <p className="ok">Ошибок не найдено</p>}
           <CordonHint />
+          <SpeedHint />
           {(Object.keys(KIND_LABELS) as Issue['kind'][]).map((kind) => {
             const items = report.issues.filter((i) => i.kind === kind);
             if (!items.length) return null;
@@ -72,6 +76,23 @@ export function IssuesPanel() {
         </>
       )}
     </div>
+  );
+}
+
+/** One click for every road whose speed the simulators would read differently. */
+function SpeedHint() {
+  const apply = useEditor((s) => s.apply);
+  const report = useEditor((s) => s.report);
+  const ids = useMemo(() => report?.issues.filter((i) => i.kind === 'speed').map((i) => i.wayIds[0]) ?? [], [report]);
+  if (!ids.length) return null;
+  const fixAll = () => { apply((d) => applyLegalSpeeds(d, ids)); void refreshReport(); };
+  return (
+    <p className="hint cordon-hint">
+      У {ids.length} дорог нет числового ограничения скорости, и MATSim с SUMO подставят свои, разные значения: например, районная улица без
+      maxspeed едет 30 км/ч в MATSim и 100 км/ч в SUMO. Кнопка запишет скорость по ПДД (60 км/ч в городе, 20 во дворах и жилых зонах), зона
+      сохранится в source:maxspeed.{' '}
+      <button className="btn btn-sm fix" onClick={fixAll}>Проставить по ПДД всем</button>
+    </p>
   );
 }
 

@@ -9,10 +9,12 @@ import { smallDoc } from '../test/docs';
 describe('validate', () => {
   const doc = smallDoc();
   const report = validate(doc);
-  const kinds = (r = report) => r.issues.map((i) => i.kind).sort();
+  // Graph-structure kinds only; speed agreement is checked in speeds.test.ts and below.
+  const kinds = (r = report) => r.issues.filter((i) => i.kind !== 'speed').map((i) => i.kind).sort();
 
   test('finds isolated parts, oneway traps and almost-touching nodes', () => {
     expect(kinds()).toEqual(['isolated', 'isolated', 'near-nodes', 'trap']);
+    expect(report.issues.filter((i) => i.kind === 'speed').every((i) => i.fix?.type === 'speed')).toBe(true);
     expect(report.issues.find((i) => i.kind === 'trap')?.wayIds).toEqual(['200']);
     expect(report.stats).toMatchObject({ ways: 4, components: 3, signals: 0 });
   });

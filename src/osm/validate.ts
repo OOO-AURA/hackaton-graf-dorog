@@ -3,14 +3,16 @@ import { largestGroup, strongComponents, weakComponents } from './components';
 import { haversine, projector, segmentIntersection, type LonLat } from './geo';
 import { directedArcs, drivableWays } from './roads';
 import { falseTunnels } from './structures';
+import { speedMismatches } from './speeds';
 import type { OsmDoc, OsmWay } from './types';
 
-export type IssueKind = 'isolated' | 'trap' | 'cordon' | 'crossing' | 'near-nodes' | 'false-tunnel';
+export type IssueKind = 'isolated' | 'trap' | 'cordon' | 'crossing' | 'near-nodes' | 'false-tunnel' | 'speed';
 
 export type IssueFix =
   | { type: 'connect'; a: { wayId: string; index: number }; b: { wayId: string; index: number }; at: LonLat }
   | { type: 'merge'; keep: string; remove: string }
-  | { type: 'ground'; wayId: string };
+  | { type: 'ground'; wayId: string }
+  | { type: 'speed'; wayId: string };
 
 export interface Issue {
   readonly id: string;
@@ -186,6 +188,16 @@ export function validate(doc: OsmDoc): ValidationReport {
       message: `Дорога под мостом отмечена тоннелем (${Math.round(t.lengthM)} м): Webots не построит её, под мостом будет дыра`,
       at: t.at, wayIds: [t.wayId, t.bridgeId], nodeIds: [], fix: { type: 'ground', wayId: t.wayId },
     })),
+    ...speedMismatches(doc).map((m): Issue => {
+      const w = doc.ways[m.wayId];
+      const mid = doc.nodes[w.refs[Math.floor(w.refs.length / 2)]];
+      const kmh = (v: number | null) => (v === null ? 'нет' : `${v}`);
+      return {
+        id: `speed:${m.wayId}`, kind: 'speed', severity: 'warning',
+        message: `${w.tags.name || w.tags.highway}: MATSim ${kmh(m.speeds.matsim)}, SUMO ${kmh(m.speeds.sumo)} км/ч, по ПДД ${m.legal}`,
+        at: [mid.lon, mid.lat], wayIds: [m.wayId], nodeIds: [], fix: { type: 'speed', wayId: m.wayId },
+      };
+    }),
   ];
   const lengthM = ways.reduce((sum, w) => sum + w.refs.slice(1).reduce((s, r, i) => s + haversine(lonLat(doc, w.refs[i]), lonLat(doc, r)), 0), 0);
   return {

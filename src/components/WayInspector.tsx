@@ -11,6 +11,7 @@ import { LaneStrip } from './LaneStrip';
 import { capacity, normTags, roadProfile } from '../osm/profile';
 import { streetWays } from '../osm/street';
 import { webotsElevation } from '../osm/structures';
+import { simulatorSpeeds } from '../osm/speeds';
 
 export const HIGHWAY_LABELS: Readonly<Record<string, string>> = {
   motorway: 'Автомагистраль', trunk: 'Скоростная', primary: 'Магистральная', secondary: 'Районная', tertiary: 'Улица местного значения',
@@ -31,6 +32,14 @@ function structureTags(tags: Tags, kind: string): Tags {
   if (kind === 'bridge') return { ...cleared, bridge: 'yes', layer: '1' };
   if (kind === 'tunnel') return { ...cleared, tunnel: 'yes', layer: '-1' };
   return cleared;
+}
+
+/** What MATSim and SUMO will take as the speed of this road when maxspeed is missing or not a number. */
+function SpeedNote({ tags }: { tags: Tags }) {
+  const s = simulatorSpeeds(tags);
+  if (s.matsim === s.sumo) return null;
+  const v = (x: number | null) => (x === null ? 'нет' : `${x} км/ч`);
+  return <p className="hint warn speed-note">Скорость в симуляторах разная: MATSim {v(s.matsim)}, SUMO {v(s.sumo)}. Укажите число, чтобы все уровни ехали одинаково.</p>;
 }
 
 /** Where the Webots importer will put this road: it lifts or sinks a whole way by layer × 5 m. */
@@ -68,6 +77,7 @@ export function WayInspector({ way }: { way: OsmWay }) {
           <SelectField label="Покрытие" value={t.surface ?? ''} options={SURFACE_OPTIONS} onChange={set('surface')} />
         </div>
       </Section>
+      <SpeedNote tags={t} />
       <Section title="Полосы и направление">
         <LaneStrip tags={t} />
         <SelectField label="Движение" value={t.oneway === 'yes' || t.oneway === '-1' ? t.oneway : ''} options={ONEWAY_OPTIONS} onChange={set('oneway')} />
