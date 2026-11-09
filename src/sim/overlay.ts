@@ -44,3 +44,17 @@ export function signalFeatures(r: SimResult, t: number): unknown[] {
     return sig.heads.map(([i, lon, lat]) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: { kind: 'sig', color: colorOf(state[i]) } }));
   });
 }
+
+/** Mean delay over the ways that meet at a node, weighted by vehicles entered; null without traffic. */
+export function junctionDelay(r: SimResult | null, wayIds: readonly string[]): { delay: number; entered: number } | null {
+  const stats = statsByWay(r);
+  let sum = 0;
+  let n = 0;
+  for (const id of wayIds) {
+    const st = stats.get(id);
+    if (!st || st.entered <= 0) continue;
+    sum += st.delay_s * st.entered;
+    n += st.entered;
+  }
+  return n ? { delay: sum / n, entered: n } : null;
+}

@@ -9,12 +9,13 @@ import sys
 sys.path.append(os.path.join(os.environ["SUMO_HOME"], "tools"))
 import sumolib  # noqa: E402
 
-net = sumolib.net.readNet(sys.argv[1], withInternal=False)
+net = sumolib.net.readNet(sys.argv[1], withInternal=False, withPrograms=True)
 request = json.load(open(sys.argv[2])) if len(sys.argv) > 3 else {}
 if isinstance(request, list):
     request = {"zones": request}
 zones = request.get("zones", [])
 stops = request.get("stops", [])
+plans = request.get("plans", [])
 
 # pyproj is often missing, so the UTM projection netconvert uses is done here (WGS84, Krueger series).
 import math  # noqa: E402
@@ -110,9 +111,59 @@ def stop_lane(lon, lat):
     return None
 
 
+def tls_centre(t):
+    nodes = {c[0].getEdge().getToNode() for c in t.getConnections()}
+    if not nodes:
+        return None
+    return (sum(n.getCoord()[0] for n in nodes) / len(nodes), sum(n.getCoord()[1] for n in nodes) / len(nodes))
+
+
+def program(plan):
+    """Static program for the traffic light nearest to the OSM node: yellow and all-red keep their
+    length, the rest of the cycle goes to green phases, `share` of it to the main ones."""
+    lon, lat, cycle, share = plan
+    x, y = to_xy(lon, lat)
+    best = None
+    for t in net.getTrafficLights():
+        c = tls_centre(t)
+        if c is None:
+            continue
+        d = ((c[0] - x) ** 2 + (c[1] - y) ** 2) ** 0.5
+        if d < 80 and (best is None or d < best[0]):
+            best = (d, t)
+    if best is None:
+        return None
+    t = best[1]
+    progs = list(t.getPrograms().values())
+    if not progs:
+        return None
+    phases = [(float(p.duration), p.state) for p in progs[0].getPhases()]
+    is_green = [("G" in st or "g" in st) and "y" not in st for _, st in phases]
+    fixed = sum(d for (d, _), g in zip(phases, is_green) if not g)
+    greens = [i for i, g in enumerate(is_green) if g]
+    if not greens:
+        return None
+    count = [phases[i][1].count("G") + phases[i][1].count("g") for i in greens]
+    top = max(count)
+    main = [i for i, c in zip(greens, count) if c == top][:2]
+    side = [i for i in greens if i not in main]
+    green_time = max(cycle - fixed, 5 * len(greens))
+    if not side:
+        share = 1.0
+    durations = [d for d, _ in phases]
+    for i in main:
+        durations[i] = max(5.0, green_time * share / len(main))
+    for i in side:
+        durations[i] = max(5.0, green_time * (1 - share) / len(side))
+    body = "".join(f'    <phase duration="{d:.0f}" state="{st}"/>\n' for d, (_, st) in zip(durations, phases))
+    xml = f'  <tlLogic id="{t.getID()}" type="static" programID="graf" offset="0">\n{body}  </tlLogic>\n'
+    return {"tls": t.getID(), "xml": xml, "cycle": round(sum(durations))}
+
+
 out = {
     "tls": tls,
     "zones": [{"from": nearest(z[0], z[1], True), "to": nearest(z[0], z[1], False)} for z in zones],
     "stops": [stop_lane(p[0], p[1]) for p in stops],
+    "programs": [program(p) for p in plans],
 }
 json.dump(out, open(sys.argv[-1], "w"))

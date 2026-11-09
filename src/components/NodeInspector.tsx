@@ -8,6 +8,7 @@ import { TagTable } from './TagTable';
 import { Section } from './Section';
 import { NODE_FEATURES, nodeSymbol } from '../map/features';
 import { Icon } from './icons';
+import { SignalPlanSection } from './SignalPlanSection';
 
 const NODE_KIND_OPTIONS = [
   ['', 'Обычный узел'], ['traffic_signals', 'Светофор'], ['crossing', 'Пешеходный переход'],
@@ -48,6 +49,7 @@ export function NodeInspector({ node }: { node: OsmNode }) {
           <button className="btn" onClick={splitAtSelected} disabled={!inner} title="X"><Icon name="scissors" /> Разрезать здесь <kbd>X</kbd></button>
         </div>
       </Section>
+      {isSignal && <SignalPlanSection node={node} ways={ways} />}
       {ways.length > 0 && (
         <Section title="Дороги через узел" aside={<span className="mono count">{ways.length}</span>}>
           <ul className="link-list">

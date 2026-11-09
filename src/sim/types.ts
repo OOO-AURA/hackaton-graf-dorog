@@ -47,6 +47,8 @@ export interface SimResult {
   ped_finished?: number;
   ped_mean_time_loss_s?: number;
   crossings?: Array<{ lon: number; lat: number; peds: number }>;
+  /** Signal plans from the node inspector that SUMO used: OSM node, SUMO light, actual cycle. */
+  plans?: Array<{ node: string; tls: string; cycle_s: number }>;
   traffic_lights: number;
   teleports: number;
   log_tail: string;

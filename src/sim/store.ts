@@ -9,12 +9,18 @@ import { STRIDE, type DemandKind, type SimResult } from './types';
 
 export const SPEEDS = [1, 5, 10, 30, 60] as const;
 
+/** Cycle length, s, and the main direction's share of green time. */
+export interface SignalPlan { cycle: number; mainShare: number }
+
 interface SimState {
   running: boolean;
   error: string | null;
   result: SimResult | null;
   minutes: number;
   pedestrians: boolean;
+  /** Signal timing per OSM node, set in the node inspector. */
+  plans: Record<string, SignalPlan>;
+  setPlan: (node: string, plan: SignalPlan | null) => void;
   setPedestrians: (on: boolean) => void;
   demand: DemandKind;
   /** Run kept for comparison after the graph is edited. */
@@ -36,9 +42,14 @@ interface SimState {
 }
 
 export const useSim = create<SimState>((set, get) => ({
-  running: false, error: null, result: null, minutes: 10, pedestrians: false, demand: 'random', baseline: null, playing: false, speed: 10, time: 0,
+  running: false, error: null, result: null, minutes: 10, pedestrians: false, plans: {}, demand: 'random', baseline: null, playing: false, speed: 10, time: 0,
   setMinutes: (minutes) => set({ minutes }),
   setPedestrians: (pedestrians) => set({ pedestrians }),
+  setPlan: (node, plan) => set(({ plans }) => {
+    const next = { ...plans };
+    if (plan) next[node] = plan; else delete next[node];
+    return { plans: next };
+  }),
   setDemand: (demand) => set(demand === 'od' ? { demand, minutes: Math.max(get().minutes, 15) } : { demand }),
   keepBaseline: () => set(({ result }) => ({ baseline: result })),
   dropBaseline: () => set({ baseline: null }),
@@ -68,7 +79,9 @@ export async function runSimulation(): Promise<void> {
       od = { zones: macro.zones.map((z) => z.lonlat), od: macro.od };
     }
     const doc = useEditor.getState().doc;
-    const extras = { transit: useTransit.getState().inSim ? transitDemand(transitRoutes(doc)) : [], pedestrians: useSim.getState().pedestrians };
+    const extras = { transit: useTransit.getState().inSim ? transitDemand(transitRoutes(doc)) : [], pedestrians: useSim.getState().pedestrians,
+      signals: Object.entries(useSim.getState().plans).filter(([id]) => doc.nodes[id]?.tags.highway === 'traffic_signals')
+        .map(([id, p]) => ({ node: id, lon: doc.nodes[id].lon, lat: doc.nodes[id].lat, cycle_s: p.cycle, main_share: p.mainShare })) };
     const result = await invoke<SimResult>('simulate', { text: serializeOsm(doc), minutes, demand: od, extras });
     useSim.setState({ result, playing: true });
   } catch (err) {

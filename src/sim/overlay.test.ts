@@ -17,3 +17,14 @@ describe('signal overlay', () => {
     expect(colors(40)).toEqual([SIGNAL_COLORS.red, SIGNAL_COLORS.green]);
   });
 });
+
+import { junctionDelay } from './overlay';
+import type { SimResult as Sr } from './types';
+
+describe('junction delay', () => {
+  it('weights the delay of each approach by traffic', () => {
+    const r = { ways: [{ way: 'a', entered: 30, delay_s: 10, speed_kmh: 0, waiting_s: 0 }, { way: 'b', entered: 10, delay_s: 50, speed_kmh: 0, waiting_s: 0 }] } as unknown as Sr;
+    expect(junctionDelay(r, ['a', 'b'])?.delay).toBe(20);
+    expect(junctionDelay(r, ['c'])).toBeNull();
+  });
+});

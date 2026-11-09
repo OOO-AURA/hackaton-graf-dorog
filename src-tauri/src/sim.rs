@@ -45,6 +45,35 @@ pub struct Extras {
     /// Adds sidewalks, crossings and walking trips.
     #[serde(default)]
     pub pedestrians: bool,
+    /// Signal timing set in the node inspector.
+    #[serde(default)]
+    pub signals: Vec<SignalPlan>,
+}
+
+/// Cycle length and the main direction's share of green for the signal at an OSM node.
+#[derive(Deserialize, Clone)]
+#[cfg_attr(test, derive(Debug))]
+pub struct SignalPlan {
+    pub node: String,
+    pub lon: f64,
+    pub lat: f64,
+    pub cycle_s: f64,
+    pub main_share: f64,
+}
+
+#[derive(Deserialize, Clone)]
+struct TlsProgram {
+    tls: String,
+    xml: String,
+    cycle: f64,
+}
+
+/// Signal plan of an OSM node as it went into SUMO.
+#[derive(Serialize, Clone)]
+pub struct AppliedPlan {
+    node: String,
+    tls: String,
+    cycle_s: f64,
 }
 
 /// A pedestrian crossing and how many people used it over the run.
@@ -115,6 +144,7 @@ pub struct SimResult {
     /// Mean time lost per walk, mostly waiting at crossings and signals.
     ped_mean_time_loss_s: f64,
     crossings: Vec<CrossingStat>,
+    plans: Vec<AppliedPlan>,
 }
 
 fn attr<'a>(line: &'a str, name: &str) -> Option<&'a str> {
@@ -279,6 +309,8 @@ struct NetInfo {
     zones: Vec<ZoneEdges>,
     #[serde(default)]
     stops: Vec<Option<StopLane>>,
+    #[serde(default)]
+    programs: Vec<Option<TlsProgram>>,
 }
 #[derive(Deserialize)]
 struct TlsInfo {
@@ -383,17 +415,18 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
     let mut cmd = Command::new(&python);
     cmd.env("SUMO_HOME", &sh).arg(&script).arg(&net);
     let stop_points: Vec<[f64; 2]> = extras.transit.iter().flat_map(|l| l.stops.iter().copied()).collect();
-    if demand.is_some() || !stop_points.is_empty() {
+    let plans: Vec<[f64; 4]> = extras.signals.iter().map(|p| [p.lon, p.lat, p.cycle_s.clamp(20.0, 240.0), p.main_share.clamp(0.1, 0.9)]).collect();
+    if demand.is_some() || !stop_points.is_empty() || !plans.is_empty() {
         let request = dir.join("request.json");
         let zones = demand.map(|d| d.zones.clone()).unwrap_or_default();
-        let body = serde_json::json!({ "zones": zones, "stops": stop_points });
+        let body = serde_json::json!({ "zones": zones, "stops": stop_points, "plans": plans });
         fs::write(&request, body.to_string()).map_err(|e| e.to_string())?;
         cmd.arg(request);
     }
     let (_, ilog) = run(cmd.arg(&info_path))?;
     let info: NetInfo = match fs::read_to_string(&info_path) {
         Ok(text) => serde_json::from_str(&text).map_err(|e| e.to_string())?,
-        Err(_) if demand.is_none() && stop_points.is_empty() => {
+        Err(_) if demand.is_none() && stop_points.is_empty() && plans.is_empty() => {
             eprintln!("netinfo.py failed, signals are not shown:\n{}", tail(&ilog, 8));
             NetInfo::default()
         }
@@ -460,6 +493,22 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
         fs::write(&events_only, format!("<additional>\n{events}</additional>\n")).map_err(|e| e.to_string())?;
         additional.push(events_only);
     }
+    let mut applied = Vec::new();
+    let mut tl_xml = String::new();
+    for (plan, prog) in extras.signals.iter().zip(&info.programs) {
+        let Some(p) = prog else { continue };
+        // Two OSM nodes of one joined junction map to the same SUMO light: the first one wins.
+        if applied.iter().any(|a: &AppliedPlan| a.tls == p.tls) {
+            continue;
+        }
+        tl_xml.push_str(&p.xml);
+        applied.push(AppliedPlan { node: plan.node.clone(), tls: p.tls.clone(), cycle_s: p.cycle });
+    }
+    if !tl_xml.is_empty() {
+        let tl = dir.join("signals.add.xml");
+        fs::write(&tl, format!("<additional>\n{tl_xml}</additional>\n")).map_err(|e| e.to_string())?;
+        additional.push(tl);
+    }
     let (pt_xml, transit_lines) = transit_xml(&extras.transit, &info.stops, minutes as f64 * 60.0);
     if transit_lines > 0 {
         let pt = dir.join("transit.add.xml");
@@ -521,6 +570,7 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
         ped_finished: trip_xml.matches("<personinfo ").count(),
         ped_mean_time_loss_s: mean(&walks.iter().map(|l| num(l, "timeLoss")).collect::<Vec<_>>()),
         crossings: crossings.into_iter().take(40).collect(),
+        plans: applied,
     })
 }
 
@@ -568,13 +618,18 @@ mod local_run {
         println!("od trips {} vehicles {} finished {}", r.trips, r.vehicles, r.finished);
         assert!(r.trips > 10);
         let transit: Vec<super::TransitLine> = serde_json::from_str(include_str!("testdata/transit.json")).unwrap();
-        let r = super::simulate(&text, 10, None, Some(super::Extras { transit, pedestrians: false })).unwrap();
+        let r = super::simulate(&text, 10, None, Some(super::Extras { transit, pedestrians: false, signals: vec![] })).unwrap();
         println!("transit lines {} buses finished {} speed {:.1}", r.transit_lines, r.pt_finished, r.pt_mean_speed_kmh);
         let pt = r.frames.iter().map(|f| f.v.chunks(6).filter(|v| v[5] as usize == super::VTYPES.len()).count()).max().unwrap_or(0);
         println!("buses on the map at peak {pt}\n{}", r.log_tail);
         assert!(r.transit_lines > 0);
-        let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: true })).unwrap();
+        let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: true, signals: vec![] })).unwrap();
         println!("persons {} walked {} loss {:.1} crossings {:?}", r.persons, r.ped_finished, r.ped_mean_time_loss_s, r.crossings.iter().take(3).collect::<Vec<_>>());
         assert!(r.persons > 10);
+        let tl = r.signals.first().map(|s| (s.lon, s.lat)).unwrap();
+        let plan = super::SignalPlan { node: "n".into(), lon: tl.0, lat: tl.1, cycle_s: 60.0, main_share: 0.7 };
+        let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: false, signals: vec![plan] })).unwrap();
+        println!("plans {:?} loss {:.1}", r.plans.iter().map(|p| (&p.tls, p.cycle_s)).collect::<Vec<_>>(), r.mean_time_loss_s);
+        assert_eq!(r.plans.len(), 1);
     }
 }
