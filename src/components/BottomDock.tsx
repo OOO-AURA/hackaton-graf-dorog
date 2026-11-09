@@ -6,6 +6,7 @@ import { IssuesPanel } from './IssuesPanel';
 import { Journal } from './Journal';
 import { FlowsPanel } from './FlowsPanel';
 import { ScenariosPanel } from './ScenariosPanel';
+import { TransitPanel } from './TransitPanel';
 import { Icon } from './icons';
 import { useScenarios } from '../scenarios/store';
 
@@ -27,7 +28,7 @@ function Badge({ tab }: { tab: BottomTab }) {
   return null;
 }
 
-const TABS: ReadonlyArray<[BottomTab, string]> = [['issues', 'Валидация'], ['check', 'Проверка как на сервере'], ['flows', 'Потоки'], ['scenarios', 'Сценарии'], ['journal', 'Журнал']];
+const TABS: ReadonlyArray<[BottomTab, string]> = [['issues', 'Валидация'], ['check', 'Проверка как на сервере'], ['flows', 'Потоки'], ['transit', 'Транспорт'], ['scenarios', 'Сценарии'], ['journal', 'Журнал']];
 
 export function BottomDock() {
   const tab = useUi((s) => s.bottomTab);
@@ -58,6 +59,7 @@ export function BottomDock() {
           {tab === 'issues' && <IssuesPanel />}
           {tab === 'check' && <CheckPanel />}
           {tab === 'flows' && <FlowsPanel />}
+          {tab === 'transit' && <TransitPanel />}
           {tab === 'scenarios' && <ScenariosPanel />}
           {tab === 'journal' && <Journal />}
         </div>

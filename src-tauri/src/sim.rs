@@ -37,6 +37,23 @@ pub struct Demand {
     od: Vec<Vec<f64>>,
 }
 
+/// Optional additions to a run: route buses and so on.
+#[derive(Deserialize, Default)]
+pub struct Extras {
+    #[serde(default)]
+    pub transit: Vec<TransitLine>,
+}
+
+/// A bus route: stops in travel order and the headway in minutes.
+#[derive(Deserialize, Clone)]
+#[cfg_attr(test, derive(Debug))]
+pub struct TransitLine {
+    pub id: String,
+    pub name: String,
+    pub stops: Vec<[f64; 2]>,
+    pub interval_min: f64,
+}
+
 /// Aggregated micro statistics of one OSM way over the whole run.
 #[derive(Serialize, Default, Clone)]
 pub struct WayStat {
@@ -79,6 +96,9 @@ pub struct SimResult {
     ways: Vec<WayStat>,
     signals: Vec<Signal>,
     log_tail: String,
+    transit_lines: usize,
+    pt_finished: usize,
+    pt_mean_speed_kmh: f64,
 }
 
 fn attr<'a>(line: &'a str, name: &str) -> Option<&'a str> {
@@ -105,7 +125,11 @@ pub fn parse_fcd(xml: &str) -> (Vec<Frame>, usize) {
             let id = attr(l, "id").unwrap_or_default().to_string();
             let next = ids.len();
             let idx = *ids.entry(id).or_insert(next);
-            let ty = attr(l, "type").and_then(|t| VTYPES.iter().position(|(n, _, _)| *n == t)).unwrap_or(0);
+            let ty = match attr(l, "type") {
+                Some("ptbus") => VTYPES.len(),
+                Some(t) => VTYPES.iter().position(|(n, _, _)| *n == t).unwrap_or(0),
+                None => 0,
+            };
             frame.v.extend([idx as f64, num(l, "x"), num(l, "y"), num(l, "angle"), num(l, "speed"), ty as f64]);
         }
     }
@@ -116,13 +140,13 @@ fn mean(values: &[f64]) -> f64 {
     if values.is_empty() { 0.0 } else { values.iter().sum::<f64>() / values.len() as f64 }
 }
 
-pub fn simulate(osm_text: &str, minutes: u32, demand: Option<Demand>) -> Result<SimResult, String> {
+pub fn simulate(osm_text: &str, minutes: u32, demand: Option<Demand>, extras: Option<Extras>) -> Result<SimResult, String> {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
     let dir = env::temp_dir().join(format!("graf-dorog-sim-{stamp}"));
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let osm = dir.join("map.osm");
     fs::write(&osm, osm_text).map_err(|e| e.to_string())?;
-    let result = run_in(&dir, &osm, minutes.clamp(2, 30), demand.as_ref());
+    let result = run_in(&dir, &osm, minutes.clamp(2, 30), demand.as_ref(), &extras.unwrap_or_default());
     let _ = fs::remove_dir_all(&dir);
     result
 }
@@ -201,6 +225,8 @@ fn od_trips(demand: &Demand, edges: &[(Option<String>, Option<String>)], insert_
 struct NetInfo {
     tls: Vec<TlsInfo>,
     zones: Vec<ZoneEdges>,
+    #[serde(default)]
+    stops: Vec<Option<StopLane>>,
 }
 #[derive(Deserialize)]
 struct TlsInfo {
@@ -208,6 +234,13 @@ struct TlsInfo {
     lon: f64,
     lat: f64,
     heads: Vec<(usize, f64, f64)>,
+}
+#[derive(Deserialize, Clone)]
+struct StopLane {
+    edge: String,
+    lane: String,
+    start: f64,
+    end: f64,
 }
 #[derive(Deserialize)]
 struct ZoneEdges {
@@ -232,7 +265,46 @@ pub fn export_net(osm_text: &str, target: &Path) -> Result<(), String> {
     result
 }
 
-fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>) -> Result<SimResult, String> {
+/// Bus stops and line flows for the transit routes. Stops matched to the same place are shared;
+/// a route needs at least two matched stops. Returns the additional XML and the number of lines.
+fn transit_xml(lines: &[TransitLine], stops: &[Option<StopLane>], end: f64) -> (String, usize) {
+    let mut out = String::new();
+    let mut ids: std::collections::HashMap<(String, i64), String> = std::collections::HashMap::new();
+    let mut flows = String::new();
+    let mut count = 0;
+    let mut k = 0;
+    for line in lines {
+        let mut seq: Vec<(String, String)> = Vec::new();
+        for _ in &line.stops {
+            let stop = stops.get(k).cloned().flatten();
+            k += 1;
+            let Some(s) = stop else { continue };
+            let key = (s.lane.clone(), (s.start / 10.0).round() as i64);
+            let next = ids.len();
+            let id = ids.entry(key).or_insert_with(|| {
+                out.push_str(&format!("  <busStop id=\"bs{next}\" lane=\"{}\" startPos=\"{:.1}\" endPos=\"{:.1}\"/>\n", xml_escape(&s.lane), s.start, s.end));
+                format!("bs{next}")
+            }).clone();
+            if seq.last().map(|(b, _)| b != &id).unwrap_or(true) {
+                seq.push((id, s.edge));
+            }
+        }
+        if seq.len() < 2 || line.interval_min <= 0.0 {
+            continue;
+        }
+        let period = (line.interval_min * 60.0).max(60.0);
+        let stops_xml: String = seq.iter().map(|(b, _)| format!("    <stop busStop=\"{b}\" duration=\"20\"/>\n")).collect();
+        flows.push_str(&format!(
+            "  <flow id=\"pt{}\" type=\"ptbus\" line=\"{}\" begin=\"0\" end=\"{end:.0}\" period=\"{period:.0}\" from=\"{}\" to=\"{}\" departLane=\"best\">\n{stops_xml}  </flow>\n",
+            xml_escape(&line.id), xml_escape(&line.name), xml_escape(&seq[0].1), xml_escape(&seq[seq.len() - 1].1)));
+        count += 1;
+    }
+    (format!("<additional>\n  {PT_VTYPE}\n{out}{flows}</additional>\n"), count)
+}
+
+const PT_VTYPE: &str = r#"<vType id="ptbus" vClass="bus" length="12" accel="1.2" decel="4.0" tau="1.2" minGap="3" maxSpeed="16.7" guiShape="bus"/>"#;
+
+fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras: &Extras) -> Result<SimResult, String> {
     let net = dir.join("map.net.xml");
     let (out, log) = run(Command::new(sumo_bin("netconvert"))
         .arg("--osm-files").arg(osm).arg("-o").arg(&net).args(NETCONVERT_ARGS))
@@ -251,19 +323,22 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>) -> Resu
     let info_path = dir.join("netinfo.json");
     let mut cmd = Command::new(&python);
     cmd.env("SUMO_HOME", &sh).arg(&script).arg(&net);
-    if let Some(d) = demand {
-        let zones = dir.join("zones.json");
-        fs::write(&zones, serde_json::to_string(&d.zones).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
-        cmd.arg(zones);
+    let stop_points: Vec<[f64; 2]> = extras.transit.iter().flat_map(|l| l.stops.iter().copied()).collect();
+    if demand.is_some() || !stop_points.is_empty() {
+        let request = dir.join("request.json");
+        let zones = demand.map(|d| d.zones.clone()).unwrap_or_default();
+        let body = serde_json::json!({ "zones": zones, "stops": stop_points });
+        fs::write(&request, body.to_string()).map_err(|e| e.to_string())?;
+        cmd.arg(request);
     }
     let (_, ilog) = run(cmd.arg(&info_path))?;
     let info: NetInfo = match fs::read_to_string(&info_path) {
         Ok(text) => serde_json::from_str(&text).map_err(|e| e.to_string())?,
-        Err(_) if demand.is_none() => {
+        Err(_) if demand.is_none() && stop_points.is_empty() => {
             eprintln!("netinfo.py failed, signals are not shown:\n{}", tail(&ilog, 8));
             NetInfo::default()
         }
-        Err(_) => return Err(format!("Не удалось сопоставить зоны с сетью SUMO:\n{}", tail(&ilog, 15))),
+        Err(_) => return Err(format!("Не удалось сопоставить зоны и остановки с сетью SUMO:\n{}", tail(&ilog, 15))),
     };
 
     let vtypes = dir.join("vtypes.add.xml");
@@ -306,23 +381,40 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>) -> Resu
     let mut sumo = Command::new(sumo_bin("sumo"));
     sumo.current_dir(dir).env("SUMO_HOME", &sh).arg("-n").arg(&net).arg("-r").arg(&routes);
     // randomTrips copies the vehicle types into its route file; OD trips need them, signals need the events.
+    let mut additional: Vec<PathBuf> = Vec::new();
     if demand.is_some() {
-        sumo.arg("-a").arg(&vtypes);
+        additional.push(vtypes.clone());
     } else if !info.tls.is_empty() {
         let events_only = dir.join("events.add.xml");
         fs::write(&events_only, format!("<additional>\n{events}</additional>\n")).map_err(|e| e.to_string())?;
-        sumo.arg("-a").arg(&events_only);
+        additional.push(events_only);
+    }
+    let (pt_xml, transit_lines) = transit_xml(&extras.transit, &info.stops, minutes as f64 * 60.0);
+    if transit_lines > 0 {
+        let pt = dir.join("transit.add.xml");
+        fs::write(&pt, pt_xml).map_err(|e| e.to_string())?;
+        additional.push(pt);
+    }
+    if !additional.is_empty() {
+        let list: Vec<String> = additional.iter().map(|p| p.display().to_string()).collect();
+        sumo.arg("-a").arg(list.join(","));
     }
     let (_, slog) = run(sumo
         .arg("--fcd-output").arg(&fcd).arg("--fcd-output.geo").arg("true").arg("--device.fcd.period").arg(FCD_PERIOD_S)
         .arg("--tripinfo-output").arg(&tripinfo).arg("--edgedata-output").arg(&edgedata)
         .args(["--end", &end, "--no-step-log", "--duration-log.statistics", "--time-to-teleport", "300",
             "--collision.action", "warn", "--ignore-route-errors", "true"]))?;
+    if slog.contains("Quitting (on error)") {
+        return Err(format!("SUMO остановился с ошибкой:\n{}", tail(&slog, 15)));
+    }
     let fcd_xml = fs::read_to_string(&fcd).map_err(|_| format!("SUMO не записал траектории:\n{}", tail(&slog, 15)))?;
     let (frames, vehicles) = parse_fcd(&fcd_xml);
 
     let trip_xml = fs::read_to_string(&tripinfo).unwrap_or_default();
-    let lines: Vec<&str> = trip_xml.lines().filter(|l| l.trim_start().starts_with("<tripinfo ")).collect();
+    let all: Vec<&str> = trip_xml.lines().filter(|l| l.trim_start().starts_with("<tripinfo ")).collect();
+    // Route buses are reported apart: their dwell time at stops is not delay.
+    let (pt_lines, lines): (Vec<&str>, Vec<&str>) = all.into_iter().partition(|l| attr(l, "vType") == Some("ptbus"));
+    let pt_speeds: Vec<f64> = pt_lines.iter().filter(|l| num(l, "duration") > 0.0).map(|l| num(l, "routeLength") / num(l, "duration") * 3.6).collect();
     let pick = |name: &str| lines.iter().map(|l| num(l, name)).collect::<Vec<_>>();
     let durations = pick("duration");
     let lengths = pick("routeLength");
@@ -335,7 +427,7 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>) -> Resu
 
     Ok(SimResult {
         frames,
-        types: VTYPES.iter().map(|(n, _, _)| *n).collect(),
+        types: VTYPES.iter().map(|(n, _, _)| *n).chain(["ptbus"]).collect(),
         demand: label,
         trips,
         vehicles,
@@ -349,6 +441,9 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>) -> Resu
         ways: parse_edgedata(&fs::read_to_string(&edgedata).unwrap_or_default()),
         signals,
         log_tail: tail(&slog, 12),
+        transit_lines,
+        pt_finished: pt_lines.len(),
+        pt_mean_speed_kmh: mean(&pt_speeds),
     })
 }
 
@@ -387,13 +482,19 @@ mod local_run {
     #[ignore]
     fn simulates_example() {
         let text = std::fs::read_to_string("../public/example.osm").unwrap();
-        let r = super::simulate(&text, 5, None).unwrap();
+        let r = super::simulate(&text, 5, None, None).unwrap();
         assert!(r.vehicles > 10, "vehicles: {}", r.vehicles);
         println!("frames {} vehicles {} finished {} loss {:.1} speed {:.1} tls {}", r.frames.len(), r.vehicles, r.finished, r.mean_time_loss_s, r.mean_speed_kmh, r.traffic_lights);
         println!("ways {} signals {:?}", r.ways.len(), r.signals.iter().map(|s| (s.heads.len(), s.states.len())).collect::<Vec<_>>());
         let od = super::Demand { zones: vec![[104.258, 52.252], [104.266, 52.268], [104.262, 52.260]], od: vec![vec![0.0, 300.0, 200.0], vec![300.0, 0.0, 200.0], vec![200.0, 200.0, 0.0]] };
-        let r = super::simulate(&text, 5, Some(od)).unwrap();
+        let r = super::simulate(&text, 5, Some(od), None).unwrap();
         println!("od trips {} vehicles {} finished {}", r.trips, r.vehicles, r.finished);
         assert!(r.trips > 10);
+        let transit: Vec<super::TransitLine> = serde_json::from_str(include_str!("testdata/transit.json")).unwrap();
+        let r = super::simulate(&text, 10, None, Some(super::Extras { transit })).unwrap();
+        println!("transit lines {} buses finished {} speed {:.1}", r.transit_lines, r.pt_finished, r.pt_mean_speed_kmh);
+        let pt = r.frames.iter().map(|f| f.v.chunks(6).filter(|v| v[5] as usize == super::VTYPES.len()).count()).max().unwrap_or(0);
+        println!("buses on the map at peak {pt}\n{}", r.log_tail);
+        assert!(r.transit_lines > 0);
     }
 }

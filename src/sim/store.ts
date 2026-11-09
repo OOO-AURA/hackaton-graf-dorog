@@ -1,3 +1,5 @@
+import { transitDemand, transitRoutes } from '../transit/routes';
+import { useTransit } from '../transit/store';
 import { create } from 'zustand';
 import { serializeOsm } from '../osm/serialize';
 import { isDesktop } from '../platform';
@@ -62,7 +64,9 @@ export async function runSimulation(): Promise<void> {
       if (!macro || useMacro.getState().error) throw new Error(useMacro.getState().error ?? 'Не удалось посчитать матрицу корреспонденций');
       od = { zones: macro.zones.map((z) => z.lonlat), od: macro.od };
     }
-    const result = await invoke<SimResult>('simulate', { text: serializeOsm(useEditor.getState().doc), minutes, demand: od });
+    const doc = useEditor.getState().doc;
+    const extras = { transit: useTransit.getState().inSim ? transitDemand(transitRoutes(doc)) : [] };
+    const result = await invoke<SimResult>('simulate', { text: serializeOsm(doc), minutes, demand: od, extras });
     useSim.setState({ result, playing: true });
   } catch (err) {
     useSim.setState({ error: err instanceof Error ? err.message : String(err) });

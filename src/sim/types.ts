@@ -38,6 +38,10 @@ export interface SimResult {
   mean_time_loss_s: number;
   mean_waiting_s: number;
   mean_speed_kmh: number;
+  /** Bus routes that made it into the run, buses that finished their route and their mean speed. */
+  transit_lines?: number;
+  pt_finished?: number;
+  pt_mean_speed_kmh?: number;
   traffic_lights: number;
   teleports: number;
   log_tail: string;

@@ -1,3 +1,5 @@
+import { transitGeoJson, transitRoutes } from '../transit/routes';
+import { useTransit } from '../transit/store';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import maplibregl, { type GeoJSONSource, type Map as MapLibreMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -55,6 +57,12 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     setData(map, 'context', context.lines);
     setData(map, 'roads', roadsGeoJson(doc));
   }, [map, doc]);
+
+  const routes = useMemo(() => transitRoutes(doc), [doc]);
+  const transitSel = useTransit((s) => s.selected);
+  useEffect(() => {
+    if (map) setData(map, 'transit', transitGeoJson(routes, transitSel));
+  }, [map, routes, transitSel]);
 
   useEffect(() => {
     if (map) setData(map, 'nodes', nodesGeoJson(doc, selectedWay));

@@ -4,7 +4,7 @@ import { roadColorExpression, type MapPalette } from './palette';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
 export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'] } as const;
@@ -148,6 +148,14 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
       'line-offset': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 18, 6],
     },
   });
+  map.addLayer({
+    id: 'transit-line', type: 'line', source: 'transit', filter: ['==', ['get', 'kind'], 'line'], layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': ['get', 'color'], 'line-width': ['case', ['get', 'on'], 5, 2], 'line-opacity': ['case', ['get', 'on'], 0.95, 0.45], 'line-offset': 3 },
+  });
+  map.addLayer({
+    id: 'transit-stop', type: 'circle', source: 'transit', filter: ['==', ['get', 'kind'], 'stop'], minzoom: 13,
+    paint: { 'circle-radius': ['case', ['get', 'on'], 5, 3], 'circle-color': '#FBF6EA', 'circle-stroke-color': '#D9502B', 'circle-stroke-width': 2 },
+  });
   map.addLayer({ id: 'macro-iso', type: 'circle', source: 'macro', filter: ['==', ['get', 'kind'], 'iso'], paint: { 'circle-color': ['get', 'color'], 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 3, 18, 8], 'circle-opacity': 0.85 } });
   map.addLayer({
     id: 'macro-zone', type: 'symbol', source: 'macro', filter: ['==', ['get', 'kind'], 'zone'],
@@ -208,6 +216,8 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   show('buildings', on.buildings);
   map.setPaintProperty('buildings-3d', 'fill-extrusion-opacity', on.buildings ? 0.85 : 0);
   show('tram', on.tram);
+  show('transit-line', on.transit);
+  show('transit-stop', on.transit);
   const structure: unknown[] = ['all'];
   if (!on.bridges) structure.push(['!', ['get', 'bridge']]);
   if (!on.tunnels) structure.push(['!', ['get', 'tunnel']]);

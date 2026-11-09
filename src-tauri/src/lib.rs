@@ -35,8 +35,8 @@ async fn export_sumo(path: PathBuf, text: String) -> Result<(), String> {
 
 /// Micro level: SUMO run on the current graph, played back in the app.
 #[tauri::command]
-async fn simulate(text: String, minutes: u32, demand: Option<sim::Demand>) -> Result<sim::SimResult, String> {
-    tauri::async_runtime::spawn_blocking(move || sim::simulate(&text, minutes, demand))
+async fn simulate(text: String, minutes: u32, demand: Option<sim::Demand>, extras: Option<sim::Extras>) -> Result<sim::SimResult, String> {
+    tauri::async_runtime::spawn_blocking(move || sim::simulate(&text, minutes, demand, extras))
         .await
         .map_err(|e| e.to_string())?
 }

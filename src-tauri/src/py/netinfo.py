@@ -1,5 +1,7 @@
-"""Reads a SUMO network and prints JSON with traffic light positions and, when zones are given,
-the edges that serve each zone. Usage: netinfo.py net.xml zones.json out.json"""
+"""Reads a SUMO network and writes JSON with traffic light positions and, for the request file,
+the edges that serve each zone and the bus stop lanes of transit routes.
+Usage: netinfo.py net.xml [request.json] out.json, where request is
+{"zones": [[lon, lat]], "stops": [[lon, lat]]} (a bare list is read as zones)."""
 import json
 import os
 import sys
@@ -8,7 +10,11 @@ sys.path.append(os.path.join(os.environ["SUMO_HOME"], "tools"))
 import sumolib  # noqa: E402
 
 net = sumolib.net.readNet(sys.argv[1], withInternal=False)
-zones = json.load(open(sys.argv[2])) if len(sys.argv) > 3 else []
+request = json.load(open(sys.argv[2])) if len(sys.argv) > 3 else {}
+if isinstance(request, list):
+    request = {"zones": request}
+zones = request.get("zones", [])
+stops = request.get("stops", [])
 
 # pyproj is often missing, so the UTM projection netconvert uses is done here (WGS84, Krueger series).
 import math  # noqa: E402
@@ -86,8 +92,27 @@ for t in net.getTrafficLights():
     tls.append({"id": t.getID(), "lon": lon, "lat": lat,
                 "heads": [[i, p[0], p[1]] for i, p in heads.values()]})
 
+def stop_lane(lon, lat):
+    """Rightmost bus lane of the nearest road and a 20 m stop around the projected point."""
+    from sumolib.geomhelper import polygonOffsetWithMinimumDistanceToPoint
+    x, y = to_xy(lon, lat)
+    for r in (40, 120, 300):
+        found = [(d, e) for e, d in net.getNeighboringEdges(x, y, r)
+                 if e.allows("bus") and e.getFunction() == "" and e.getLength() >= 25]
+        if not found:
+            continue
+        edge = min(found, key=lambda p: p[0])[1]
+        lane = next(l for l in edge.getLanes() if l.allows("bus"))
+        length = lane.getLength()
+        pos = polygonOffsetWithMinimumDistanceToPoint((x, y), lane.getShape())
+        start = max(1.0, min(pos - 10, length - 21))
+        return {"edge": edge.getID(), "lane": lane.getID(), "start": round(start, 1), "end": round(min(length - 1, start + 20), 1)}
+    return None
+
+
 out = {
     "tls": tls,
     "zones": [{"from": nearest(z[0], z[1], True), "to": nearest(z[0], z[1], False)} for z in zones],
+    "stops": [stop_lane(p[0], p[1]) for p in stops],
 }
 json.dump(out, open(sys.argv[-1], "w"))

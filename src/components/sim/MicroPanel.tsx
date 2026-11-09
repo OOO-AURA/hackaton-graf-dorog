@@ -7,7 +7,7 @@ import type { SimResult } from '../../sim/types';
 import { currentSelection, useEditor } from '../../state/store';
 
 const TYPE_LABELS: Readonly<Record<string, string>> = {
-  car: 'Легковой, 4,5 м', van: 'Фургон до 3,5 т, 5,5 м', truck: 'Грузовой, 9 м', trailer: 'Автопоезд, 16,5 м', bus: 'Автобус, 12 м', bus18: 'Автобус, 18 м',
+  car: 'Легковой, 4,5 м', van: 'Фургон до 3,5 т, 5,5 м', truck: 'Грузовой, 9 м', trailer: 'Автопоезд, 16,5 м', bus: 'Автобус, 12 м', bus18: 'Автобус, 18 м', ptbus: 'Автобус маршрута ОТ',
 };
 
 const LOS_TONE: Readonly<Record<string, string>> = { A: 'var(--green)', B: 'var(--green)', C: 'var(--yellow)', D: 'var(--orange)', E: 'var(--red)', F: 'var(--red)' };
@@ -118,6 +118,9 @@ export function MicroPanel() {
               <p className="hint">По HCM, средняя задержка {result.mean_time_loss_s.toFixed(1)} с на поездку. Спрос: {DEMAND_LABEL[result.demand]}, {result.trips} поездок.</p>
             </div>
           </section>
+          {!!result.transit_lines && (
+            <p className="hint micro-pt">Общественный транспорт: {result.transit_lines} маршр., доехало автобусов {result.pt_finished ?? 0}{result.pt_finished ? `, средняя скорость ${(result.pt_mean_speed_kmh ?? 0).toFixed(1)} км/ч` : ''}.</p>
+          )}
           {result.trips > 0 && result.finished < result.trips / 2 && (
             <p className="cordon-hint">Доехали {result.finished} из {result.trips} поездок: остальные стоят в очереди на въезд или ещё в пути, когда модель кончилась. Увеличьте длительность до 20 мин или проверьте разрывы сети во вкладке «Валидация».</p>
           )}

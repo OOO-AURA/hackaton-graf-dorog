@@ -3,10 +3,10 @@ import { create } from 'zustand';
 export type Theme = 'light' | 'dark';
 export type ThemeChoice = Theme | 'system';
 export type Workspace = 'macro' | 'micro';
-export type BottomTab = 'issues' | 'check' | 'flows' | 'scenarios' | 'journal';
-export type LayerId = 'roads' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs';
+export type BottomTab = 'issues' | 'check' | 'flows' | 'transit' | 'scenarios' | 'journal';
+export type LayerId = 'roads' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs' | 'transit';
 
-export const LAYER_IDS: readonly LayerId[] = ['roads', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'tram', 'signs'];
+export const LAYER_IDS: readonly LayerId[] = ['roads', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'tram', 'signs', 'transit'];
 
 const THEME_KEY = 'graf.theme';
 
@@ -62,7 +62,7 @@ export const useUi = create<UiState>((set, get) => ({
   workspace: 'macro',
   bottomTab: 'issues',
   bottomOpen: true,
-  layers: Object.fromEntries(LAYER_IDS.map((id) => [id, true])) as Record<LayerId, boolean>,
+  layers: Object.fromEntries(LAYER_IDS.map((id) => [id, id !== 'transit'])) as Record<LayerId, boolean>,
   basemapOpacity: 0.7,
   loading: null,
   view3d: false,
