@@ -15,8 +15,8 @@ interface MacroState {
   isoFrom: string | null;
   setSide: (n: number) => void;
   setTrips: (n: number) => void;
-  run: () => void;
-  isochrone: (nodeId: string) => void;
+  run: () => Promise<void>;
+  isochrone: (nodeId: string) => Promise<void>;
   clear: () => void;
 }
 

@@ -5,9 +5,33 @@ export interface SimFrame {
   v: number[];
 }
 
+/** Micro statistics of one OSM way over the run. */
+export interface WayStat {
+  way: string;
+  entered: number;
+  speed_kmh: number;
+  delay_s: number;
+  waiting_s: number;
+}
+
+/** Traffic light: signal heads as [link index, lon, lat] and state changes as [time, state]. */
+export interface Signal {
+  id: string;
+  lon: number;
+  lat: number;
+  heads: Array<[number, number, number]>;
+  states: Array<[number, string]>;
+}
+
+export type DemandKind = 'random' | 'od';
+
 export interface SimResult {
   frames: SimFrame[];
   types: string[];
+  demand: DemandKind;
+  trips: number;
+  ways: WayStat[];
+  signals: Signal[];
   vehicles: number;
   finished: number;
   mean_duration_s: number;

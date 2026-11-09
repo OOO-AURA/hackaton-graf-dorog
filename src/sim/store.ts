@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import { serializeOsm } from '../osm/serialize';
 import { isDesktop } from '../platform';
 import { useEditor } from '../state/store';
-import { STRIDE, type SimResult } from './types';
+import { useMacro } from '../macro/store';
+import { STRIDE, type DemandKind, type SimResult } from './types';
 
 export const SPEEDS = [1, 5, 10, 30, 60] as const;
 
@@ -11,11 +12,17 @@ interface SimState {
   error: string | null;
   result: SimResult | null;
   minutes: number;
+  demand: DemandKind;
+  /** Run kept for comparison after the graph is edited. */
+  baseline: SimResult | null;
   playing: boolean;
   speed: number;
   /** Model time in seconds. */
   time: number;
   setMinutes: (m: number) => void;
+  setDemand: (d: DemandKind) => void;
+  keepBaseline: () => void;
+  dropBaseline: () => void;
   setSpeed: (s: number) => void;
   play: () => void;
   pause: () => void;
@@ -25,8 +32,11 @@ interface SimState {
 }
 
 export const useSim = create<SimState>((set, get) => ({
-  running: false, error: null, result: null, minutes: 10, playing: false, speed: 10, time: 0,
+  running: false, error: null, result: null, minutes: 10, demand: 'random', baseline: null, playing: false, speed: 10, time: 0,
   setMinutes: (minutes) => set({ minutes }),
+  setDemand: (demand) => set({ demand }),
+  keepBaseline: () => set(({ result }) => ({ baseline: result })),
+  dropBaseline: () => set({ baseline: null }),
   setSpeed: (speed) => set({ speed }),
   play: () => { if (get().result) set({ playing: true }); },
   pause: () => set({ playing: false }),
@@ -39,15 +49,23 @@ export const simEnd = (r: SimResult | null) => (r?.frames.length ? r.frames[r.fr
 
 /** Runs SUMO on the current graph in the desktop app. */
 export async function runSimulation(): Promise<void> {
-  const { minutes } = useSim.getState();
+  const { minutes, demand } = useSim.getState();
   if (!isDesktop) { useSim.setState({ error: 'Симуляция работает в настольном приложении: в браузере нет доступа к SUMO.' }); return; }
   useSim.setState({ running: true, error: null, playing: false, time: 0 });
   try {
     const { invoke } = await import('@tauri-apps/api/core');
-    const result = await invoke<SimResult>('simulate', { text: serializeOsm(useEditor.getState().doc), minutes });
+    let od = null;
+    if (demand === 'od') {
+      // The macro model is recalculated on the current graph so both levels see the same edits.
+      await useMacro.getState().run();
+      const macro = useMacro.getState().result;
+      if (!macro || useMacro.getState().error) throw new Error(useMacro.getState().error ?? 'Не удалось посчитать матрицу корреспонденций');
+      od = { zones: macro.zones.map((z) => z.lonlat), od: macro.od };
+    }
+    const result = await invoke<SimResult>('simulate', { text: serializeOsm(useEditor.getState().doc), minutes, demand: od });
     useSim.setState({ result, playing: true });
   } catch (err) {
-    useSim.setState({ error: String(err) });
+    useSim.setState({ error: err instanceof Error ? err.message : String(err) });
   } finally {
     useSim.setState({ running: false });
   }

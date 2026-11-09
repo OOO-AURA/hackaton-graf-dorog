@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import maplibregl, { type GeoJSONSource, type Map as MapLibreMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { addEditorLayers, applyLayerVisibility, applyPalette, type SourceId } from '../map/layers';
@@ -7,6 +7,7 @@ import { MAP_PALETTE } from '../map/palette';
 import { useUi } from '../state/ui';
 import { MapOverlay } from './MapOverlay';
 import { useSim, vehiclesAt } from '../sim/store';
+import { losFeatures, signalFeatures } from '../sim/overlay';
 import { useMacro } from '../macro/store';
 import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson } from '../map/geojson';
 import { useMapInteractions } from '../map/useMapInteractions';
@@ -99,11 +100,16 @@ function useMapLook(map: MapLibreMap | null): void {
   }, [map, simResult, simTime, workspace]);
   const flows = useMacro((s) => s.result?.flows);
   const iso = useMacro((s) => s.iso);
+  // Road LOS of the micro run only changes with the run itself; signals change with time.
+  const simDoc = useEditor((s) => s.doc);
+  const los = useMemo(() => (simResult ? losFeatures(simDoc, simResult) : []), [simDoc, simResult]);
   useEffect(() => {
     if (!alive(map)) return;
-    const features = workspace === 'macro' ? [...(flows?.features ?? []), ...(iso?.features ?? [])] : [];
+    const features = workspace === 'macro'
+      ? [...(flows?.features ?? []), ...(iso?.features ?? [])]
+      : [...los, ...(simResult ? signalFeatures(simResult, simTime) : [])];
     setData(map, 'macro', { type: 'FeatureCollection', features });
-  }, [map, flows, iso, workspace]);
+  }, [map, flows, iso, workspace, los, simResult, simTime]);
   useEffect(() => {
     if (!alive(map)) return;
     const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

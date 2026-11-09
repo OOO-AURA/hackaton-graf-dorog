@@ -176,3 +176,18 @@
 .od { border-collapse: collapse; font-size: 11.5px; }
 .od th, .od td { padding: 3px 6px; border: 1px solid var(--line); text-align: right; }
 .od th { color: var(--muted); font-weight: 600; }
+
+/* Micro: comparison with the baseline run and the selected road. */
+.kpi-delta { font-family: var(--font-mono); font-size: 11px; font-weight: 600; }
+.good { color: var(--green-text); }
+.bad { color: var(--red-text); }
+.compare .buttons { margin-top: var(--sp-2); }
+.changes { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.changes li { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.link { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.way-los-head { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.way-los-head strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.way-los .kpis { margin: 0; grid-template-columns: repeat(2, 1fr); }
+.way-los .kpis > div:nth-child(n + 3) { border-top: 1px solid var(--line); }
+.way-los .kpis > div:not(:nth-child(3n + 1)) { border-left: 0; }
+.way-los .kpis > div:nth-child(2n) { border-left: 1px solid var(--line); }

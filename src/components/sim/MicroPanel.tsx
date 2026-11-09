@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 import { downloadText } from '../../platform';
 import { levelOfService, series, simEnd, SPEED_BANDS, useSim } from '../../sim/store';
+import { LOS_COLORS, SIGNAL_COLORS, statsByWay } from '../../sim/overlay';
+import type { SimResult } from '../../sim/types';
+import { currentSelection, useEditor } from '../../state/store';
 
 const TYPE_LABELS: Readonly<Record<string, string>> = {
   car: 'Легковой, 4,5 м', van: 'Фургон до 3,5 т, 5,5 м', truck: 'Грузовой, 9 м', trailer: 'Автопоезд, 16,5 м', bus: 'Автобус, 12 м', bus18: 'Автобус, 18 м',
@@ -25,8 +28,58 @@ function Chart({ points, value, label, unit, time, end }: { points: Array<{ t: n
   );
 }
 
+const DEMAND_LABEL = { random: 'случайные поездки', od: 'матрица из макромодели' } as const;
+
+/** One KPI with its change against the baseline; `better` says which sign is good. */
+function Kpi({ value, base, label, digits = 1, better }: { value: number; base?: number; label: string; digits?: number; better: 'up' | 'down' }) {
+  const delta = base === undefined ? null : value - base;
+  const good = delta !== null && (better === 'up' ? delta > 0 : delta < 0);
+  const shown = delta !== null && Math.abs(delta) >= 10 ** -digits / 2;
+  return (
+    <div>
+      <span className="kpi">{value.toFixed(digits)}</span>
+      <span className="micro">{label}</span>
+      {shown && <span className={`kpi-delta ${good ? 'good' : 'bad'}`}>{delta > 0 ? '+' : '−'}{Math.abs(delta).toFixed(digits)}</span>}
+    </div>
+  );
+}
+
+/** Ways whose delay changed most against the baseline. */
+function wayChanges(result: SimResult, baseline: SimResult) {
+  const before = statsByWay(baseline);
+  return result.ways
+    .map((w) => ({ w, d: w.delay_s - (before.get(w.way)?.delay_s ?? w.delay_s) }))
+    .filter((x) => Math.abs(x.d) >= 1)
+    .sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+}
+
+function SelectedWay({ result, baseline }: { result: SimResult; baseline: SimResult | null }) {
+  const doc = useEditor((s) => s.doc);
+  const sel = useEditor((s) => currentSelection(s));
+  if (sel?.type !== 'way') return <p className="hint">Кликните дорогу на карте, чтобы увидеть её задержку, скорость и уровень обслуживания.</p>;
+  const st = statsByWay(result).get(sel.id);
+  const name = doc.ways[sel.id]?.tags.name || `way ${sel.id}`;
+  if (!st) return <p className="hint">{name}: за прогон по этой дороге никто не проехал.</p>;
+  const base = baseline ? statsByWay(baseline).get(sel.id) : undefined;
+  const los = levelOfService(st.delay_s);
+  return (
+    <div className="way-los">
+      <div className="way-los-head"><i className="swatch-dot" style={{ background: LOS_COLORS[los] }} /><strong>{name}</strong><span className="mono">LOS {los}</span></div>
+      <div className="kpis">
+        <Kpi value={st.entered} base={base?.entered} label="Проехало ТС" digits={0} better="up" />
+        <Kpi value={st.speed_kmh} base={base?.speed_kmh} label="Скорость, км/ч" better="up" />
+        <Kpi value={st.delay_s} base={base?.delay_s} label="Задержка, с" better="down" />
+        <Kpi value={st.waiting_s} base={base?.waiting_s} label="Стоянка, с" better="down" />
+      </div>
+    </div>
+  );
+}
+
 export function MicroPanel() {
-  const { result, time, running, error } = useSim();
+  const { result, time, running, error, baseline, keepBaseline, dropBaseline } = useSim();
+  const select = useEditor((s) => s.select);
+  const b = baseline && baseline !== result ? baseline : null;
+  const changes = useMemo(() => (result && b ? wayChanges(result, b) : []), [result, b]);
   const data = useMemo(() => (result ? series(result) : []), [result]);
   const end = simEnd(result);
   const now = data.find((p) => p.t >= time) ?? data[data.length - 1];
@@ -44,7 +97,7 @@ export function MicroPanel() {
         <div className="insp-empty">
           <div className="insp-empty-mark" aria-hidden="true" />
           <p>{running ? 'Считаю модель…' : 'Модели ещё нет'}</p>
-          <p className="hint">{error ?? 'Кнопка «Запустить SUMO» на карте строит сеть из текущего графа через netconvert, пускает случайные поездки смешанного потока и проигрывает движение машин.'}</p>
+          <p className="hint">{error ?? 'Кнопка «Запустить SUMO» строит сеть из текущего графа через netconvert, пускает смешанный поток и проигрывает движение машин. Спрос «Из макромодели» берёт матрицу корреспонденций из «Потоков», так что оба уровня считают одни и те же поездки.'}</p>
         </div>
       )}
       {result && (
@@ -53,16 +106,34 @@ export function MicroPanel() {
             <span className="los-letter">{levelOfService(result.mean_time_loss_s)}</span>
             <div>
               <span className="micro">Уровень обслуживания</span>
-              <p className="hint">По HCM, средняя задержка {result.mean_time_loss_s.toFixed(1)} с на поездку</p>
+              <p className="hint">По HCM, средняя задержка {result.mean_time_loss_s.toFixed(1)} с на поездку. Спрос: {DEMAND_LABEL[result.demand]}, {result.trips} поездок.</p>
             </div>
           </section>
           <div className="kpis">
-            <div><span className="kpi">{result.vehicles}</span><span className="micro">ТС выпущено</span></div>
-            <div><span className="kpi">{result.mean_speed_kmh.toFixed(1)}</span><span className="micro">Скорость, км/ч</span></div>
-            <div><span className="kpi">{result.mean_waiting_s.toFixed(1)}</span><span className="micro">Ожидание, с</span></div>
-            <div><span className="kpi">{(result.mean_duration_s / 60).toFixed(1)}</span><span className="micro">В пути, мин</span></div>
-            <div><span className="kpi">{result.traffic_lights}</span><span className="micro">Светофоров</span></div>
-            <div><span className="kpi">{result.teleports}</span><span className="micro">Телепортаций</span></div>
+            <Kpi value={result.vehicles} base={b?.vehicles} label="ТС выпущено" digits={0} better="up" />
+            <Kpi value={result.mean_speed_kmh} base={b?.mean_speed_kmh} label="Скорость, км/ч" better="up" />
+            <Kpi value={result.mean_waiting_s} base={b?.mean_waiting_s} label="Ожидание, с" better="down" />
+            <Kpi value={result.mean_time_loss_s} base={b?.mean_time_loss_s} label="Задержка, с" better="down" />
+            <Kpi value={result.mean_duration_s / 60} base={b ? b.mean_duration_s / 60 : undefined} label="В пути, мин" better="down" />
+            <Kpi value={result.teleports} base={b?.teleports} label="Телепортаций" digits={0} better="down" />
+          </div>
+          <div className="section-body compare">
+            <span className="micro">Сравнение до и после</span>
+            {!baseline && <p className="hint">Запомните этот прогон, поправьте граф и пересчитайте: здесь появится разница по сети и по каждой дороге.</p>}
+            {b && (changes.length
+              ? <ul className="changes">{changes.slice(0, 6).map(({ w, d }) => (
+                <li key={w.way}><button className="link" onClick={() => select({ type: 'way', id: w.way })}>{useEditor.getState().doc.ways[w.way]?.tags.name || `way ${w.way}`}</button>
+                  <span className={`mono ${d < 0 ? 'good' : 'bad'}`}>{d > 0 ? '+' : '−'}{Math.abs(d).toFixed(0)} с</span></li>))}</ul>
+              : <p className="hint">Задержки на дорогах почти не изменились.</p>)}
+            {baseline === result && <p className="hint">Это базовый прогон. Внесите правку и нажмите «Пересчитать».</p>}
+            <div className="buttons">
+              <button className="btn" onClick={keepBaseline} disabled={baseline === result}>{baseline ? 'Сделать базовым' : 'Запомнить как базовый'}</button>
+              {baseline && <button className="btn" onClick={dropBaseline}>Сбросить</button>}
+            </div>
+          </div>
+          <div className="section-body">
+            <span className="micro">Выбранная дорога</span>
+            <SelectedWay result={result} baseline={b} />
           </div>
           <div className="section-body charts">
             <Chart points={data.map((p) => ({ t: p.t, y: p.n }))} value={now?.n ?? 0} label="ТС в сети" unit="" time={time} end={end} />
@@ -71,6 +142,12 @@ export function MicroPanel() {
           <div className="section-body">
             <span className="micro">Скорость машин</span>
             <ul className="legend">{SPEED_BANDS.map((b) => <li key={b.label}><i className="swatch-dot" style={{ background: b.color }} />{b.label}</li>)}</ul>
+            <span className="micro">Дороги по уровню обслуживания</span>
+            <ul className="legend">{(['A', 'C', 'D', 'E'] as const).map((l, i) => <li key={l}><i className="swatch-dot" style={{ background: LOS_COLORS[l] }} />{['A–B, свободно', 'C, устойчиво', 'D, плотно', 'E–F, затор'][i]}</li>)}</ul>
+            {result.signals.length > 0 && <>
+              <span className="micro">Сигналы светофоров</span>
+              <ul className="legend">{(['green', 'yellow', 'red'] as const).map((c, i) => <li key={c}><i className="swatch-dot" style={{ background: SIGNAL_COLORS[c] }} />{['зелёный', 'жёлтый', 'красный'][i]}</li>)}</ul>
+            </>}
             <span className="micro">Типы ТС в потоке</span>
             <ul className="legend">{result.types.map((t) => <li key={t}>{TYPE_LABELS[t] ?? t}</li>)}</ul>
             <button className="btn" onClick={exportCsv}>Экспорт CSV</button>
