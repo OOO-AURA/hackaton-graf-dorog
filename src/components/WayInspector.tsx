@@ -8,6 +8,7 @@ import { TagTable } from './TagTable';
 import { Section } from './Section';
 import { Icon } from './icons';
 import { LaneStrip } from './LaneStrip';
+import { capacity, normTags, roadProfile } from '../osm/profile';
 
 const HIGHWAY_LABELS: Readonly<Record<string, string>> = {
   motorway: 'Автомагистраль', trunk: 'Скоростная', primary: 'Магистральная', secondary: 'Районная', tertiary: 'Улица местного значения',
@@ -19,6 +20,9 @@ const HIGHWAY_LABELS: Readonly<Record<string, string>> = {
 const ONEWAY_OPTIONS = [['', 'Двустороннее'], ['yes', 'Одностороннее →'], ['-1', 'Одностороннее ←']] as const;
 const STRUCTURE_OPTIONS = [['none', 'Обычная'], ['bridge', 'Мост'], ['tunnel', 'Тоннель']] as const;
 const SURFACE_OPTIONS = [['asphalt', 'Асфальт'], ['concrete', 'Бетон'], ['paving_stones', 'Плитка'], ['gravel', 'Гравий'], ['unpaved', 'Грунт']] as const;
+
+const ACCESS_OPTIONS = [['', 'Без ограничений'], ['no', 'Запрещено'], ['destination', 'Только к месту назначения']] as const;
+const BUS_OPTIONS = [['', 'Нет'], ['yes', 'Одна полоса']] as const;
 
 function structureTags(tags: Tags, kind: string): Tags {
   const cleared = withTag(withTag(withTag(tags, 'bridge', null), 'tunnel', null), 'layer', null);
@@ -32,6 +36,7 @@ export function WayInspector({ way }: { way: OsmWay }) {
   const t = way.tags;
   const set = (key: string) => (value: string) => apply((d) => setWayTag(d, way.id, key, value || null));
   const dir = direction(t);
+  const profile = roadProfile(t);
   const structure = t.bridge && t.bridge !== 'no' ? 'bridge' : t.tunnel && t.tunnel !== 'no' ? 'tunnel' : 'none';
 
   return (
@@ -61,6 +66,30 @@ export function WayInspector({ way }: { way: OsmWay }) {
         <div className="buttons">
           <button className="btn" onClick={flipSelected} disabled={dir === 'both'} title="F"><Icon name="flip" /> Сменить направление <kbd>F</kbd></button>
           <button className="btn" onClick={reverseSelected} title="R"><Icon name="reverse" /> Развернуть линию <kbd>R</kbd></button>
+        </div>
+      </Section>
+      {profile && (
+        <Section title="Профиль по СП">
+          <dl className="facts">
+            <dt>Категория</dt><dd>{profile.category}</dd>
+            <dt>Ширина полосы</dt><dd className="mono">{profile.laneWidth} м</dd>
+            <dt>Расчётная скорость</dt><dd className="mono">{profile.designSpeed} км/ч</dd>
+            <dt>Пропускная способность</dt><dd className="mono">{capacity(t)} авт/ч в направлении</dd>
+          </dl>
+          <p className="hint">СП 42.13330.2016 для улиц, СП 34.13330.2021 для дорог. Кнопка заполнит ширину и ограничение скорости, если их нет.</p>
+          <div className="buttons">
+            <button className="btn" disabled={!!t.width && !!t.maxspeed} onClick={() => apply((d) => setWayTags(d, way.id, normTags(t)))}>Привести к норме</button>
+          </div>
+        </Section>
+      )}
+      <Section title="Ограничения" open={false}>
+        <div className="row">
+          <TextField label="Масса, т" type="number" value={t.maxweight ?? ''} onCommit={set('maxweight')} placeholder="—" />
+          <TextField label="Высота, м" type="number" value={t.maxheight ?? ''} onCommit={set('maxheight')} placeholder="—" />
+        </div>
+        <div className="row">
+          <SelectField label="Грузовикам" value={t.hgv ?? ''} options={ACCESS_OPTIONS} onChange={set('hgv')} />
+          <SelectField label="Автобусная полоса" value={t['lanes:bus'] ? 'yes' : ''} options={BUS_OPTIONS} onChange={(v) => apply((d) => setWayTag(d, way.id, 'lanes:bus', v ? '1' : null))} />
         </div>
       </Section>
       <Section title="Сооружение">
