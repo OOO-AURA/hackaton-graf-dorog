@@ -25,6 +25,14 @@ async fn check_osm(app: tauri::AppHandle, text: String) -> Result<check::Report,
         .map_err(|e| e.to_string())?
 }
 
+/// Exports the graph as a SUMO network through netconvert.
+#[tauri::command]
+async fn export_sumo(path: PathBuf, text: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || sim::export_net(&text, &path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// Micro level: SUMO run on the current graph, played back in the app.
 #[tauri::command]
 async fn simulate(text: String, minutes: u32, demand: Option<sim::Demand>) -> Result<sim::SimResult, String> {
@@ -44,7 +52,7 @@ pub fn run() {
     use tauri::{Emitter, Manager};
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![read_osm, write_osm, check_osm, simulate, quit_app])
+        .invoke_handler(tauri::generate_handler![read_osm, write_osm, check_osm, simulate, export_sumo, quit_app])
         .build(tauri::generate_context!())
         .expect("error while building application")
         .run(|app, event| {

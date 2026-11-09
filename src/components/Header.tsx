@@ -3,6 +3,7 @@ import { BROWSER_FILE_INPUT, openFile, saveOsm } from '../state/actions';
 import { isDesktop } from '../platform';
 import { useUi, type Workspace } from '../state/ui';
 import { CheckButton } from './CheckPanel';
+import { ExportMenu } from './ExportMenu';
 import { openBrowserFile, openExample } from './fileActions';
 import { Icon } from './icons';
 import { Petals } from './EmptyState';
@@ -74,6 +75,7 @@ export function Header() {
       <div className="header-right">
         <ThemeToggle />
         <CheckButton />
+        <ExportMenu disabled={empty} />
         <div className="save-box">
           <input className="mono" value={saveName} onChange={(e) => setSaveName(e.target.value)} title="Имя файла. Сервер проверки ждёт имя команды" aria-label="Имя файла" spellCheck={false} />
           <button className="btn btn-ink" onClick={() => void saveOsm()} disabled={empty} title="⌘S, сохранить как ⌘⇧S"><Icon name="save" /> Сохранить</button>

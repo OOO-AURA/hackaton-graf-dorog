@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { downloadText } from '../../platform';
+import { saveTextFile } from '../../platform';
 import { levelOfService, series, simEnd, SPEED_BANDS, useSim } from '../../sim/store';
 import { LOS_COLORS, SIGNAL_COLORS, statsByWay } from '../../sim/overlay';
 import type { SimResult } from '../../sim/types';
@@ -87,7 +87,7 @@ export function MicroPanel() {
   const exportCsv = () => {
     if (!result) return;
     const rows = ['time_s,vehicles,mean_speed_kmh', ...data.map((p) => `${p.t},${p.n},${p.kmh.toFixed(1)}`)];
-    downloadText(rows.join('\n'), 'hack-team10-sim.csv');
+    void saveTextFile(rows.join('\n'), 'hack-team10-sim.csv', 'CSV', 'csv');
   };
 
   return (

@@ -41,11 +41,30 @@ export async function saveOsmFile(text: string, suggestedName: string, path: str
 
 export { baseName };
 
+/** Saves any text file: a native dialog in the app, a download in the browser. Returns false on cancel. */
+export async function saveTextFile(text: string, fileName: string, label: string, ext: string): Promise<boolean> {
+  if (!isDesktop) { downloadText(text, fileName); return true; }
+  const { save } = await import('@tauri-apps/plugin-dialog');
+  const path = await save({ defaultPath: fileName, filters: [{ name: label, extensions: [ext] }] });
+  if (!path) return false;
+  await invoke('write_osm', { path, text });
+  return true;
+}
+
+/** Builds a SUMO network with netconvert next to where the user chooses. Desktop only. */
+export async function exportSumoNet(osmText: string, fileName: string): Promise<boolean> {
+  const { save } = await import('@tauri-apps/plugin-dialog');
+  const path = await save({ defaultPath: fileName, filters: [{ name: 'SUMO network', extensions: ['xml'] }] });
+  if (!path) return false;
+  await invoke('export_sumo', { path, text: osmText });
+  return true;
+}
+
 export function downloadText(text: string, fileName: string): void {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/xml' }));
   const a = document.createElement('a');
   a.href = url;
-  a.download = fileName.endsWith('.osm') ? fileName : `${fileName}.osm`;
+  a.download = /\.[a-z0-9]+$/i.test(fileName) ? fileName : `${fileName}.osm`;
   a.click();
   URL.revokeObjectURL(url);
 }

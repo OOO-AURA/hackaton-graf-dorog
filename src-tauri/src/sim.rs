@@ -215,12 +215,27 @@ struct ZoneEdges {
     to: Option<String>,
 }
 
+const NETCONVERT_ARGS: &[&str] = &["--geometry.remove", "--ramps.guess", "--junctions.join", "--tls.guess-signals", "--tls.discard-simple",
+    "--tls.join", "--tls.default-type", "actuated", "--roundabouts.guess"];
+
+/// Writes the SUMO network of the graph to `target`, with the same options the micro run uses.
+pub fn export_net(osm_text: &str, target: &Path) -> Result<(), String> {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+    let dir = env::temp_dir().join(format!("graf-dorog-net-{stamp}"));
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let osm = dir.join("map.osm");
+    fs::write(&osm, osm_text).map_err(|e| e.to_string())?;
+    let result = run(Command::new(sumo_bin("netconvert")).arg("--osm-files").arg(&osm).arg("-o").arg(target).args(NETCONVERT_ARGS))
+        .map_err(|e| format!("{e}. Установите SUMO или задайте GRAF_SUMO_BIN."))
+        .and_then(|(out, log)| if out.status.success() && target.exists() { Ok(()) } else { Err(format!("netconvert не собрал сеть:\n{}", tail(&log, 15))) });
+    let _ = fs::remove_dir_all(&dir);
+    result
+}
+
 fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>) -> Result<SimResult, String> {
     let net = dir.join("map.net.xml");
     let (out, log) = run(Command::new(sumo_bin("netconvert"))
-        .arg("--osm-files").arg(osm).arg("-o").arg(&net)
-        .args(["--geometry.remove", "--ramps.guess", "--junctions.join", "--tls.guess-signals", "--tls.discard-simple",
-            "--tls.join", "--tls.default-type", "actuated", "--roundabouts.guess"]))
+        .arg("--osm-files").arg(osm).arg("-o").arg(&net).args(NETCONVERT_ARGS))
         .map_err(|e| format!("{e}. Установите SUMO или задайте GRAF_SUMO_BIN."))?;
     if !out.status.success() || !net.exists() {
         return Err(format!("netconvert не собрал сеть:\n{}", tail(&log, 15)));
