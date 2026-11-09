@@ -4,7 +4,7 @@ import { roadColorExpression, type MapPalette } from './palette';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'bridges3d'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'bridges3d', 'turns'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
 export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'], buildings: ['buildings', 'buildings-3d'] } as const;
@@ -142,6 +142,8 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   map.addLayer({ id: 'crossings', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['==', ['get', 'symbol'], 'crossing'], layout: signLayout(1) });
   map.addLayer({ id: 'signs', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['in', ['get', 'symbol'], ['literal', ['bump']]], layout: signLayout(1) });
   map.addLayer({ id: 'signals', type: 'circle', source: 'nodes', minzoom: 13, filter: ['==', ['get', 'kind'], 'signal'], paint: { 'circle-radius': 6, 'circle-stroke-width': 2 } });
+  // Junctions with turn bans: a dashed-looking double ring around the node.
+  map.addLayer({ id: 'turn-bans', type: 'circle', source: 'turns', minzoom: 14, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 6, 18, 13], 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 2.5, 'circle-stroke-opacity': 0.9 } });
   map.addLayer({ id: 'selection-node', type: 'circle', source: 'selection', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 10, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 3 } });
   map.addLayer({ id: 'issues-halo', type: 'circle', source: 'issues', filter: ['any', ['get', 'focused'], ['!=', ['get', 'kind'], 'cordon']], paint: { 'circle-radius': ['case', ['get', 'focused'], 22, 13], 'circle-opacity': 0.18, 'circle-blur': 0.4 } });
   map.addLayer({ id: 'issues', type: 'circle', source: 'issues', paint: {
@@ -207,6 +209,7 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
   set('signals', 'circle-color', p.signal);
   set('signals', 'circle-stroke-color', p.nodeStroke);
   set('selection-node', 'circle-stroke-color', p.selection);
+  set('turn-bans', 'circle-stroke-color', p.error);
   set('issues-halo', 'circle-color', issueColor);
   set('issues', 'circle-stroke-color', issueColor);
   set('draw-line', 'line-color', p.draw);

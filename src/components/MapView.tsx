@@ -66,6 +66,13 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     setData(map, 'roads', roadsGeoJson(doc));
   }, [map, doc]);
 
+  useEffect(() => {
+    if (!map) return;
+    const via = new Set(Object.values(doc.relations).filter((r) => r.tags.type === 'restriction')
+      .map((r) => r.members.find((m) => m.role === 'via' && m.type === 'node')?.ref).filter((id): id is string => Boolean(id && doc.nodes[id])));
+    setData(map, 'turns', { type: 'FeatureCollection', features: [...via].map((id) => ({ type: 'Feature', properties: { id }, geometry: { type: 'Point', coordinates: [doc.nodes[id].lon, doc.nodes[id].lat] } })) });
+  }, [map, doc]);
+
   const view3d = useUi((s) => s.view3d);
   useEffect(() => {
     // Decks and ramps are only drawn in 3D, so they are not rebuilt on every edit in 2D.
