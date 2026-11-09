@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { useEditor, type Mode } from './store';
-import { deleteSelection, finishDrawing, flipSelected, reverseSelected, splitAtSelected, toggleSignalSelected } from './actions';
+import { deleteSelection, openFile, saveOsm, finishDrawing, flipSelected, reverseSelected, splitAtSelected, toggleSignalSelected } from './actions';
 
 const MODE_KEYS: Readonly<Record<string, Mode>> = { v: 'select', d: 'draw', n: 'insert', t: 'signal' };
 
@@ -15,16 +15,29 @@ export const HOTKEYS: ReadonlyArray<[string, string]> = [
   ['S', 'Светофор в выбранном узле'],
   ['X', 'Разрезать дороги в выбранном узле'],
   ['Delete / Backspace', 'Удалить выбранное'],
-  ['Ctrl+Z / Ctrl+Shift+Z', 'Отменить / Повторить'],
+  ['⌘/Ctrl+Z, ⌘/Ctrl+Shift+Z', 'Отменить / Повторить'],
+  ['⌘/Ctrl+O', 'Открыть файл'],
+  ['⌘/Ctrl+S, ⌘/Ctrl+Shift+S', 'Сохранить / Сохранить как'],
 ];
 
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable);
 
+/** Letter and digit keys by position, so shortcuts work in the Russian layout too. */
+function physicalKey(e: KeyboardEvent): string {
+  if (/^Key[A-Z]$/.test(e.code)) return e.code.slice(3).toLowerCase();
+  if (/^Digit[0-9]$/.test(e.code)) return e.code.slice(5);
+  return e.key.toLowerCase();
+}
+
 function handleKey(e: KeyboardEvent): void {
+  const key = physicalKey(e);
+  const mod = e.ctrlKey || e.metaKey;
+  // File shortcuts work even while typing in a field.
+  if (mod && key === 's') { e.preventDefault(); void saveOsm(e.shiftKey); return; }
+  if (mod && key === 'o') { e.preventDefault(); void openFile(); return; }
   if (isTyping(e.target)) return;
   const s = useEditor.getState();
-  const key = e.key.toLowerCase();
   if ((e.ctrlKey || e.metaKey) && key === 'z') { e.preventDefault(); if (e.shiftKey) s.redo(); else s.undo(); return; }
   if ((e.ctrlKey || e.metaKey) && key === 'y') { e.preventDefault(); s.redo(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
