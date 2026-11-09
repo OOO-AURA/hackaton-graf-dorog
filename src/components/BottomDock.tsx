@@ -8,6 +8,7 @@ import { FlowsPanel } from './FlowsPanel';
 import { ScenariosPanel } from './ScenariosPanel';
 import { TransitPanel } from './TransitPanel';
 import { Icon } from './icons';
+import { Why } from './Why';
 import { useScenarios } from '../scenarios/store';
 
 function Badge({ tab }: { tab: BottomTab }) {
@@ -45,11 +46,12 @@ export function BottomDock() {
     <section className={`dock${open ? ' open' : ''}`} aria-label="Нижняя панель">
       <div className="dock-tabs" role="tablist">
         {TABS.map(([id, label]) => (
-          <button key={id} role="tab" aria-selected={open && tab === id} className={open && tab === id ? 'on' : ''}
+          <button key={id} role="tab" data-tour={`${id}-tab`} aria-selected={open && tab === id} className={open && tab === id ? 'on' : ''}
             onClick={() => (open && tab === id ? toggle() : openBottom(id))}>
             {label}{id === 'scenarios' && scenarios > 0 && <span className="mono count">{scenarios}</span>}{id === 'journal' && edits > 0 && <span className="mono count">{edits}</span>}<Badge tab={id} />
           </button>
         ))}
+        {open && <Why key={tab} id={tab} />}
         <button className="icon-btn dock-toggle" onClick={toggle} aria-label={open ? 'Свернуть панель' : 'Развернуть панель'} aria-expanded={open}>
           <Icon name="chevron" style={{ transform: open ? 'none' : 'rotate(180deg)' }} />
         </button>

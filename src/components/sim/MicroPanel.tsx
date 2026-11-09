@@ -2,6 +2,7 @@ import { ROAD_CLASSES } from '../../map/palette';
 import { useEffect, useMemo } from 'react';
 import { DelayHeatmap } from './DelayHeatmap';
 import { SumoMissing } from './SumoMissing';
+import { Why } from '../Why';
 import { useUi } from '../../state/ui';
 import { saveTextFile } from '../../platform';
 import { checkSumo, levelOfService, series, simEnd, SPEED_BANDS, useSim } from '../../sim/store';
@@ -132,7 +133,7 @@ export function MicroPanel() {
 
   return (
     <aside className="panel inspector-panel micro-panel" aria-label="Микросимуляция">
-      <div className="panel-title micro">Микросимуляция · SUMO</div>
+      <div className="panel-title micro"><span>Микросимуляция · SUMO</span><Why id="micro" /></div>
       {sumo && !sumo.ok && <SumoMissing status={sumo} />}
       {!result && !(sumo && !sumo.ok) && (
         <div className="insp-empty">

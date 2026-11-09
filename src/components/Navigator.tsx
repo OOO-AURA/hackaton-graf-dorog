@@ -6,6 +6,7 @@ import { useUi } from '../state/ui';
 import { MAP_PALETTE, ROAD_CLASSES } from '../map/palette';
 import { Icon } from './icons';
 import { VirtualList } from './VirtualList';
+import { Why } from './Why';
 import { TOOLS } from './tools';
 import { NODE_FEATURES } from '../map/features';
 
@@ -36,7 +37,7 @@ function Tools() {
   const hint = TOOLS.find((t) => t.mode === mode)?.hint;
   return (
     <section className="nav-section">
-      <h2 className="micro">Инструменты</h2>
+      <div className="nav-head"><h2 className="micro">Инструменты</h2><Why id="navigator" /></div>
       <div className="tool-grid">
         {TOOLS.map((t) => (
           <button key={t.mode} className={`tool-tile${mode === t.mode ? ' on' : ''}`} onClick={() => setMode(t.mode)} aria-pressed={mode === t.mode}>

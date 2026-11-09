@@ -2,6 +2,7 @@ import { currentSelection, useEditor } from '../state/store';
 import { HOTKEYS } from '../state/useHotkeys';
 import { WayInspector } from './WayInspector';
 import { NodeInspector } from './NodeInspector';
+import { Why } from './Why';
 
 function Nothing() {
   return (
@@ -21,8 +22,8 @@ export function Inspector() {
   const doc = useEditor((s) => s.doc);
   const selection = useEditor((s) => currentSelection(s));
   return (
-    <aside className="panel inspector-panel" aria-label="Инспектор">
-      <div className="panel-title micro">Инспектор</div>
+    <aside className="panel inspector-panel" aria-label="Инспектор" data-tour="inspector">
+      <div className="panel-title micro"><span>Инспектор</span><Why id="inspector" /></div>
       <div key={selection ? `${selection.type}${selection.id}` : 'none'} className="insp-swap">
         {selection?.type === 'way' && <WayInspector way={doc.ways[selection.id]} />}
         {selection?.type === 'node' && <NodeInspector node={doc.nodes[selection.id]} />}

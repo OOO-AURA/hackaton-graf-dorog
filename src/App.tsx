@@ -8,6 +8,7 @@ import { MicroPanel } from './components/sim/MicroPanel';
 import { useEditor } from './state/store';
 import { refreshReport } from './state/validation';
 import { startAutosave } from './state/draft';
+import { Tour } from './components/Tour';
 import { useUi } from './state/ui';
 import { useHotkeys } from './state/useHotkeys';
 import { useCloseGuard } from './state/useCloseGuard';
@@ -67,6 +68,7 @@ export function App() {
       {workspace === 'micro' ? <MicroPanel /> : <Inspector />}
       <BottomDock />
       <Toast />
+      <Tour />
     </div>
   );
 }

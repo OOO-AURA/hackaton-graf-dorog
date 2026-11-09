@@ -270,3 +270,28 @@
 .sumo-missing pre { margin: 0; padding: 8px; background: var(--paper); border-radius: var(--r-sm); font-size: 11px; white-space: pre; overflow-x: auto; user-select: text; }
 .sumo-missing code { font-size: 11px; user-select: text; }
 .sumo-missing .btn { justify-self: start; }
+
+/* «Зачем» explanations */
+.panel-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.nav-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.nav-head h2 { margin: 0; }
+.why { position: relative; flex: none; }
+.why summary { list-style: none; cursor: pointer; font-family: var(--font-body); font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink-2); padding: 2px 7px; border: 1px solid var(--line-strong); border-radius: 999px; }
+.why summary::-webkit-details-marker { display: none; }
+.why summary:hover, .why[open] summary { color: var(--ink); background: var(--hover); }
+.why-body { position: absolute; top: calc(100% + 6px); z-index: 30; width: min(300px, 80vw); margin: 0; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-sm); box-shadow: 0 8px 24px rgba(27, 17, 10, 0.16); font-family: var(--font-body); font-size: 12.5px; font-weight: 400; line-height: 1.45; letter-spacing: 0; text-transform: none; color: var(--ink); user-select: text; }
+.why-end .why-body { right: 0; }
+.why-start .why-body { left: 0; }
+.dock-tabs .why { margin-left: auto; align-self: center; }
+.dock-tabs .why + .dock-toggle { margin-left: 8px; }
+
+/* First-run tour */
+.tour { position: fixed; z-index: 60; padding: 12px 14px; background: var(--panel); border: 1.5px solid var(--ink); border-radius: var(--r-md); box-shadow: 4px 4px 0 var(--ink); font-size: var(--fs-sm); color: var(--ink); animation: rise 220ms var(--ease-out); }
+.tour p { margin: 0 0 8px; line-height: 1.45; }
+.tour .micro { color: var(--ink-2); margin-bottom: 4px; }
+.tour-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.tour::after { content: ''; position: absolute; width: 10px; height: 10px; background: var(--panel); border: 1.5px solid var(--ink); transform: rotate(45deg); }
+.tour-left::after { right: -7px; top: 22px; border-left: 0; border-bottom: 0; }
+.tour-top::after { bottom: -7px; left: 24px; border-left: 0; border-top: 0; }
+.tour-bottom::after { top: -7px; left: calc(50% - 5px); border-right: 0; border-bottom: 0; }
+.navigator .why-body { width: 200px; }

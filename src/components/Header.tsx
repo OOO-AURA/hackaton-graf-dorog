@@ -68,7 +68,7 @@ export function Header() {
 
       <nav className="workspaces" aria-label="Уровень модели">
         {WORKSPACES.map(([id, label, hint]) => (
-          <button key={id} className={workspace === id ? 'on' : ''} aria-current={workspace === id ? 'page' : undefined} onClick={() => setWorkspace(id)} title={hint}>{label}</button>
+          <button key={id} data-tour={`${id}-toggle`} className={workspace === id ? 'on' : ''} aria-current={workspace === id ? 'page' : undefined} onClick={() => setWorkspace(id)} title={hint}>{label}</button>
         ))}
       </nav>
 
