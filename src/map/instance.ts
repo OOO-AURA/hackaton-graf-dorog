@@ -20,3 +20,10 @@ export function mapSnapshot(): Promise<string | null> {
     map.triggerRepaint();
   });
 }
+
+/** Visible map area as [south, west, north, east]; null before the map is ready. */
+export function mapViewBbox(): [number, number, number, number] | null {
+  if (!current) return null;
+  const b = current.getBounds();
+  return [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
+}

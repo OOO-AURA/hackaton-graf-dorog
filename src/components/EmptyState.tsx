@@ -3,6 +3,7 @@ import { dropDraft, restoreDraft, useDraft } from '../state/draft';
 import { useUi } from '../state/ui';
 import { openExample } from './fileActions';
 import { Icon } from './icons';
+import { AreaMenu } from './AreaMenu';
 
 const STEPS = ['Открыть .osm', 'Править граф', 'Проверить', 'Сохранить'] as const;
 
@@ -65,6 +66,7 @@ export function EmptyState() {
           <div className="empty-actions">
             <button className="btn btn-ink btn-lg" onClick={() => void openFile()}><Icon name="open" /> Открыть .osm <kbd>⌘O</kbd></button>
             <button className="btn btn-lg" onClick={() => void openExample()}>Пример из задания</button>
+            <AreaMenu align="left" />
           </div>
           <ol className="spec">
             {STEPS.map((s, i) => <li key={s}><span className="box" aria-hidden="true" />{String(i + 1).padStart(2, '0')} {s}</li>)}

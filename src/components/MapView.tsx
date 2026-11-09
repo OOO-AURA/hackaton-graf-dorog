@@ -16,6 +16,7 @@ import { useZoneEditing } from '../macro/useZoneEditing';
 import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson } from '../map/geojson';
 import { useMapInteractions } from '../map/useMapInteractions';
 import { currentSelection, useEditor } from '../state/store';
+import { streetWays } from '../osm/street';
 import type { OsmDoc } from '../osm/types';
 
 const IRKUTSK_CENTER: [number, number] = [104.262, 52.26];
@@ -27,8 +28,13 @@ const setData = (map: MapLibreMap, id: SourceId, data: unknown) => {
   if (alive(map)) (map.getSource(id) as GeoJSONSource | undefined)?.setData(data as never);
 };
 
+const wayLine = (doc: OsmDoc, id: string) => ({
+  type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: doc.ways[id].refs.map((r) => [doc.nodes[r].lon, doc.nodes[r].lat]) },
+});
+
 function selectionGeoJson(doc: OsmDoc, sel: ReturnType<typeof currentSelection>) {
   if (!sel) return { type: 'FeatureCollection', features: [] };
+  if (sel.type === 'street') return { type: 'FeatureCollection', features: streetWays(doc, sel.id).map((w) => wayLine(doc, w.id)) };
   const geometry = sel.type === 'node'
     ? { type: 'Point', coordinates: [doc.nodes[sel.id].lon, doc.nodes[sel.id].lat] }
     : { type: 'LineString', coordinates: doc.ways[sel.id].refs.map((r) => [doc.nodes[r].lon, doc.nodes[r].lat]) };

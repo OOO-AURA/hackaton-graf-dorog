@@ -95,7 +95,7 @@ function Objects() {
   const found = q ? streets.filter((s) => s.name.toLowerCase().includes(q)) : streets;
   const open = (s: Street) => {
     flyTo(s.bounds);
-    select({ type: 'way', id: s.wayIds[0] });
+    select(s.wayIds.length > 1 ? { type: 'street', id: s.name } : { type: 'way', id: s.wayIds[0] });
   };
   return (
     <section className="nav-section nav-objects">

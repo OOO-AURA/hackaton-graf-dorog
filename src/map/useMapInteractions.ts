@@ -5,7 +5,7 @@ import { useUi } from '../state/ui';
 import { featureById, toggleNodeFeature } from './features';
 import { useEditor } from '../state/store';
 import { finishDrawing } from '../state/actions';
-import { hitNode, hitWay } from './hit';
+import { hitBuilding, hitNode, hitWay } from './hit';
 import { zoneEditingActive } from '../macro/useZoneEditing';
 
 const DRAG_THRESHOLD_PX = 3;
@@ -17,9 +17,13 @@ function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
   const way = nodeId ? null : hitWay(map, s.doc, e.point);
 
   switch (s.mode) {
-    case 'select':
-      s.select(nodeId ? { type: 'node', id: nodeId } : way ? { type: 'way', id: way.wayId } : null);
+    case 'select': {
+      // Roads and nodes win over the building under them; a building is picked only on an empty spot.
+      const buildingId = nodeId || way ? null : hitBuilding(map, e.point);
+      const picked = nodeId ? { type: 'node' as const, id: nodeId } : way ? { type: 'way' as const, id: way.wayId } : buildingId ? { type: 'way' as const, id: buildingId } : null;
+      s.select(picked);
       return;
+    }
     case 'signal': {
       const feature = featureById(useUi.getState().featureKind);
       if (nodeId) { s.apply((d) => toggleNodeFeature(d, nodeId, feature)); s.select({ type: 'node', id: nodeId }); return; }

@@ -10,7 +10,7 @@ const nextFrame = () => new Promise<void>((resolve) => {
   setTimeout(resolve, 60);
 });
 
-async function withLoading(label: string, task: () => Promise<void> | void): Promise<void> {
+export async function withLoading(label: string, task: () => Promise<void> | void): Promise<void> {
   const { setLoading } = useUi.getState();
   setLoading(label);
   try {

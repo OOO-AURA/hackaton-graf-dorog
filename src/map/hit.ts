@@ -42,3 +42,11 @@ export function hitWay(map: MapLibreMap, doc: OsmDoc, point: { x: number; y: num
   }
   return best && { wayId: best.wayId, index: best.index, lon: best.lon, lat: best.lat };
 }
+
+/** Building under the cursor (2D fill or 3D extrusion), for the building inspector. */
+export function hitBuilding(map: MapLibreMap, point: { x: number; y: number }): string | null {
+  const layers = HIT_LAYERS.buildings.filter((id) => map.getLayer(id) && map.getLayoutProperty(id, 'visibility') !== 'none');
+  if (!layers.length) return null;
+  const f = map.queryRenderedFeatures([point.x, point.y], { layers });
+  return f.length ? String(f[0].properties?.id) : null;
+}

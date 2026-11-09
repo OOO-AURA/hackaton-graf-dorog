@@ -103,3 +103,10 @@
 .menu-list button:hover:not(:disabled), .menu-list button:focus-visible { background: var(--line); }
 .menu-list button:disabled { opacity: 0.5; cursor: default; }
 .menu-list span { font-size: 11.5px; color: var(--ink-soft, inherit); opacity: 0.75; }
+
+.area-menu.area-left .menu-list { left: 0; right: auto; transform-origin: top left; }
+.area-list { width: 320px; }
+.area-search { display: flex; gap: 6px; align-items: flex-end; padding: 6px 8px 8px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.area-search .btn { flex-shrink: 0; }
+.area-scope { display: flex; gap: 8px; align-items: flex-start; padding: 4px 10px 8px; font-size: 11.5px; }
+.area-scope input { margin-top: 2px; }
