@@ -1,9 +1,10 @@
+import { cordonEnds, reachable } from './cordon';
 import { largestGroup, strongComponents, weakComponents } from './components';
 import { haversine, projector, segmentIntersection, type LonLat } from './geo';
 import { directedArcs, drivableWays } from './roads';
 import type { OsmDoc, OsmWay } from './types';
 
-export type IssueKind = 'isolated' | 'trap' | 'crossing' | 'near-nodes';
+export type IssueKind = 'isolated' | 'trap' | 'cordon' | 'crossing' | 'near-nodes';
 
 export type IssueFix =
   | { type: 'connect'; a: { wayId: string; index: number }; b: { wayId: string; index: number }; at: LonLat }
@@ -44,22 +45,33 @@ function connectivityIssues(doc: OsmDoc, ways: OsmWay[], nodes: string[]): { iss
   const mainStrong = largestGroup(strong);
   const issues: Issue[] = [];
   const reported = new Set<string>();
+  // Dead ends caused by the fragment edge: traffic can still leave or enter through the cut road.
+  const mainNodes = nodes.filter((n) => strong.get(n) === mainStrong);
+  const toMain = reachable(ways, mainNodes, true);
+  const fromMain = reachable(ways, mainNodes);
+  const ends = cordonEnds(doc, ways);
+  const toExit = reachable(ways, ends.filter((e) => e.flow !== 'in').map((e) => e.nodeId), true);
+  const fromEntry = reachable(ways, ends.filter((e) => e.flow !== 'out').map((e) => e.nodeId));
+  const cutByEdge = (n: string) => (!toMain.has(n) && toExit.has(n)) || (!fromMain.has(n) && fromEntry.has(n));
 
   ways.forEach((w) => {
     const isolated = weak.get(w.refs[0]) !== mainWeak;
     const trapped = !isolated && w.refs.some((r) => strong.get(r) !== mainStrong);
     if (!isolated && !trapped) return;
-    const key = isolated ? `isolated:${weak.get(w.refs[0])}` : `trap:${w.id}`;
+    const cordon = trapped && w.refs.every((r) => strong.get(r) === mainStrong || cutByEdge(r));
+    const key = isolated ? `isolated:${weak.get(w.refs[0])}` : `${cordon ? 'cordon' : 'trap'}:${w.id}`;
     if (reported.has(key)) return;
     reported.add(key);
     const groupWays = isolated ? ways.filter((o) => weak.get(o.refs[0]) === weak.get(w.refs[0])).map((o) => o.id) : [w.id];
     issues.push({
       id: key,
-      kind: isolated ? 'isolated' : 'trap',
+      kind: isolated ? 'isolated' : cordon ? 'cordon' : 'trap',
       severity: isolated ? 'error' : 'warning',
       message: isolated
-        ? `Изолированный участок сети (${groupWays.length} дор.) — не связан с основным графом`
-        : 'Тупик по направлению: отсюда нельзя вернуться в основную сеть (проверьте oneway)',
+        ? `Изолированный участок сети (${groupWays.length} дор.), не связан с основным графом`
+        : cordon
+          ? 'Дорога обрезана границей фрагмента: проезд только в одну сторону. MATSim отбросит её, если не замкнуть кордон'
+          : 'Тупик по направлению: отсюда нельзя вернуться в основную сеть (проверьте oneway)',
       at: lonLat(doc, w.refs[Math.floor(w.refs.length / 2)]),
       wayIds: groupWays,
       nodeIds: [],
