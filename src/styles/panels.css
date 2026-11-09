@@ -138,3 +138,17 @@
 .journal li.on button { background: var(--yellow); color: #3A2516; font-weight: 600; }
 .journal li.on .step, .journal li.on .detail { color: #3A2516; }
 .journal li.undone button { opacity: 0.5; text-decoration: line-through; text-decoration-color: var(--line-strong); }
+
+/* Traffic-control objects: palette in the navigator and legend swatches (same shapes as the map icons). */
+.feature-list { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.feature-list button { display: flex; align-items: center; gap: 7px; width: 100%; padding: 4px 6px; border: 0; border-radius: var(--r-sm); background: none; text-align: left; font-size: 11.5px; line-height: 1.2; }
+.feature-list button:hover { background: var(--hover); }
+.feature-list button.on { background: var(--ink); color: var(--on-ink); }
+.sign-swatch { position: relative; flex-shrink: 0; width: 14px; height: 14px; display: inline-block; }
+.s-signal { background: #E5392A; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--ink); width: 11px; height: 11px; margin: 0 1.5px; }
+.s-crossing { background: repeating-linear-gradient(90deg, #fff 0 2px, #3F8BC4 2px 4px); outline: 1.5px solid #3F8BC4; }
+.s-bump { background: #F0BC2A; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.s-stop { background: #E5392A; clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%); }
+.s-give_way { background: #E5392A; clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.s-speed { border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 3px #E5392A; }
+.s-bus_stop { background: #3F8BC4; border-radius: 2px; }

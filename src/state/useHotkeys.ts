@@ -6,7 +6,7 @@ import { deleteSelection, openFile, saveOsm, finishDrawing, flipSelected, revers
 const MODE_KEYS: Readonly<Record<string, Mode>> = { v: 'select', d: 'draw', n: 'insert', t: 'signal' };
 
 export const HOTKEYS: ReadonlyArray<[string, string]> = [
-  ['V / D / N / T', 'Выбор / Рисовать дорогу / Узел на дороге / Светофор'],
+  ['V / D / N / T', 'Выбор / Рисовать дорогу / Узел на дороге / Объект ОДД'],
   ['Enter, двойной клик', 'Завершить дорогу'],
   ['Esc', 'Отменить рисование / снять выделение'],
   [`1–${ROAD_TEMPLATES.length}`, 'Шаблон новой дороги'],

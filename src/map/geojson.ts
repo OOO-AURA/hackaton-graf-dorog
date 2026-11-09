@@ -1,5 +1,6 @@
 import type { Feature, FeatureCollection, LineString, Point, Polygon } from 'geojson';
 import { direction, highwayColor, isDrivable } from '../osm/tags';
+import { nodeSymbol } from './features';
 import type { OsmDoc, OsmWay } from '../osm/types';
 
 type Props = Record<string, string | number | boolean>;
@@ -67,7 +68,7 @@ export function nodesGeoJson(doc: OsmDoc, selectedWay: string | null) {
     if (!n) return;
     const signal = n.tags.highway === 'traffic_signals';
     const kind = signal ? 'signal' : count > 1 ? 'junction' : ends.has(id) ? 'end' : selectedRefs.has(id) ? 'vertex' : 'shape';
-    features.push({ type: 'Feature', id: Number(id), properties: { id, kind, crossing: n.tags.highway === 'crossing' }, geometry: { type: 'Point', coordinates: [n.lon, n.lat] } });
+    features.push({ type: 'Feature', id: Number(id), properties: { id, kind, crossing: n.tags.highway === 'crossing', symbol: nodeSymbol(n.tags) }, geometry: { type: 'Point', coordinates: [n.lon, n.lat] } });
   });
   return collection(features);
 }

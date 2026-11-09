@@ -6,6 +6,7 @@ import { useUi } from '../state/ui';
 import { MAP_PALETTE, ROAD_CLASSES } from '../map/palette';
 import { Icon } from './icons';
 import { TOOLS } from './tools';
+import { NODE_FEATURES } from '../map/features';
 
 interface Street { name: string; wayIds: string[]; bounds: [number, number, number, number] }
 
@@ -43,6 +44,7 @@ function Tools() {
         ))}
       </div>
       <p className="hint">{hint}</p>
+      <FeaturePalette />
       <h2 className="micro">Шаблоны дорог</h2>
       <ul className="templates">
         {ROAD_TEMPLATES.map((t, i) => (
@@ -55,6 +57,29 @@ function Tools() {
         ))}
       </ul>
     </section>
+  );
+}
+
+/** Traffic-control objects for the T tool; picking one switches to that tool. */
+function FeaturePalette() {
+  const kind = useUi((s) => s.featureKind);
+  const setKind = useUi((s) => s.setFeatureKind);
+  const setMode = useEditor((s) => s.setMode);
+  const current = NODE_FEATURES.find((f) => f.id === kind);
+  return (
+    <>
+      <h2 className="micro">Объекты ОДД</h2>
+      <ul className="feature-list">
+        {NODE_FEATURES.map((f) => (
+          <li key={f.id}>
+            <button className={kind === f.id ? 'on' : ''} onClick={() => { setKind(f.id); setMode('signal'); }} title={f.hint}>
+              <i className={`sign-swatch s-${f.id}`} aria-hidden="true" />{f.label}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {current && <p className="hint">{current.hint}</p>}
+    </>
   );
 }
 
@@ -96,6 +121,9 @@ function Legend() {
       <ul className="legend">
         {ROAD_CLASSES.map((c) => <li key={c.id}><i className="swatch-line" style={{ background: p.roads[c.id] }} />{c.label}</li>)}
         <li><i className="swatch-dot" style={{ background: p.signal }} />Светофор</li>
+        <li><i className="sign-swatch s-crossing" />Переход</li>
+        <li><i className="sign-swatch s-bump" />Лежачий полицейский</li>
+        <li><i className="sign-swatch s-stop" />Знаки: STOP, уступи, скорость</li>
         <li><i className="swatch-ring" style={{ borderColor: p.error }} />Ошибка графа</li>
         <li><i className="swatch-ring" style={{ borderColor: p.warning }} />Замечание</li>
         <li><i className="swatch-ring" style={{ borderColor: p.cordon }} />Граница фрагмента</li>

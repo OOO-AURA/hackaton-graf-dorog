@@ -43,6 +43,6 @@
 .layer-chip.on { color: var(--ink); }
 .layer-chip.on i { border-color: var(--ink); background: var(--chip, var(--ink)); }
 .l-roads { --chip: var(--orange); } .l-junctions { --chip: var(--paper); } .l-signals { --chip: var(--red); } .l-crossings { --chip: var(--field); }
-.l-bridges { --chip: var(--ink); } .l-tunnels { --chip: var(--ink-2); } .l-buildings { --chip: #C9B48A; } .l-tram { --chip: #7A4FA0; }
+.l-bridges { --chip: var(--ink); } .l-tunnels { --chip: var(--ink-2); } .l-buildings { --chip: #C9B48A; } .l-tram { --chip: #7A4FA0; } .l-signs { --chip: var(--yellow); }
 
 @media (max-width: 1500px) { .float-layers { left: auto; right: 12px; transform: none; animation-name: float-in; bottom: 54px; max-width: calc(100% - 24px); } }

@@ -7,7 +7,7 @@ const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
-export const HIT_LAYERS = { nodes: ['signals', 'nodes', 'crossings'], roads: ['roads', 'roads-bridge'] } as const;
+export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'] } as const;
 
 function arrowImage(color: string): ImageData | null {
   const size = 24;
@@ -22,6 +22,49 @@ function arrowImage(color: string): ImageData | null {
   ctx.closePath();
   ctx.fill();
   return ctx.getImageData(0, 0, size, size);
+}
+
+/** Small road-sign icons drawn on a 32px canvas (shown at 16 css px). */
+const SIGN_ICONS: Record<string, (c: CanvasRenderingContext2D) => void> = {
+  crossing: (c) => {
+    c.fillStyle = '#3F8BC4'; c.fillRect(3, 3, 26, 26); c.strokeStyle = '#FFFFFF'; c.lineWidth = 2; c.strokeRect(4, 4, 24, 24);
+    c.fillStyle = '#FFFFFF'; for (let x = 8; x < 26; x += 5) c.fillRect(x, 18, 3, 7);
+    c.beginPath(); c.arc(16, 9, 2.5, 0, Math.PI * 2); c.fill(); c.fillRect(15, 11, 2, 6);
+  },
+  bump: (c) => {
+    c.fillStyle = '#F0BC2A'; c.strokeStyle = '#3A2516'; c.lineWidth = 2.5;
+    c.beginPath(); c.moveTo(16, 3); c.lineTo(29, 28); c.lineTo(3, 28); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = '#3A2516'; c.beginPath(); c.ellipse(16, 23, 7, 3.5, 0, Math.PI, 0); c.fill(); c.fillRect(8, 23, 16, 2);
+  },
+  stop: (c) => {
+    c.fillStyle = '#E5392A'; c.strokeStyle = '#FFFFFF'; c.lineWidth = 2;
+    c.beginPath(); for (let i = 0; i < 8; i += 1) { const a = Math.PI / 8 + (i * Math.PI) / 4; c.lineTo(16 + 13 * Math.cos(a), 16 + 13 * Math.sin(a)); } c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = '#FFFFFF'; c.fillRect(9, 14.5, 14, 3);
+  },
+  give_way: (c) => {
+    c.fillStyle = '#FFFFFF'; c.strokeStyle = '#E5392A'; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(4, 6); c.lineTo(28, 6); c.lineTo(16, 28); c.closePath(); c.fill(); c.stroke();
+  },
+  speed: (c) => {
+    c.fillStyle = '#FFFFFF'; c.strokeStyle = '#E5392A'; c.lineWidth = 4.5;
+    c.beginPath(); c.arc(16, 16, 11.5, 0, Math.PI * 2); c.fill(); c.stroke();
+    c.fillStyle = '#3A2516'; c.fillRect(10, 13, 2.5, 7); c.fillRect(14.5, 13, 7, 2.2); c.fillRect(14.5, 17.8, 7, 2.2); c.fillRect(19.3, 13, 2.2, 7); c.fillRect(14.5, 13, 2.2, 7);
+  },
+  bus_stop: (c) => {
+    c.fillStyle = '#3F8BC4'; c.fillRect(3, 3, 26, 26); c.fillStyle = '#FFFFFF'; c.fillRect(9, 8, 14, 13); c.fillStyle = '#3F8BC4'; c.fillRect(11, 10, 10, 5);
+    c.fillStyle = '#FFFFFF'; c.fillRect(10, 22, 3, 3); c.fillRect(19, 22, 3, 3);
+  },
+};
+
+function addSignImages(map: MapLibreMap): void {
+  Object.entries(SIGN_ICONS).forEach(([name, draw]) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 32; canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    draw(ctx);
+    if (!map.hasImage(`sign-${name}`)) map.addImage(`sign-${name}`, ctx.getImageData(0, 0, 32, 32), { pixelRatio: 2 });
+  });
 }
 
 function setArrowImage(map: MapLibreMap, color: string): void {
@@ -43,6 +86,7 @@ const GRAPH_NODE_KINDS = ['junction', 'end', 'vertex'];
 export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   SOURCES.forEach((id) => map.addSource(id, { type: 'geojson', data: EMPTY as never }));
   setArrowImage(map, p.arrow);
+  addSignImages(map);
 
   map.addLayer({ id: 'buildings', type: 'fill', source: 'buildings', paint: { 'fill-opacity': 0.55 } });
   map.addLayer({ id: 'context', type: 'line', source: 'context', filter: ['!=', ['get', 'kind'], 'rail'], paint: { 'line-width': 1, 'line-dasharray': [2, 2] } });
@@ -63,10 +107,9 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     filter: ['all', ['!=', ['get', 'kind'], 'signal'], ['any', ['in', ['get', 'kind'], ['literal', GRAPH_NODE_KINDS]], ['>=', ['zoom'], 17]]],
     paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, ['match', ['get', 'kind'], 'vertex', 4, 1.8], 17, ['match', ['get', 'kind'], 'end', 3, 4]], 'circle-stroke-width': 1.2 },
   });
-  map.addLayer({
-    id: 'crossings', type: 'circle', source: 'nodes', minzoom: 15, filter: ['get', 'crossing'],
-    paint: { 'circle-radius': 4.5, 'circle-stroke-width': 2 },
-  });
+  const signLayout = (size: number) => ({ 'icon-image': ['concat', 'sign-', ['get', 'symbol']], 'icon-allow-overlap': true, 'icon-size': ['interpolate', ['linear'], ['zoom'], 14, size * 0.7, 18, size] }) as never;
+  map.addLayer({ id: 'crossings', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['==', ['get', 'symbol'], 'crossing'], layout: signLayout(1) });
+  map.addLayer({ id: 'signs', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['in', ['get', 'symbol'], ['literal', ['bump', 'stop', 'give_way', 'speed', 'bus_stop']]], layout: signLayout(1) });
   map.addLayer({ id: 'signals', type: 'circle', source: 'nodes', minzoom: 13, filter: ['==', ['get', 'kind'], 'signal'], paint: { 'circle-radius': 6, 'circle-stroke-width': 2 } });
   map.addLayer({ id: 'selection-node', type: 'circle', source: 'selection', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 10, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 3 } });
   map.addLayer({ id: 'issues-halo', type: 'circle', source: 'issues', filter: ['any', ['get', 'focused'], ['!=', ['get', 'kind'], 'cordon']], paint: { 'circle-radius': ['case', ['get', 'focused'], 22, 13], 'circle-opacity': 0.18, 'circle-blur': 0.4 } });
@@ -94,8 +137,6 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
   set('selection-line', 'line-color', p.selection);
   set('nodes', 'circle-color', ['match', ['get', 'kind'], 'end', p.roads.secondary, 'vertex', p.vertex, p.nodeFill]);
   set('nodes', 'circle-stroke-color', p.nodeStroke);
-  set('crossings', 'circle-color', p.crossing);
-  set('crossings', 'circle-stroke-color', p.nodeStroke);
   set('signals', 'circle-color', p.signal);
   set('signals', 'circle-stroke-color', p.nodeStroke);
   set('selection-node', 'circle-stroke-color', p.selection);
@@ -116,6 +157,7 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   show('nodes', on.junctions);
   show('signals', on.signals);
   show('crossings', on.crossings);
+  show('signs', on.signs);
   show('buildings', on.buildings);
   show('tram', on.tram);
   const structure: unknown[] = ['all'];

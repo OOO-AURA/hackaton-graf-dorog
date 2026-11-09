@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
-import { insertNodeInWay, mergeNodes, moveNode, toggleSignal } from '../osm/edit';
+import { insertNodeInWay, mergeNodes, moveNode } from '../osm/edit';
+import { useUi } from '../state/ui';
+import { featureById, toggleNodeFeature } from './features';
 import { useEditor } from '../state/store';
 import { finishDrawing } from '../state/actions';
 import { hitNode, hitWay } from './hit';
@@ -17,13 +19,14 @@ function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
       s.select(nodeId ? { type: 'node', id: nodeId } : way ? { type: 'way', id: way.wayId } : null);
       return;
     case 'signal': {
-      if (nodeId) { s.apply((d) => toggleSignal(d, nodeId)); s.select({ type: 'node', id: nodeId }); return; }
+      const feature = featureById(useUi.getState().featureKind);
+      if (nodeId) { s.apply((d) => toggleNodeFeature(d, nodeId, feature)); s.select({ type: 'node', id: nodeId }); return; }
       if (!way) return;
       let created = '';
       s.apply((d) => {
         const r = insertNodeInWay(d, way.wayId, way.index, way.lon, way.lat);
         created = r.id;
-        return toggleSignal(r.doc, r.id);
+        return toggleNodeFeature(r.doc, r.id, feature);
       });
       if (created) s.select({ type: 'node', id: created });
       return;

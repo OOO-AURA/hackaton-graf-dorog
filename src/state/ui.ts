@@ -4,9 +4,9 @@ export type Theme = 'light' | 'dark';
 export type ThemeChoice = Theme | 'system';
 export type Workspace = 'macro' | 'micro';
 export type BottomTab = 'issues' | 'check' | 'journal';
-export type LayerId = 'roads' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram';
+export type LayerId = 'roads' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs';
 
-export const LAYER_IDS: readonly LayerId[] = ['roads', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'tram'];
+export const LAYER_IDS: readonly LayerId[] = ['roads', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'tram', 'signs'];
 
 const THEME_KEY = 'graf.theme';
 
@@ -36,6 +36,9 @@ interface UiState {
   /** Opacity of the basemap under the graph, 0..1 ("model / map" slider). */
   basemapOpacity: number;
   loading: string | null;
+  /** Traffic-control object the T tool places (id from map/features.ts). */
+  featureKind: string;
+  setFeatureKind: (id: string) => void;
   fly: FlyRequest | null;
   setThemeChoice: (choice: ThemeChoice) => void;
   syncSystemTheme: () => void;
@@ -59,6 +62,8 @@ export const useUi = create<UiState>((set, get) => ({
   layers: Object.fromEntries(LAYER_IDS.map((id) => [id, true])) as Record<LayerId, boolean>,
   basemapOpacity: 0.7,
   loading: null,
+  featureKind: 'signal',
+  setFeatureKind: (featureKind) => set({ featureKind }),
   fly: null,
   setThemeChoice: (themeChoice) => {
     try {
