@@ -129,8 +129,8 @@ describe('3D scene geometry', () => {
     const z3 = zOf(tube('-3').underground, STRIDE);
     expect(Math.min(...z1)).toBeCloseTo(-LAYER_HEIGHT);
     expect(Math.min(...z3)).toBeCloseTo(-3 * LAYER_HEIGHT);
-    // Never above the ground.
-    expect(Math.max(...z3)).toBeLessThanOrEqual(0);
+    // Deep in the middle, up to the full arch at the portals.
+    expect(Math.max(...z3)).toBeLessThanOrEqual(5.0001);
     expect(tube('-1').pickIds).toEqual(['10']);
   });
 
@@ -151,8 +151,8 @@ describe('3D scene geometry', () => {
     const joined = buildScene3d(osm(`${nodes}
       <way id="10"><nd ref="1"/><nd ref="2"/><tag k="highway" v="primary"/><tag k="tunnel" v="yes"/></way>
       <way id="11"><nd ref="2"/><nd ref="3"/><tag k="highway" v="primary"/></way>`), COLORS)!;
-    // Three boxes (two pillars and a lintel), 5 faces of 2 triangles and 2 cap triangles each.
-    expect(joined.structures.length / STRIDE).toBe(3 * (4 * 2 + 2) * 3);
+    // One arched frame: four faces per step of the arch, plus the two feet; 6 vertices a face.
+    expect(joined.structures.length / STRIDE).toBe(((TUNNEL_PROFILE.length - 1) * 4 + 2) * 6);
   });
 
   test('builds the example without gaps in the data', () => {

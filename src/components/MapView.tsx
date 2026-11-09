@@ -6,6 +6,7 @@ import maplibregl, { type GeoJSONSource, type Map as MapLibreMap } from 'maplibr
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { addEditorLayers, applyLayerVisibility, applyPalette, sceneColors, sceneOf, type SourceId } from '../map/layers';
 import { buildScene3d } from '../map/mesh3d';
+import { loadCamera, saveCamera } from '../map/camera';
 import { applyBasemapTone, BASE_STYLE } from '../map/style';
 import { MAP_PALETTE } from '../map/palette';
 import { useUi } from '../state/ui';
@@ -154,8 +155,14 @@ function useMapLook(map: MapLibreMap | null): void {
     if (!alive(map)) return;
     setData(map, 'signals', { type: 'FeatureCollection', features: workspace === 'micro' && simResult ? signalFeatures(simResult, simTime) : [] });
   }, [map, workspace, simResult, simTime]);
+  // Tilts the camera when 2D/3D is switched, not when the map appears or a saved camera returns.
+  const shownView = useRef<{ map: MapLibreMap; view3d: boolean } | null>(null);
   useEffect(() => {
     if (!alive(map)) return;
+    const before = shownView.current;
+    shownView.current = { map, view3d };
+    if (!before || before.map !== map || before.view3d === view3d) return;
+    if (restoringCamera) { restoringCamera = false; return; }
     const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     map.easeTo({ pitch: view3d ? 58 : 0, bearing: view3d ? -18 : 0, duration: instant ? 0 : 700 });
   }, [map, view3d]);
@@ -164,14 +171,39 @@ function useMapLook(map: MapLibreMap | null): void {
   }, [map, fly]);
 }
 
-function useFitOnLoad(map: MapLibreMap | null): void {
+/** Set while the camera of a file is being restored, so the 2D/3D switch does not animate it away. */
+let restoringCamera = false;
+
+/**
+ * On opening a file the camera goes back where it was the last time for that file, 2D or 3D
+ * included; a file seen for the first time is fitted into view. The camera is saved as it moves.
+ */
+function useCameraPerFile(map: MapLibreMap | null): void {
   const fileName = useEditor((s) => s.fileName);
   const past = useEditor((s) => s.past.length);
   useEffect(() => {
     if (!map || past > 0) return;
+    const saved = loadCamera(fileName);
+    if (saved) {
+      if (useUi.getState().view3d !== saved.view3d) {
+        restoringCamera = true;
+        useUi.setState({ view3d: saved.view3d });
+      }
+      map.jumpTo({ center: saved.center, zoom: saved.zoom, bearing: saved.bearing, pitch: saved.pitch });
+      return;
+    }
     const bounds = docBounds(useEditor.getState().doc);
     if (bounds) map.fitBounds(bounds, { padding: 40, duration: 0 });
   }, [map, fileName]);
+  useEffect(() => {
+    if (!map) return undefined;
+    const save = () => {
+      const s = useEditor.getState();
+      if (Object.keys(s.doc.nodes).length) saveCamera(s.fileName, map, useUi.getState().view3d);
+    };
+    map.on('moveend', save);
+    return () => { map.off('moveend', save); };
+  }, [map]);
 }
 
 export function MapView() {
@@ -207,7 +239,7 @@ export function MapView() {
   useMapInteractions(map, onPointer);
   useZoneEditing(map);
   useSyncedSources(map, drawingActive ? pointer : null);
-  useFitOnLoad(map);
+  useCameraPerFile(map);
   useMapLook(map);
 
   useEffect(() => {

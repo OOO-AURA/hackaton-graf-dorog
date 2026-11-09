@@ -44,10 +44,8 @@ const DECK_THICKNESS = 1.2;
 const PARAPET = 1.0;
 const PIER_SPACING = 30;
 const PIER_SIZE = 1.4;
-const PORTAL_HEIGHT = 6;
 const PORTAL_DEPTH = 1.5;
 const PORTAL_PILLAR = 1.2;
-const PORTAL_CLEARANCE = 4.8;
 
 export const mercatorX = (lon: number) => (lon + 180) / 360;
 export const mercatorY = (lat: number) => (180 - (180 / Math.PI) * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360))) / 360;
@@ -261,6 +259,8 @@ export function tunnelDepth(tags: Record<string, string>): number {
 }
 
 const TUNNEL_HEIGHT = 5;
+/** Room between the road edge and the tunnel wall. */
+const TUNNEL_SIDE = 0.5;
 /** Height of the straight walls; above them the roof is a half-ellipse up to TUNNEL_HEIGHT. */
 const TUNNEL_WALL = 2;
 const ARCH_SEGMENTS = 10;
@@ -279,18 +279,19 @@ export const TUNNEL_PROFILE: ReadonlyArray<readonly [number, number]> = [
 ];
 
 /**
- * A tunnel as an arched tube under the ground: the road at its depth, walls and a rounded roof,
- * never above the ground. It dives from the ground at both ends like a bridge rises.
+ * A tunnel as an arched tube under the ground: the road at its depth, walls and a rounded roof.
+ * It dives from the ground at both ends like a bridge rises, so at the portals the arch stands
+ * above the ground, inside the portal frame.
  */
 function addTunnel(buf: Buf, raw: P2[], tags: Record<string, string>, colors: Scene3dColors) {
   const pts = densify(raw, RAMP_STEP);
-  const half = roadWidth(tags) / 2 + 0.5;
+  const half = roadWidth(tags) / 2 + TUNNEL_SIDE;
   const z = deckProfile(cumulative(pts), tunnelDepth(tags)).map((d) => -d);
   const { left, right } = offsets(pts, half);
   const road = colors.deck((tags.highway ?? '').replace(/_link$/, ''));
   const at = (i: number, across: number, up: number): V3 => {
     const [r, l] = [right[i], left[i]];
-    return [r[0] + (l[0] - r[0]) * across, r[1] + (l[1] - r[1]) * across, Math.min(0, z[i] + up)];
+    return [r[0] + (l[0] - r[0]) * across, r[1] + (l[1] - r[1]) * across, z[i] + up];
   };
   for (let i = 0; i < pts.length - 1; i += 1) {
     quad(buf, road, 0, at(i, 0, 0), at(i + 1, 0, 0), at(i + 1, 1, 0), at(i, 1, 0));
@@ -325,22 +326,39 @@ function ribbon(mask: Buf, l0: P2, l1: P2, r0: P2, r1: P2, z0: number, z1: numbe
 }
 
 /** A portal frame across the road where a tunnel meets the open air: two pillars and a lintel. */
-function addPortal(solid: Buf, at: P2, toward: P2, half: number, colors: Scene3dColors) {
+/**
+ * A portal where a tunnel meets the open air: an arched frame around the tube's opening, the
+ * same arch as the tube, `PORTAL_PILLAR` thick at the sides and over the top.
+ */
+function addPortal(solid: Buf, at: P2, toward: P2, roadHalf: number, colors: Scene3dColors) {
   const dx = toward[0] - at[0];
   const dy = toward[1] - at[1];
   const l = Math.hypot(dx, dy) || 1;
   const f: P2 = [dx / l, dy / l];
   const n: P2 = [-f[1], f[0]];
-  const w = half + PORTAL_PILLAR;
-  const box = (a: number, b: number): P2[] => {
-    const c = (s: number, t: number): P2 => [at[0] + n[0] * s + f[0] * t, at[1] + n[1] * s + f[1] * t];
-    return ccw([c(a, 0), c(b, 0), c(b, PORTAL_DEPTH), c(a, PORTAL_DEPTH)]);
+  const half = roadHalf + TUNNEL_SIDE;
+  const outerHalf = half + PORTAL_PILLAR;
+  const rise = TUNNEL_HEIGHT - TUNNEL_WALL;
+  // Inner and outer edge of the frame for every point of the arch, at depth 0 and PORTAL_DEPTH.
+  const edge = (across: number, up: number, outer: boolean, depth: number): V3 => {
+    const s = (across - 0.5) * 2 * (outer ? outerHalf : half);
+    const u = outer && up > TUNNEL_WALL ? TUNNEL_WALL + ((up - TUNNEL_WALL) / rise) * (rise + PORTAL_PILLAR) : up;
+    return [at[0] + n[0] * s + f[0] * depth, at[1] + n[1] * s + f[1] * depth, u];
   };
-  prism(solid, colors.portal, 0, box(-w, -half), 0, PORTAL_HEIGHT);
-  prism(solid, colors.portal, 0, box(half, w), 0, PORTAL_HEIGHT);
-  // Lintel: a box over the opening between clearance and the full height.
-  const lintel = box(-half, half);
-  prism(solid, colors.portal, 0, lintel, PORTAL_CLEARANCE, PORTAL_HEIGHT);
+  const c = colors.portal;
+  for (let k = 0; k + 1 < TUNNEL_PROFILE.length; k += 1) {
+    const [a0, u0] = TUNNEL_PROFILE[k];
+    const [a1, u1] = TUNNEL_PROFILE[k + 1];
+    // Skip the bottom: the foot-to-foot step of the profile is the road, not part of the frame.
+    if (u0 === 0 && u1 === 0) continue;
+    for (const d of [0, PORTAL_DEPTH]) quad(solid, c, 0, edge(a0, u0, false, d), edge(a1, u1, false, d), edge(a1, u1, true, d), edge(a0, u0, true, d));
+    quad(solid, c, 0, edge(a0, u0, false, 0), edge(a1, u1, false, 0), edge(a1, u1, false, PORTAL_DEPTH), edge(a0, u0, false, PORTAL_DEPTH));
+    quad(solid, c, 0, edge(a0, u0, true, 0), edge(a1, u1, true, 0), edge(a1, u1, true, PORTAL_DEPTH), edge(a0, u0, true, PORTAL_DEPTH));
+  }
+  // The feet of the frame: from the inner to the outer edge on the ground.
+  for (const across of [0, 1]) {
+    quad(solid, c, 0, edge(across, 0, false, 0), edge(across, 0, true, 0), edge(across, 0, true, PORTAL_DEPTH), edge(across, 0, false, PORTAL_DEPTH));
+  }
 }
 
 /** Gap up to which two building outlines count as one wall. */
