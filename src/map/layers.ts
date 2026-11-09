@@ -49,6 +49,33 @@ function addSignImages(map: MapLibreMap): void {
   });
 }
 
+/** Zone badge with its name drawn in: the style has no glyphs, so labels are images. */
+function zoneBadge(name: string): ImageData | null {
+  const font = '700 22px "Fira Sans Extra Condensed", "Albert Sans", sans-serif';
+  const probe = document.createElement('canvas').getContext('2d');
+  if (!probe) return null;
+  probe.font = font;
+  const h = 36;
+  const w = Math.max(h, Math.ceil(probe.measureText(name).width) + 22);
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const c = canvas.getContext('2d');
+  if (!c) return null;
+  c.fillStyle = '#E54489'; c.strokeStyle = '#FBF6EA'; c.lineWidth = 4;
+  c.beginPath(); c.roundRect(2, 2, w - 4, h - 4, (h - 4) / 2); c.fill(); c.stroke();
+  c.fillStyle = '#FFFFFF'; c.font = font; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(name, w / 2, h / 2 + 1);
+  return c.getImageData(0, 0, w, h);
+}
+
+function addZoneBadges(map: MapLibreMap): void {
+  map.on('styleimagemissing', (e: { id: string }) => {
+    if (!e.id.startsWith('zone-') || map.hasImage(e.id)) return;
+    const img = zoneBadge(e.id.slice(5));
+    if (img) map.addImage(e.id, img, { pixelRatio: 2 });
+  });
+}
+
 function setArrowImage(map: MapLibreMap, color: string): void {
   const image = arrowImage(color);
   if (!image) return;
@@ -70,6 +97,7 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   SOURCES.forEach((id) => map.addSource(id, { type: 'geojson', data: EMPTY as never }));
   setArrowImage(map, p.arrow);
   addSignImages(map);
+  addZoneBadges(map);
 
   map.addLayer({ id: 'buildings', type: 'fill', source: 'buildings', paint: { 'fill-opacity': 0.55 } });
   map.addLayer({
@@ -114,7 +142,10 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     },
   });
   map.addLayer({ id: 'macro-iso', type: 'circle', source: 'macro', filter: ['==', ['get', 'kind'], 'iso'], paint: { 'circle-color': ['get', 'color'], 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 3, 18, 8], 'circle-opacity': 0.85 } });
-  map.addLayer({ id: 'macro-zone', type: 'circle', source: 'macro', filter: ['==', ['get', 'kind'], 'zone'], paint: { 'circle-color': '#E54489', 'circle-radius': 9, 'circle-stroke-width': 3, 'circle-stroke-color': '#FBF6EA' } });
+  map.addLayer({
+    id: 'macro-zone', type: 'symbol', source: 'macro', filter: ['==', ['get', 'kind'], 'zone'],
+    layout: { 'icon-image': ['concat', 'zone-', ['get', 'name']], 'icon-allow-overlap': true, 'icon-ignore-placement': true },
+  });
   map.addLayer({ id: 'macro-signal', type: 'circle', source: 'signals', paint: { 'circle-color': ['get', 'color'], 'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 2.5, 18, 6], 'circle-stroke-width': 1.5, 'circle-stroke-color': '#1B110A' } });
   map.addLayer({
     id: 'vehicles', type: 'circle', source: 'vehicles',
