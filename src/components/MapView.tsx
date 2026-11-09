@@ -13,8 +13,12 @@ import type { OsmDoc } from '../osm/types';
 
 const IRKUTSK_CENTER: [number, number] = [104.262, 52.26];
 
-const setData = (map: MapLibreMap, id: SourceId, data: unknown) =>
-  (map.getSource(id) as GeoJSONSource | undefined)?.setData(data as never);
+/** A removed map (after hot reload or unmount) has no style; touching it would throw. */
+const alive = (map: MapLibreMap | null): map is MapLibreMap => Boolean(map?.style);
+
+const setData = (map: MapLibreMap, id: SourceId, data: unknown) => {
+  if (alive(map)) (map.getSource(id) as GeoJSONSource | undefined)?.setData(data as never);
+};
 
 function selectionGeoJson(doc: OsmDoc, sel: ReturnType<typeof currentSelection>) {
   if (!sel) return { type: 'FeatureCollection', features: [] };
@@ -68,7 +72,7 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
   }, [map, drawing, pointer]);
 
   useEffect(() => {
-    if (!map) return;
+    if (!alive(map)) return;
     map.setLayoutProperty('osm', 'visibility', basemap === 'osm' ? 'visible' : 'none');
     map.setLayoutProperty('satellite', 'visibility', basemap === 'satellite' ? 'visible' : 'none');
   }, [map, basemap]);
@@ -79,11 +83,11 @@ function useMapLook(map: MapLibreMap | null): void {
   const opacity = useUi((s) => s.basemapOpacity);
   const layers = useUi((s) => s.layers);
   const fly = useUi((s) => s.fly);
-  useEffect(() => { if (map) applyPalette(map, MAP_PALETTE[theme]); }, [map, theme]);
-  useEffect(() => { if (map) applyBasemapTone(map, theme, opacity); }, [map, theme, opacity]);
-  useEffect(() => { if (map) applyLayerVisibility(map, layers); }, [map, layers]);
+  useEffect(() => { if (alive(map)) applyPalette(map, MAP_PALETTE[theme]); }, [map, theme]);
+  useEffect(() => { if (alive(map)) applyBasemapTone(map, theme, opacity); }, [map, theme, opacity]);
+  useEffect(() => { if (alive(map)) applyLayerVisibility(map, layers); }, [map, layers]);
   useEffect(() => {
-    if (map && fly) map.fitBounds(fly.bounds, { padding: 80, maxZoom: 18, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600 });
+    if (alive(map) && fly) map.fitBounds(fly.bounds, { padding: 80, maxZoom: 17, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600 });
   }, [map, fly]);
 }
 
