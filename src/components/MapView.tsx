@@ -1,3 +1,4 @@
+import { setMapInstance } from '../map/instance';
 import { transitGeoJson, transitRoutes } from '../transit/routes';
 import { useTransit } from '../transit/store';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -169,12 +170,14 @@ export function MapView() {
     instance.on('load', () => {
       addEditorLayers(instance, MAP_PALETTE[useUi.getState().theme]);
       setMap(instance);
+      setMapInstance(instance);
     });
     const observer = new ResizeObserver(() => instance.resize());
     observer.observe(container.current);
     return () => {
       observer.disconnect();
       setMap(null);
+      setMapInstance(null);
       instance.remove();
     };
   }, []);

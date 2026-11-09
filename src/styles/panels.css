@@ -251,3 +251,8 @@
 .purposes { border-collapse: collapse; font-size: 12px; }
 .purposes th, .purposes td { padding: 3px 8px; border-bottom: 1px solid var(--line); text-align: right; }
 .purposes th:first-child { text-align: left; font-weight: 500; }
+.heat-grid { display: grid; gap: 2px; align-items: center; font-size: 11px; }
+.heat-label { font-size: 11px; max-width: 100%; }
+.heat-cell { display: block; height: 14px; border-radius: 2px; }
+.heat-cell.now { outline: 1.5px solid var(--ink); outline-offset: 0; }
+.heat-tick { font-size: 9px; color: var(--muted); text-align: left; }

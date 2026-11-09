@@ -49,6 +49,8 @@ export interface SimResult {
   crossings?: Array<{ lon: number; lat: number; peds: number }>;
   /** Signal plans from the node inspector that SUMO used: OSM node, SUMO light, actual cycle. */
   plans?: Array<{ node: string; tls: string; cycle_s: number }>;
+  /** Delay per vehicle by minute for the ways that lost the most time. */
+  timeline?: { step_s: number; ways: Array<{ way: string; delay: number[] }> };
   traffic_lights: number;
   teleports: number;
   log_tail: string;

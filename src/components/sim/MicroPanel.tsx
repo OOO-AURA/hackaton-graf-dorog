@@ -1,5 +1,6 @@
 import { ROAD_CLASSES } from '../../map/palette';
 import { useMemo } from 'react';
+import { DelayHeatmap } from './DelayHeatmap';
 import { useUi } from '../../state/ui';
 import { saveTextFile } from '../../platform';
 import { levelOfService, series, simEnd, SPEED_BANDS, useSim } from '../../sim/store';
@@ -31,7 +32,7 @@ function Chart({ points, value, label, unit, time, end }: { points: Array<{ t: n
 }
 
 /** Street name, or road class plus id for unnamed ways. */
-function wayLabel(way: { tags: Record<string, string> } | undefined, id: string): string {
+export function wayLabel(way: { tags: Record<string, string> } | undefined, id: string): string {
   if (way?.tags.name) return way.tags.name;
   const cls = ROAD_CLASSES.find((c) => (c.match as readonly string[]).includes(way?.tags.highway ?? ''));
   return `${cls ? cls.label.split(',')[0] : 'Дорога'} · ${id}`;
@@ -178,6 +179,7 @@ export function MicroPanel() {
             <span className="micro">Выбранная дорога</span>
             <SelectedWay result={result} baseline={b} />
           </div>
+          <DelayHeatmap result={result} time={time} label={(id) => wayLabel(ways[id], id)} onPick={(id) => select({ type: 'way', id })} />
           <div className="section-body charts">
             <Chart points={data.map((p) => ({ t: p.t, y: p.n }))} value={now?.n ?? 0} label="ТС в сети" unit="" time={time} end={end} />
             <Chart points={data.map((p) => ({ t: p.t, y: p.kmh }))} value={now?.kmh ?? 0} label="Средняя скорость" unit="км/ч" time={time} end={end} />

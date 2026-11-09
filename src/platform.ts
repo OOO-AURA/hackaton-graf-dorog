@@ -61,7 +61,7 @@ export async function exportSumoNet(osmText: string, fileName: string): Promise<
 }
 
 export function downloadText(text: string, fileName: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/xml' }));
+  const url = URL.createObjectURL(new Blob([text], { type: /\.html$/i.test(fileName) ? 'text/html' : 'application/xml' }));
   const a = document.createElement('a');
   a.href = url;
   a.download = /\.[a-z0-9]+$/i.test(fileName) ? fileName : `${fileName}.osm`;

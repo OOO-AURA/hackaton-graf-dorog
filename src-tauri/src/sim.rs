@@ -22,6 +22,8 @@ const VTYPES: &[(&str, &str, f64)] = &[
 ];
 
 const FCD_PERIOD_S: &str = "2";
+/// Interval of the delay timeline (heat map), seconds.
+const TIMELINE_STEP_S: u32 = 60;
 
 #[derive(Serialize)]
 pub struct Frame {
@@ -145,6 +147,7 @@ pub struct SimResult {
     ped_mean_time_loss_s: f64,
     crossings: Vec<CrossingStat>,
     plans: Vec<AppliedPlan>,
+    timeline: Timeline,
 }
 
 fn attr<'a>(line: &'a str, name: &str) -> Option<&'a str> {
@@ -263,6 +266,47 @@ pub fn parse_edgedata(xml: &str) -> Vec<WayStat> {
             waiting_s: wait / entered,
         })
         .collect()
+}
+
+/// Delay per way and per interval of the timeline edgeData: seconds lost per vehicle that entered.
+/// Keeps the `top` ways with the largest total time lost.
+#[derive(Serialize, Clone, Default)]
+pub struct Timeline {
+    step_s: f64,
+    ways: Vec<TimelineRow>,
+}
+#[derive(Serialize, Clone)]
+pub struct TimelineRow {
+    way: String,
+    delay: Vec<f64>,
+}
+
+pub fn parse_timeline(xml: &str, step: f64, top: usize) -> Timeline {
+    let mut cur = 0usize;
+    let mut slots = 0usize;
+    let mut acc: std::collections::HashMap<String, Vec<(f64, f64)>> = Default::default();
+    for l in xml.lines().map(str::trim_start) {
+        if l.starts_with("<interval ") {
+            cur = (num(l, "begin") / step).round() as usize;
+            slots = slots.max(cur + 1);
+        } else if l.starts_with("<edge ") {
+            let Some(way) = attr(l, "id").and_then(way_of) else { continue };
+            let row = acc.entry(way.to_string()).or_default();
+            if row.len() <= cur {
+                row.resize(cur + 1, (0.0, 0.0));
+            }
+            row[cur].0 += num(l, "timeLoss");
+            row[cur].1 += num(l, "entered");
+        }
+    }
+    let mut rows: Vec<(f64, TimelineRow)> = acc.into_iter().map(|(way, mut cells)| {
+        cells.resize(slots, (0.0, 0.0));
+        let total = cells.iter().map(|c| c.0).sum::<f64>();
+        let delay = cells.iter().map(|(loss, n)| if *n > 0.0 { (loss / n * 10.0).round() / 10.0 } else { 0.0 }).collect();
+        (total, TimelineRow { way, delay })
+    }).collect();
+    rows.sort_by(|a, b| b.0.total_cmp(&a.0));
+    Timeline { step_s: step, ways: rows.into_iter().take(top).map(|(_, r)| r).collect() }
 }
 
 /// Reads SaveTLSStates output, keeping only state changes per light.
@@ -456,7 +500,7 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
         trips = n;
         label = "od";
     } else {
-        let (_, tlog) = run(Command::new(&python).env("SUMO_HOME", &sh)
+        let (_, tlog) = run(Command::new(&python).current_dir(&dir).env("SUMO_HOME", &sh)
             .arg(sh.join("tools/randomTrips.py")).arg("-n").arg(&net).arg("-o").arg(dir.join("map.trips.xml"))
             .arg("-r").arg(&routes).arg("--additional-files").arg(&vtypes)
             .args(["-e", &insert_end.to_string(), "-p", "1.2", "--validate", "--fringe-factor", "5", "--seed", "42", "--trip-attributes", "type=\"mix\""]))?;
@@ -470,7 +514,7 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
     let mut route_files = vec![routes.display().to_string()];
     if extras.pedestrians {
         let peds = dir.join("ped.rou.xml");
-        let (_, plog) = run(Command::new(&python).env("SUMO_HOME", &sh)
+        let (_, plog) = run(Command::new(&python).current_dir(&dir).env("SUMO_HOME", &sh)
             .arg(sh.join("tools/randomTrips.py")).arg("-n").arg(&net).arg("-o").arg(&peds)
             .args(["--pedestrians", "--max-distance", "1500", "-e", &insert_end.to_string(), "-p", "1.5", "--seed", "7", "--prefix", "ped"]))?;
         if !peds.exists() {
@@ -486,6 +530,10 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
     sumo.current_dir(dir).env("SUMO_HOME", &sh).arg("-n").arg(&net).arg("-r").arg(route_files.join(","));
     // randomTrips copies the vehicle types into its route file; OD trips need them, signals need the events.
     let mut additional: Vec<PathBuf> = Vec::new();
+    let timeline_add = dir.join("timeline.add.xml");
+    fs::write(&timeline_add, format!("<additional>\n  <edgeData id=\"timeline\" file=\"timeline.xml\" period=\"{TIMELINE_STEP_S}\" excludeEmpty=\"true\"/>\n</additional>\n"))
+        .map_err(|e| e.to_string())?;
+    additional.push(timeline_add);
     if demand.is_some() {
         additional.push(vtypes.clone());
     } else if !info.tls.is_empty() {
@@ -571,6 +619,7 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
         ped_mean_time_loss_s: mean(&walks.iter().map(|l| num(l, "timeLoss")).collect::<Vec<_>>()),
         crossings: crossings.into_iter().take(40).collect(),
         plans: applied,
+        timeline: parse_timeline(&fs::read_to_string(dir.join("timeline.xml")).unwrap_or_default(), TIMELINE_STEP_S as f64, 30),
     })
 }
 
@@ -603,6 +652,18 @@ mod tests {
 }
 
 #[cfg(test)]
+mod timeline_tests {
+    #[test]
+    fn splits_delay_by_interval() {
+        let xml = "<interval begin=\"0.00\" end=\"60.00\">\n<edge id=\"5#0\" timeLoss=\"20\" entered=\"2\"/>\n<edge id=\"7#1\" timeLoss=\"1\" entered=\"1\"/>\n</interval>\n<interval begin=\"60.00\" end=\"120.00\">\n<edge id=\"-5#0\" timeLoss=\"30\" entered=\"1\"/>\n</interval>";
+        let t = super::parse_timeline(xml, 60.0, 10);
+        assert_eq!(t.ways[0].way, "5");
+        assert_eq!(t.ways[0].delay, vec![10.0, 30.0]);
+        assert_eq!(t.ways[1].delay, vec![1.0, 0.0]);
+    }
+}
+
+#[cfg(test)]
 mod local_run {
     /// Needs SUMO installed; run with `cargo test -- --ignored simulates_example`.
     #[test]
@@ -631,5 +692,7 @@ mod local_run {
         let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: false, signals: vec![plan] })).unwrap();
         println!("plans {:?} loss {:.1}", r.plans.iter().map(|p| (&p.tls, p.cycle_s)).collect::<Vec<_>>(), r.mean_time_loss_s);
         assert_eq!(r.plans.len(), 1);
+        println!("timeline {} ways x {} min", r.timeline.ways.len(), r.timeline.ways.first().map(|w| w.delay.len()).unwrap_or(0));
+        assert!(!r.timeline.ways.is_empty());
     }
 }
