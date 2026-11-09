@@ -383,6 +383,43 @@ const NETCONVERT_ARGS: &[&str] = &["--geometry.remove", "--ramps.guess", "--junc
 /// Sidewalks along urban roads and zebra crossings where OSM has them or junctions need them.
 const PEDESTRIAN_ARGS: &[&str] = &["--sidewalks.guess", "--crossings.guess", "--osm.sidewalks", "--osm.crossings"];
 
+/// What the micro run needs from the SUMO install, for the panel to explain a missing piece.
+#[derive(Serialize)]
+pub struct SumoStatus {
+    ok: bool,
+    version: Option<String>,
+    bin: String,
+    sumo_home: Option<String>,
+    missing: Vec<&'static str>,
+}
+
+fn version_of(program: PathBuf) -> Option<String> {
+    let out = Command::new(program).arg("--version").output().ok()?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    out.status.success().then(|| text.lines().find(|l| !l.trim().is_empty()).unwrap_or("").trim().to_string())
+}
+
+pub fn sumo_status() -> SumoStatus {
+    status_with(sumo_bin, sumo_home())
+}
+
+fn status_with(bin: impl Fn(&str) -> PathBuf, home: Option<PathBuf>) -> SumoStatus {
+    let version = version_of(bin("sumo"));
+    let mut missing = Vec::new();
+    if version.is_none() {
+        missing.push("sumo");
+    }
+    if version_of(bin("netconvert")).is_none() {
+        missing.push("netconvert");
+    }
+    let home = home.filter(|p| p.join("tools/randomTrips.py").exists());
+    if home.is_none() {
+        missing.push("SUMO_HOME");
+    }
+    let dir = bin("sumo").parent().map(|p| p.display().to_string()).unwrap_or_default();
+    SumoStatus { ok: missing.is_empty(), version, bin: dir, sumo_home: home.map(|p| p.display().to_string()), missing }
+}
+
 /// Writes the SUMO network of the graph to `target`, with the same options the micro run uses.
 pub fn export_net(osm_text: &str, target: &Path) -> Result<(), String> {
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
@@ -444,12 +481,12 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
         netconvert.args(PEDESTRIAN_ARGS);
     }
     let (out, log) = run(&mut netconvert)
-        .map_err(|e| format!("{e}. Установите SUMO или задайте GRAF_SUMO_BIN."))?;
+        .map_err(|e| format!("netconvert не запустился ({e}). SUMO не установлен или не найден, инструкция в панели Микро."))?;
     if !out.status.success() || !net.exists() {
         return Err(format!("netconvert не собрал сеть:\n{}", tail(&log, 15)));
     }
 
-    let sh = sumo_home().ok_or("Не найден SUMO_HOME, инструменты SUMO недоступны")?;
+    let sh = sumo_home().ok_or("Не найдена папка SUMO_HOME с инструментами SUMO (randomTrips.py). Задайте переменную SUMO_HOME или поставьте SUMO через pip, инструкция в панели Микро.")?;
     let python = sumo_bin("python");
     let python = if python.exists() { python } else { PathBuf::from(if cfg!(windows) { "python" } else { "python3" }) };
 
@@ -653,6 +690,18 @@ mod tests {
 }
 
 #[cfg(test)]
+mod status_tests {
+    #[test]
+    fn reports_missing_sumo() {
+        let dir = std::path::PathBuf::from("/nonexistent/sumo/bin");
+        let s = super::status_with(|name| dir.join(name), Some(std::path::PathBuf::from("/nonexistent")));
+        assert!(!s.ok);
+        assert_eq!(s.missing, vec!["sumo", "netconvert", "SUMO_HOME"]);
+        assert_eq!(s.bin, "/nonexistent/sumo/bin");
+    }
+}
+
+#[cfg(test)]
 mod timeline_tests {
     #[test]
     fn splits_delay_by_interval() {
@@ -673,6 +722,14 @@ mod timeline_tests {
 #[cfg(test)]
 mod local_run {
     /// Needs SUMO installed; run with `cargo test -- --ignored simulates_example`.
+    #[test]
+    #[ignore]
+    fn finds_local_sumo() {
+        let s = super::sumo_status();
+        println!("sumo {:?} in {} home {:?}", s.version, s.bin, s.sumo_home);
+        assert!(s.ok, "missing {:?}", s.missing);
+    }
+
     #[test]
     #[ignore]
     fn simulates_example() {

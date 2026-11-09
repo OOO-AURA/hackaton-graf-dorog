@@ -7,6 +7,7 @@ import { BottomDock } from './components/BottomDock';
 import { MicroPanel } from './components/sim/MicroPanel';
 import { useEditor } from './state/store';
 import { refreshReport } from './state/validation';
+import { startAutosave } from './state/draft';
 import { useUi } from './state/ui';
 import { useHotkeys } from './state/useHotkeys';
 import { useCloseGuard } from './state/useCloseGuard';
@@ -53,6 +54,7 @@ export function App() {
   useTheme();
   useLiveValidation();
   useCloseGuard();
+  useEffect(() => startAutosave(), []);
   const empty = useEditor((s) => !Object.keys(s.doc.nodes).length);
   const workspace = useUi((s) => s.workspace);
   return (

@@ -1,4 +1,4 @@
-import { parseOsm, OsmParseError } from '../osm/parse';
+import { hasRepairs, OsmParseError, parseOsmChecked, type OsmRepairs } from '../osm/parse';
 import { serializeOsm } from '../osm/serialize';
 import { commitDrawing } from '../osm/draw';
 import { deleteNode, deleteWay, flipDirection, reverseWay, splitWay, toggleSignal, waysOfNode } from '../osm/edit';
@@ -11,13 +11,23 @@ import { baseName, downloadText, isDesktop, openOsmFile, saveOsmFile } from '../
 export function loadXml(xml: string, fileName: string, filePath: string | null = null): void {
   const { load, notify } = useEditor.getState();
   try {
-    const doc = parseOsm(xml);
+    const { doc, repairs } = parseOsmChecked(xml);
     load(doc, fileName, filePath);
-    notify(`Загружено: ${Object.keys(doc.nodes).length} узлов, ${Object.keys(doc.ways).length} линий`);
+    const loaded = `Загружено: ${Object.keys(doc.nodes).length} узлов, ${Object.keys(doc.ways).length} линий`;
+    notify(hasRepairs(repairs) ? `${loaded}. ${repairText(repairs)}` : loaded);
   } catch (err) {
     notify(err instanceof OsmParseError ? err.message : 'Не удалось прочитать файл');
     console.error('OSM load failed', err);
   }
+}
+
+/** Short note on what was dropped while opening a damaged file. */
+export function repairText(r: OsmRepairs): string {
+  const parts: string[] = [];
+  if (r.badNodes) parts.push(`узлов без координат: ${r.badNodes}`);
+  if (r.danglingRefs) parts.push(`ссылок на отсутствующие узлы: ${r.danglingRefs}`);
+  if (r.droppedWays) parts.push(`линий, от которых осталось меньше двух узлов: ${r.droppedWays}`);
+  return `Файл повреждён, при открытии убрано ${parts.join(', ')}`;
 }
 
 export async function loadExample(): Promise<void> {

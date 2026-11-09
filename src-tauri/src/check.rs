@@ -90,8 +90,11 @@ fn exe(name: &str) -> String {
     if cfg!(windows) { format!("{name}.exe") } else { name.to_string() }
 }
 
+/// Folder with the SUMO programs: GRAF_SUMO_BIN, else the pip venv the README suggests
+/// (bin on macOS and Linux, Scripts on Windows), else PATH.
 pub(crate) fn sumo_bin(name: &str) -> PathBuf {
-    let dir = locate("GRAF_SUMO_BIN", &[home().join("tools/sumo-venv/bin"), PathBuf::from("/tools/sumo-venv/bin")], "");
+    let venv = home().join("tools/sumo-venv");
+    let dir = locate("GRAF_SUMO_BIN", &[venv.join("bin"), venv.join("Scripts"), PathBuf::from("/tools/sumo-venv/bin")], "");
     if dir.as_os_str().is_empty() { PathBuf::from(exe(name)) } else { dir.join(exe(name)) }
 }
 
@@ -99,8 +102,13 @@ pub(crate) fn sumo_home() -> Option<PathBuf> {
     if let Some(p) = env::var_os("SUMO_HOME") {
         return Some(PathBuf::from(p));
     }
-    let lib = home().join("tools/sumo-venv/lib");
-    fs::read_dir(&lib).ok()?.flatten().map(|e| e.path().join("site-packages/sumo")).find(|p| p.exists())
+    let venv = home().join("tools/sumo-venv");
+    // Windows venvs have Lib/site-packages, the others lib/pythonX.Y/site-packages.
+    let windows = venv.join("Lib/site-packages/sumo");
+    if windows.exists() {
+        return Some(windows);
+    }
+    fs::read_dir(venv.join("lib")).ok()?.flatten().map(|e| e.path().join("site-packages/sumo")).find(|p| p.exists())
 }
 
 pub(crate) fn tail(text: &str, lines: usize) -> String {

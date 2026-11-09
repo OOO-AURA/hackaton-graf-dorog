@@ -1,4 +1,5 @@
 import { openFile } from '../state/actions';
+import { dropDraft, restoreDraft, useDraft } from '../state/draft';
 import { useUi } from '../state/ui';
 import { openExample } from './fileActions';
 import { Icon } from './icons';
@@ -35,6 +36,21 @@ function Loading({ label }: { label: string }) {
   );
 }
 
+function DraftOffer() {
+  const d = useDraft((s) => s.found);
+  if (!d) return null;
+  const when = new Date(d.savedAt).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  return (
+    <div className="draft-offer" role="alert">
+      <p><strong>Есть несохранённый черновик</strong> {d.fileName}, записан {when}, линий в графе: {d.ways}. Прошлый сеанс закрылся, не сохранив правки.</p>
+      <div className="draft-actions">
+        <button className="btn btn-ink" onClick={() => void restoreDraft()}>Восстановить</button>
+        <button className="btn btn-quiet" onClick={() => void dropDraft()}>Удалить черновик</button>
+      </div>
+    </div>
+  );
+}
+
 export function EmptyState() {
   const loading = useUi((s) => s.loading);
   return (
@@ -45,6 +61,7 @@ export function EmptyState() {
           <p className="micro">Иркутск · граф УДС · OSM</p>
           <h1 className="display">Граф<br />дорог</h1>
           <p className="empty-lead">Откройте фрагмент OpenStreetMap, поправьте дороги и перекрёстки и сохраните файл для MATSim, SUMO и Webots.</p>
+          <DraftOffer />
           <div className="empty-actions">
             <button className="btn btn-ink btn-lg" onClick={() => void openFile()}><Icon name="open" /> Открыть .osm <kbd>⌘O</kbd></button>
             <button className="btn btn-lg" onClick={() => void openExample()}>Пример из задания</button>

@@ -58,26 +58,61 @@ function maxId(...groups: Array<Record<string, unknown>>): number {
   return groups.flatMap((g) => Object.keys(g)).reduce((m, id) => Math.max(m, Number(id) || 0), 0);
 }
 
-/** Parses OSM XML without dropping anything: every node, way, relation, tag and attribute is kept. */
+/** What had to be fixed to open a damaged file. */
+export interface OsmRepairs {
+  /** Nodes without a valid id or coordinates. */
+  badNodes: number;
+  /** Way refs to nodes that are not in the file (usual for clipped extracts). */
+  danglingRefs: number;
+  /** Ways left with fewer than two nodes after dropping those refs. */
+  droppedWays: number;
+}
+
+export const hasRepairs = (r: OsmRepairs) => r.badNodes + r.danglingRefs + r.droppedWays > 0;
+
+/** Parses OSM XML keeping every tag and attribute; see parseOsmChecked for what gets repaired. */
 export function parseOsm(xml: string): OsmDoc {
+  return parseOsmChecked(xml).doc;
+}
+
+/**
+ * Same as parseOsm, and reports what was repaired. Nodes without coordinates and refs to
+ * missing nodes cannot be drawn, routed or exported, so they are dropped here once instead of
+ * every consumer guarding against them.
+ */
+export function parseOsmChecked(xml: string): { doc: OsmDoc; repairs: OsmRepairs } {
+  if (!xml.trim()) throw new OsmParseError('Файл пустой');
   const doc = new DOMParser().parseFromString(xml, 'application/xml');
-  if (doc.getElementsByTagName('parsererror').length > 0) throw new OsmParseError('Файл не является корректным XML');
+  if (doc.getElementsByTagName('parsererror').length > 0) throw new OsmParseError('Файл не является корректным XML: возможно, он обрезан при скачивании');
   const root = doc.documentElement;
-  if (root.tagName !== 'osm') throw new OsmParseError('Ожидался корневой элемент <osm>');
+  if (root.tagName !== 'osm') throw new OsmParseError(`Ожидался корневой элемент <osm>, а в файле <${root.tagName}>`);
 
   const boundsEl = childrenByTag(root, 'bounds')[0];
-  const nodes = indexById(childrenByTag(root, 'node').map(readNode));
-  const ways = indexById(childrenByTag(root, 'way').map(readWay));
+  const nodeEls = childrenByTag(root, 'node');
+  const nodes = indexById(nodeEls.map(readNode));
+  const repairs: OsmRepairs = { badNodes: nodeEls.length - Object.keys(nodes).length, danglingRefs: 0, droppedWays: 0 };
+  const ways = indexById(childrenByTag(root, 'way').map(readWay).map((w) => {
+    if (!w) return null;
+    const refs = w.refs.filter((r) => nodes[r]);
+    if (refs.length === w.refs.length) return w;
+    repairs.danglingRefs += w.refs.length - refs.length;
+    if (refs.length < 2) { repairs.droppedWays += 1; return null; }
+    return { ...w, refs };
+  }));
   const relations = indexById(childrenByTag(root, 'relation').map(readRelation));
   const bounds: Attrs | null = boundsEl ? readAttrs(boundsEl, []) : null;
 
   return {
-    rootAttrs: readAttrs(root, []),
-    bounds,
-    nodes,
-    ways,
-    relations,
-    nextId: maxId(nodes, ways, relations) + 1,
-    deleted: {},
+    repairs,
+    doc: {
+      rootAttrs: readAttrs(root, []),
+      bounds,
+      nodes,
+      ways,
+      relations,
+      nextId: maxId(nodes, ways, relations) + 1,
+
+      deleted: {},
+    },
   };
 }

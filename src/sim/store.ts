@@ -12,7 +12,12 @@ export const SPEEDS = [1, 5, 10, 30, 60] as const;
 /** Cycle length, s, and the main direction's share of green time. */
 export interface SignalPlan { cycle: number; mainShare: number }
 
+/** What the desktop app found of the SUMO install (see sumo_status in sim.rs). */
+export interface SumoStatus { ok: boolean; version: string | null; bin: string; sumo_home: string | null; missing: string[] }
+
 interface SimState {
+  /** null until checked; the browser build never checks. */
+  sumo: SumoStatus | null;
   running: boolean;
   error: string | null;
   result: SimResult | null;
@@ -42,7 +47,7 @@ interface SimState {
 }
 
 export const useSim = create<SimState>((set, get) => ({
-  running: false, error: null, result: null, minutes: 10, pedestrians: false, plans: {}, demand: 'random', baseline: null, playing: false, speed: 10, time: 0,
+  sumo: null, running: false, error: null, result: null, minutes: 10, pedestrians: false, plans: {}, demand: 'random', baseline: null, playing: false, speed: 10, time: 0,
   setMinutes: (minutes) => set({ minutes }),
   setPedestrians: (pedestrians) => set({ pedestrians }),
   setPlan: (node, plan) => set(({ plans }) => {
@@ -64,9 +69,24 @@ export const useSim = create<SimState>((set, get) => ({
 export const simEnd = (r: SimResult | null) => (r?.frames.length ? r.frames[r.frames.length - 1].t : 0);
 
 /** Runs SUMO on the current graph in the desktop app. */
+/** Asks the desktop app whether sumo, netconvert and the SUMO tools are reachable. */
+export async function checkSumo(): Promise<SumoStatus | null> {
+  if (!isDesktop) return null;
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const sumo = await invoke<SumoStatus>('sumo_status');
+    useSim.setState({ sumo });
+    return sumo;
+  } catch {
+    return null;
+  }
+}
+
 export async function runSimulation(): Promise<void> {
   const { minutes, demand } = useSim.getState();
   if (!isDesktop) { useSim.setState({ error: 'Симуляция работает в настольном приложении: в браузере нет доступа к SUMO.' }); return; }
+  const sumo = useSim.getState().sumo ?? await checkSumo();
+  if (sumo && !sumo.ok) { useSim.setState({ error: null }); return; }
   useSim.setState({ running: true, error: null, playing: false, time: 0 });
   try {
     const { invoke } = await import('@tauri-apps/api/core');

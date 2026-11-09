@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { isDesktop } from '../platform';
+import { dropDraft } from './draft';
 import { isDirty, useEditor } from './store';
 
 const QUESTION = 'В графе есть несохранённые правки. Закрыть без сохранения?';
@@ -24,10 +25,14 @@ export function useCloseGuard(): void {
         if (!isDirty(useEditor.getState())) return;
         const close = await ask(QUESTION, { title: 'Граф дорог', kind: 'warning', okLabel: 'Закрыть', cancelLabel: 'Остаться' });
         if (!close) event.preventDefault();
+        else await dropDraft().catch(() => {});
       });
       const [{ listen }, { invoke }] = await Promise.all([import('@tauri-apps/api/event'), import('@tauri-apps/api/core')]);
       const stopQuit = await listen('quit-requested', async () => {
-        if (isDirty(useEditor.getState()) && !(await ask(QUESTION, { title: 'Граф дорог', kind: 'warning', okLabel: 'Выйти', cancelLabel: 'Остаться' }))) return;
+        if (isDirty(useEditor.getState())) {
+          if (!(await ask(QUESTION, { title: 'Граф дорог', kind: 'warning', okLabel: 'Выйти', cancelLabel: 'Остаться' }))) return;
+          await dropDraft().catch(() => {});
+        }
         await invoke('quit_app');
       });
       const both = () => { stop(); stopQuit(); };

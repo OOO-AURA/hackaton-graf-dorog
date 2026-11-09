@@ -41,7 +41,11 @@ async fn simulate(text: String, minutes: u32, demand: Option<sim::Demand>, extra
         .map_err(|e| e.to_string())?
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
+#[tauri::command]
+async fn sumo_status() -> sim::SumoStatus {
+    tauri::async_runtime::spawn_blocking(sim::sumo_status).await.unwrap_or_else(|_| sim::sumo_status())
+}
+
 /// Quits for real once the front end has confirmed that unsaved edits may be dropped.
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
@@ -72,11 +76,12 @@ fn install_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     use tauri::{Emitter, Manager};
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![read_osm, write_osm, check_osm, simulate, export_sumo, quit_app])
+        .invoke_handler(tauri::generate_handler![read_osm, write_osm, check_osm, simulate, export_sumo, sumo_status, quit_app])
         .setup(|_app| {
             #[cfg(target_os = "macos")]
             install_menu(_app.handle())?;

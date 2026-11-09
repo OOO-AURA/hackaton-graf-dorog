@@ -1,9 +1,10 @@
 import { ROAD_CLASSES } from '../../map/palette';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { DelayHeatmap } from './DelayHeatmap';
+import { SumoMissing } from './SumoMissing';
 import { useUi } from '../../state/ui';
 import { saveTextFile } from '../../platform';
-import { levelOfService, series, simEnd, SPEED_BANDS, useSim } from '../../sim/store';
+import { checkSumo, levelOfService, series, simEnd, SPEED_BANDS, useSim } from '../../sim/store';
 import { LOS_COLORS, SIGNAL_COLORS, statsByWay } from '../../sim/overlay';
 import type { SimResult } from '../../sim/types';
 import { currentSelection, useEditor } from '../../state/store';
@@ -112,7 +113,8 @@ function Pedestrians({ result, baseline }: { result: SimResult; baseline: SimRes
 }
 
 export function MicroPanel() {
-  const { result, time, running, error, baseline, keepBaseline, dropBaseline } = useSim();
+  const { result, time, running, error, baseline, keepBaseline, dropBaseline, sumo } = useSim();
+  useEffect(() => { void checkSumo(); }, []);
   const select = useEditor((s) => s.select);
   const ways = useEditor((s) => s.doc.ways);
   const b = baseline && baseline !== result ? baseline : null;
@@ -130,7 +132,8 @@ export function MicroPanel() {
   return (
     <aside className="panel inspector-panel micro-panel" aria-label="Микросимуляция">
       <div className="panel-title micro">Микросимуляция · SUMO</div>
-      {!result && (
+      {sumo && !sumo.ok && <SumoMissing status={sumo} />}
+      {!result && !(sumo && !sumo.ok) && (
         <div className="insp-empty">
           <div className="insp-empty-mark" aria-hidden="true" />
           <p>{running ? 'Считаю модель…' : 'Модели ещё нет'}</p>
