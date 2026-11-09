@@ -298,6 +298,8 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
       if (openAir.has(w.refs[last])) addPortal(structures, pts[pts.length - 1], pts[pts.length - 2], half, colors);
       return;
     }
+    // Yard driveways and parking aisles are drawn thin, like paths, and do not cut buildings.
+    if (w.tags.highway === 'service') return;
     const { left, right } = offsets(pts, roadWidth(w.tags) / 2);
     for (let i = 0; i < pts.length - 1; i += 1) ribbon(mask, left[i], left[i + 1], right[i], right[i + 1], 0, 0);
   });

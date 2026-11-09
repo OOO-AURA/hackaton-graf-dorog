@@ -13,6 +13,9 @@ import { STRIDE, type Scene3dMesh } from './mesh3d';
  */
 
 export const SCENE3D_LAYER = 'scene-3d';
+/** The cutaway fades in between these zooms and is off when the map is further out. */
+const CUT_ZOOM_FROM = 16.5;
+const CUT_ZOOM_FULL = 17.2;
 /** Length of the fade below the cut, in CSS pixels. */
 const FADE_PX = 26;
 /** The column pass samples at most this many rows; taller canvases are sampled with a step. */
@@ -105,11 +108,11 @@ varying vec3 v_color;
 varying float v_cut;
 void main() {
   float alpha = 1.0;
-  if (v_cut > 0.5 && u_cutaway > 0.5) {
+  if (v_cut > 0.5 && u_cutaway > 0.0) {
     vec4 c = texture2D(u_columns, vec2(gl_FragCoord.x / u_size.x, 0.5));
     float y = unpack16(c.rg) * (u_size.y + 1.0);
     float road = unpack16(c.ba);
-    if (y > 0.0 && gl_FragCoord.z < road) alpha = clamp((y - gl_FragCoord.y) / u_fade, 0.0, 1.0);
+    if (y > 0.0 && gl_FragCoord.z < road) alpha = mix(1.0, clamp((y - gl_FragCoord.y) / u_fade, 0.0, 1.0), u_cutaway);
   }
   if (alpha < 0.004) discard;
   gl_FragColor = vec4(v_color * alpha, alpha);
@@ -288,10 +291,17 @@ export class Scene3dLayer implements CustomLayerInterface {
     return loc;
   }
 
+  /** 0 when zoomed out, 1 close in. */
+  private cutStrength(): number {
+    if (!this.cutaway || !this.map) return 0;
+    const k = (this.map.getZoom() - CUT_ZOOM_FROM) / (CUT_ZOOM_FULL - CUT_ZOOM_FROM);
+    return Math.min(1, Math.max(0, k));
+  }
+
   prerender(gl: GL, matrix: ArrayLike<number>): void {
     this.upload(gl);
     const b = this.buffers;
-    if (!b || !this.mesh || !this.cutaway || !this.showBuildings || !b.solidCount) return;
+    if (!b || !this.mesh || !this.cutStrength() || !this.showBuildings || !b.solidCount) return;
     this.ensureTargets(gl);
     const m = this.matrix(matrix);
     const { w, h } = this.depthTarget!;
@@ -363,8 +373,9 @@ export class Scene3dLayer implements CustomLayerInterface {
     gl.uniformMatrix4fv(gl.getUniformLocation(p, 'u_matrix'), false, m);
     gl.uniform2f(gl.getUniformLocation(p, 'u_size'), gl.drawingBufferWidth, gl.drawingBufferHeight);
     gl.uniform1f(gl.getUniformLocation(p, 'u_fade'), FADE_PX * (window.devicePixelRatio || 1));
-    const cut = this.cutaway && Boolean(this.columnTarget);
-    gl.uniform1f(gl.getUniformLocation(p, 'u_cutaway'), cut ? 1 : 0);
+    const strength = this.columnTarget ? this.cutStrength() : 0;
+    const cut = strength > 0;
+    gl.uniform1f(gl.getUniformLocation(p, 'u_cutaway'), strength);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, cut ? this.columnTarget!.tex : null);
     gl.uniform1i(gl.getUniformLocation(p, 'u_columns'), 0);
