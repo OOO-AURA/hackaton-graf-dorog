@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseOsm } from '../osm/parse';
-import { bridgeHeight, buildingGroups, buildScene3d, deckProfile, LANE_WIDTH, LAYER_HEIGHT, roadWidth, STRIDE, type Scene3dColors } from './mesh3d';
+import { bridgeHeight, buildingGroups, buildScene3d, TUNNEL_PROFILE, deckProfile, LANE_WIDTH, LAYER_HEIGHT, roadWidth, STRIDE, type Scene3dColors } from './mesh3d';
 
 const COLORS: Scene3dColors = {
   building: [0.8, 0.7, 0.6], deck: () => [1, 0.8, 0], deckSide: [0.5, 0.4, 0.3], pier: [0.5, 0.4, 0.3], portal: [0.5, 0.4, 0.3],
@@ -132,6 +132,15 @@ describe('3D scene geometry', () => {
     // Never above the ground.
     expect(Math.max(...z3)).toBeLessThanOrEqual(0);
     expect(tube('-1').pickIds).toEqual(['10']);
+  });
+
+  test('the tunnel roof is an arch: highest in the middle, lower towards the walls', () => {
+    const ups = TUNNEL_PROFILE.map(([, up]) => up);
+    const top = Math.max(...ups);
+    expect(TUNNEL_PROFILE[ups.indexOf(top)][0]).toBeCloseTo(0.5);
+    expect(TUNNEL_PROFILE[1][1]).toBeLessThan(top);
+    expect(TUNNEL_PROFILE[0]).toEqual([0, 0]);
+    expect(TUNNEL_PROFILE[TUNNEL_PROFILE.length - 1]).toEqual([1, 0]);
   });
 
   test('a tunnel gets a portal only where it meets an open road', () => {

@@ -261,10 +261,26 @@ export function tunnelDepth(tags: Record<string, string>): number {
 }
 
 const TUNNEL_HEIGHT = 5;
+/** Height of the straight walls; above them the roof is a half-ellipse up to TUNNEL_HEIGHT. */
+const TUNNEL_WALL = 2;
+const ARCH_SEGMENTS = 10;
 
 /**
- * A tunnel as a tube under the ground: the road at its depth, walls and a roof up to the
- * clearance, never above the ground. It dives from the ground at both ends like a bridge rises.
+ * Cross-section of a tunnel from the right foot over the arch to the left foot, as
+ * (across, up): `across` runs from 0 at the right edge to 1 at the left one.
+ */
+export const TUNNEL_PROFILE: ReadonlyArray<readonly [number, number]> = [
+  [0, 0],
+  ...Array.from({ length: ARCH_SEGMENTS + 1 }, (_, k) => {
+    const a = (Math.PI * k) / ARCH_SEGMENTS;
+    return [(1 - Math.cos(a)) / 2, TUNNEL_WALL + (TUNNEL_HEIGHT - TUNNEL_WALL) * Math.sin(a)] as const;
+  }),
+  [1, 0],
+];
+
+/**
+ * A tunnel as an arched tube under the ground: the road at its depth, walls and a rounded roof,
+ * never above the ground. It dives from the ground at both ends like a bridge rises.
  */
 function addTunnel(buf: Buf, raw: P2[], tags: Record<string, string>, colors: Scene3dColors) {
   const pts = densify(raw, RAMP_STEP);
@@ -272,14 +288,17 @@ function addTunnel(buf: Buf, raw: P2[], tags: Record<string, string>, colors: Sc
   const z = deckProfile(cumulative(pts), tunnelDepth(tags)).map((d) => -d);
   const { left, right } = offsets(pts, half);
   const road = colors.deck((tags.highway ?? '').replace(/_link$/, ''));
+  const at = (i: number, across: number, up: number): V3 => {
+    const [r, l] = [right[i], left[i]];
+    return [r[0] + (l[0] - r[0]) * across, r[1] + (l[1] - r[1]) * across, Math.min(0, z[i] + up)];
+  };
   for (let i = 0; i < pts.length - 1; i += 1) {
-    const [l0, l1, r0, r1] = [left[i], left[i + 1], right[i], right[i + 1]];
-    const [z0, z1] = [z[i], z[i + 1]];
-    const [t0, t1] = [Math.min(0, z0 + TUNNEL_HEIGHT), Math.min(0, z1 + TUNNEL_HEIGHT)];
-    quad(buf, road, 0, [r0[0], r0[1], z0], [r1[0], r1[1], z1], [l1[0], l1[1], z1], [l0[0], l0[1], z0]);
-    quad(buf, colors.deckSide, 0, [l0[0], l0[1], z0], [l1[0], l1[1], z1], [l1[0], l1[1], t1], [l0[0], l0[1], t0]);
-    quad(buf, colors.deckSide, 0, [r1[0], r1[1], z1], [r0[0], r0[1], z0], [r0[0], r0[1], t0], [r1[0], r1[1], t1]);
-    quad(buf, colors.deckSide, 0, [l0[0], l0[1], t0], [l1[0], l1[1], t1], [r1[0], r1[1], t1], [r0[0], r0[1], t0]);
+    quad(buf, road, 0, at(i, 0, 0), at(i + 1, 0, 0), at(i + 1, 1, 0), at(i, 1, 0));
+    for (let k = 0; k + 1 < TUNNEL_PROFILE.length; k += 1) {
+      const [a0, u0] = TUNNEL_PROFILE[k];
+      const [a1, u1] = TUNNEL_PROFILE[k + 1];
+      quad(buf, colors.deckSide, 0, at(i, a0, u0), at(i + 1, a0, u0), at(i + 1, a1, u1), at(i, a1, u1));
+    }
   }
 }
 
