@@ -28,7 +28,9 @@ export function SignalPlanSection({ node, ways }: { node: OsmNode; ways: readonl
         <>
           <label className="field">
             <span className="micro">Длительность цикла, с</span>
-            <input type="number" min={20} max={240} step={5} value={p.cycle} onChange={(e) => update({ cycle: Math.min(240, Math.max(20, Number(e.target.value) || 90)) })} />
+            <input type="number" min={20} max={240} step={5} defaultValue={p.cycle} key={p.cycle}
+              onBlur={(e) => update({ cycle: Math.min(240, Math.max(20, Math.round(Number(e.target.value)) || 90)) })}
+              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
           </label>
           <label className="field">
             <span className="micro">Зелёный главному направлению: {Math.round(p.mainShare * 100)}%</span>
