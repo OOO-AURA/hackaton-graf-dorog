@@ -21,13 +21,13 @@ export function loadXml(xml: string, fileName: string, filePath: string | null =
   }
 }
 
-/** Short note on what was dropped while opening a damaged file. */
+/** Short note on what was dropped while opening a damaged or clipped file. */
 export function repairText(r: OsmRepairs): string {
   const parts: string[] = [];
   if (r.badNodes) parts.push(`узлов без координат: ${r.badNodes}`);
   if (r.danglingRefs) parts.push(`ссылок на отсутствующие узлы: ${r.danglingRefs}`);
   if (r.droppedWays) parts.push(`линий, от которых осталось меньше двух узлов: ${r.droppedWays}`);
-  return `Файл повреждён, при открытии убрано ${parts.join(', ')}`;
+  return `Часть данных в файле неполная, при открытии убрано: ${parts.join(', ')}`;
 }
 
 export async function loadExample(): Promise<void> {

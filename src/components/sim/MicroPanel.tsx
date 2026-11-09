@@ -114,7 +114,8 @@ function Pedestrians({ result, baseline }: { result: SimResult; baseline: SimRes
 
 export function MicroPanel() {
   const { result, time, running, error, baseline, keepBaseline, dropBaseline, sumo } = useSim();
-  useEffect(() => { void checkSumo(); }, []);
+  // Spawning sumo to ask its version takes about a second, so a found install is not re-checked.
+  useEffect(() => { if (!useSim.getState().sumo?.ok) void checkSumo(); }, []);
   const select = useEditor((s) => s.select);
   const ways = useEditor((s) => s.doc.ways);
   const b = baseline && baseline !== result ? baseline : null;

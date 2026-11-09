@@ -19,6 +19,8 @@ describe('VirtualList', () => {
     act(() => { ul.scrollTop = 25 * 3000; ul.dispatchEvent(new Event('scroll')); });
     expect(ul.textContent).toContain('row 3000');
     expect(ul.textContent).not.toContain('row 0<');
+    act(() => root.render(<VirtualList className="list" items={items.slice(0, 5)} rowHeight={25} keyOf={(s) => s} render={(s) => <span>{s}</span>} />));
+    expect(ul.querySelectorAll('li').length).toBe(5);
     act(() => root.unmount());
   });
 });

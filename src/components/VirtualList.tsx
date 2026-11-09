@@ -20,8 +20,10 @@ export function VirtualList<T>({ items, rowHeight, className, keyOf, render, ove
     ro.observe(el);
     return () => ro.disconnect();
   }, [rowHeight]);
-  const first = Math.max(0, Math.floor(top / rowHeight) - overscan);
-  const last = Math.min(items.length, Math.ceil((top + height) / rowHeight) + overscan);
+  // A list that just got shorter can still carry the old scroll offset for a frame.
+  const offset = Math.min(top, Math.max(0, items.length * rowHeight - height));
+  const first = Math.max(0, Math.floor(offset / rowHeight) - overscan);
+  const last = Math.min(items.length, Math.ceil((offset + height) / rowHeight) + overscan);
   return (
     <ul ref={ref} className={`${className} vlist`} onScroll={(e) => setTop(e.currentTarget.scrollTop)}
       style={{ paddingTop: first * rowHeight, paddingBottom: (items.length - last) * rowHeight }}>

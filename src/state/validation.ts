@@ -3,18 +3,31 @@ import { validate, type ValidationReport } from '../osm/validate';
 import { useEditor } from './store';
 
 let worker: Worker | null = null;
-let seq = 0;
-const pending = new Map<number, { doc: OsmDoc; resolve: (r: ValidationReport) => void }>();
+type Job = { doc: OsmDoc; waiting: Array<(r: ValidationReport) => void> };
+let running: Job | null = null;
+/** At most one job waits behind the running one; newer graphs replace it, so stale checks are skipped. */
+let queued: Job | null = null;
 
-function failAll(): void {
-  // A broken worker must not leave the check hanging: finish the queued jobs here.
-  pending.forEach(({ doc, resolve }) => resolve(validate(doc)));
-  pending.clear();
-  worker?.terminate();
-  worker = null;
+function finish(report: ValidationReport): void {
+  running?.waiting.forEach((resolve) => resolve(report));
+  running = queued;
+  queued = null;
+  if (running) worker!.postMessage({ doc: running.doc });
 }
 
-/** Checks the graph off the main thread; on a big city fragment the check alone takes about half a second. */
+function fallback(): void {
+  // A broken worker must not leave the check hanging: finish the jobs here.
+  worker?.terminate();
+  worker = null;
+  for (const job of [running, queued]) job?.waiting.forEach((resolve) => resolve(validate(job.doc)));
+  running = null;
+  queued = null;
+}
+
+/**
+ * Checks the graph off the main thread; on a big city fragment the check alone takes about half a
+ * second. Callers waiting on a graph that was replaced by a newer one get the newer graph's report.
+ */
 export function validateInBackground(doc: OsmDoc): Promise<ValidationReport> {
   if (typeof Worker === 'undefined') return Promise.resolve(validate(doc));
   if (!worker) {
@@ -23,17 +36,17 @@ export function validateInBackground(doc: OsmDoc): Promise<ValidationReport> {
     } catch {
       return Promise.resolve(validate(doc));
     }
-    worker.onmessage = (e: MessageEvent<{ id: number; report?: ValidationReport; error?: string }>) => {
-      const job = pending.get(e.data.id);
-      pending.delete(e.data.id);
-      if (job) job.resolve(e.data.report ?? validate(job.doc));
-    };
-    worker.onerror = failAll;
+    worker.onmessage = (e: MessageEvent<{ report?: ValidationReport; error?: string }>) => finish(e.data.report ?? validate(running!.doc));
+    worker.onerror = fallback;
+    worker.onmessageerror = fallback;
   }
-  const id = ++seq;
   return new Promise((resolve) => {
-    pending.set(id, { doc, resolve });
-    worker!.postMessage({ id, doc });
+    if (!running) {
+      running = { doc, waiting: [resolve] };
+      worker!.postMessage({ doc });
+    } else {
+      queued = { doc, waiting: [...(queued?.waiting ?? []), resolve] };
+    }
   });
 }
 

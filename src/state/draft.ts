@@ -69,9 +69,10 @@ export async function restoreDraft(): Promise<void> {
   const d = useDraft.getState().found;
   if (!d) return;
   loadXml(d.xml, d.fileName, d.filePath);
+  useDraft.setState({ found: null });
   // Restored edits are not on disk yet, so the graph stays marked as changed until it is saved.
   if (Object.keys(useEditor.getState().doc.nodes).length) useEditor.setState({ savedDoc: EMPTY_DOC });
-  useDraft.setState({ found: null });
+  else await store?.clear(); // unreadable draft: loadXml has said why, do not offer it again
 }
 
 /** Forgets the draft: the user threw the edits away or chose not to restore them. */
