@@ -82,6 +82,7 @@ const laneWidth = (extra: unknown = 0) => [
 ] as never;
 
 const GRAPH_NODE_KINDS = ['junction', 'end', 'vertex'];
+const NODES_FILTER = ['all', ['!=', ['get', 'kind'], 'signal'], ['any', ['in', ['get', 'kind'], ['literal', GRAPH_NODE_KINDS]], ['>=', ['zoom'], 17]]];
 
 export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   SOURCES.forEach((id) => map.addSource(id, { type: 'geojson', data: EMPTY as never }));
@@ -104,7 +105,7 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   });
   map.addLayer({
     id: 'nodes', type: 'circle', source: 'nodes', minzoom: 14,
-    filter: ['all', ['!=', ['get', 'kind'], 'signal'], ['any', ['in', ['get', 'kind'], ['literal', GRAPH_NODE_KINDS]], ['>=', ['zoom'], 17]]],
+    filter: NODES_FILTER as never,
     paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, ['match', ['get', 'kind'], 'vertex', 4, 1.8], 17, ['match', ['get', 'kind'], 'end', 3, 4]], 'circle-stroke-width': 1.2 },
   });
   const signLayout = (size: number) => ({ 'icon-image': ['concat', 'sign-', ['get', 'symbol']], 'icon-allow-overlap': true, 'icon-size': ['interpolate', ['linear'], ['zoom'], 14, size * 0.7, 18, size] }) as never;
@@ -154,7 +155,9 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   const show = (layer: string, visible: boolean) => map.setLayoutProperty(layer, 'visibility', visible ? 'visible' : 'none');
   ROAD_LAYERS.forEach((l) => show(l, on.roads));
   show('roads-bridge', on.roads && on.bridges);
-  show('nodes', on.junctions);
+  // Vertices of the selected way stay visible and draggable even with junctions hidden.
+  show('nodes', true);
+  map.setFilter('nodes', (on.junctions ? NODES_FILTER : ['==', ['get', 'kind'], 'vertex']) as never);
   show('signals', on.signals);
   show('crossings', on.crossings);
   show('signs', on.signs);
