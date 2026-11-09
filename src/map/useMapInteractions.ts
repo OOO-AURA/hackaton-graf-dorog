@@ -19,9 +19,17 @@ function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
 
   switch (s.mode) {
     case 'select':
-      if (nodeId || way) { s.select(nodeId ? { type: 'node', id: nodeId } : { type: 'way', id: way!.wayId }); return; }
-      // Nodes and roads come first: they are small and lie under the buildings in 3D.
-      void hitBuilding(map, e.point).then((id) => useEditor.getState().select(id ? { type: 'way', id } : null));
+      if (nodeId) { s.select({ type: 'node', id: nodeId }); return; }
+      // In 3D a bridge deck is picked where it is drawn, above the ground; it wins over a road
+      // line under the cursor. Otherwise roads come before buildings: they are thin and lie
+      // under the buildings.
+      void hitBuilding(map, e.point).then((id) => {
+        const st = useEditor.getState();
+        const picked = id ? st.doc.ways[id] : null;
+        if (picked && !picked.tags.building) st.select({ type: 'way', id: picked.id });
+        else if (way) st.select({ type: 'way', id: way.wayId });
+        else st.select(picked ? { type: 'way', id: picked.id } : null);
+      });
       return;
     case 'signal': {
       const feature = featureById(useUi.getState().featureKind);

@@ -16,7 +16,7 @@ export type Scene3dColors = { building: Rgb; deck: (highway: string) => Rgb; dec
  * buildings from 1, so the road cutaway cuts each block as a whole; it is 0 for bridges and
  * portals, which are never cut. The normal and `shade` (the wall gradient) feed the same
  * lighting MapLibre gives its extruded buildings. `pick` numbers single buildings from 1 for
- * clicks and highlighting: `buildingIds[pick - 1]` is the OSM way.
+ * clicks and highlighting, buildings first and then bridges: `pickIds[pick - 1]` is the OSM way.
  */
 export const STRIDE = 12;
 
@@ -25,8 +25,8 @@ export type Scene3dMesh = {
   origin: { x: number; y: number; metersPerUnit: number };
   /** How many blocks are numbered in `solid`; touching sections share a number. */
   buildings: number;
-  /** OSM way of every building, by its `pick` number minus one. */
-  buildingIds: string[];
+  /** OSM way of every building and bridge, by its `pick` number minus one. */
+  pickIds: string[];
   /** Building triangles, wound the same way as the roofs seen from outside. */
   solid: Float32Array;
   /** Bridge decks, piers and tunnel portals: opaque, never cut away. */
@@ -390,12 +390,19 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     solid.fill(start, 11, i + 1);
   });
   const buildings = groups.reduce((a, b) => Math.max(a, b), 0);
+  const pickIds = buildingWays.map((w) => w.id);
 
   Object.values(doc.ways).forEach((w) => {
     const pts = pointsOf(w);
     if (pts.length < 2 || w.tags.building) return;
     if (!isDrivable(w.tags)) return;
-    if (isBridge(w)) { addBridge(structures, mask, pts, w.tags, colors); return; }
+    if (isBridge(w)) {
+      const start = structures.length;
+      addBridge(structures, mask, pts, w.tags, colors);
+      pickIds.push(w.id);
+      structures.fill(start, 11, pickIds.length);
+      return;
+    }
     if (isTunnel(w)) {
       const half = roadWidth(w.tags) / 2;
       if (openAir.has(w.refs[0])) addPortal(structures, pts[0], pts[1], half, colors);
@@ -409,5 +416,5 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     for (let i = 0; i < pts.length - 1; i += 1) ribbon(mask, left[i], left[i + 1], right[i], right[i + 1], 0, 0);
   });
 
-  return { origin, buildings, buildingIds: buildingWays.map((w) => w.id), solid: solid.array, structures: structures.array, roadMask: mask.array };
+  return { origin, buildings, pickIds, solid: solid.array, structures: structures.array, roadMask: mask.array };
 }

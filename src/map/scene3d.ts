@@ -313,7 +313,7 @@ export class Scene3dLayer implements CustomLayerInterface {
     this.map?.triggerRepaint();
   }
 
-  /** Buildings to highlight, by OSM way id, and the highlight colour. */
+  /** Buildings and bridges to highlight, by OSM way id, and the highlight colour. */
   setSelected(ids: Iterable<string>, color: Rgb): void {
     this.selected = new Set(ids);
     this.selColor = color;
@@ -321,7 +321,7 @@ export class Scene3dLayer implements CustomLayerInterface {
     this.map?.triggerRepaint();
   }
 
-  /** OSM way of the building under a point in CSS pixels, worked out on the next frame. */
+  /** OSM way of the building or bridge under a point in CSS pixels, worked out on the next frame. */
   pick(x: number, y: number): Promise<string | null> {
     if (!this.map || !this.mesh) return Promise.resolve(null);
     return new Promise((resolve) => {
@@ -479,7 +479,7 @@ export class Scene3dLayer implements CustomLayerInterface {
     const W = gl.drawingBufferWidth;
     const H = gl.drawingBufferHeight;
     for (const job of jobs) {
-      if (!b || !b.solidCount || !this.showBuildings) { job.resolve(null); continue; }
+      if (!b || (!b.solidCount && !b.structuresCount)) { job.resolve(null); continue; }
       // Clip space shifted and scaled so that the clicked pixel fills the 1×1 target.
       const nx = ((job.x / canvas.clientWidth) * 2 - 1);
       const ny = (1 - (job.y / canvas.clientHeight) * 2);
@@ -514,13 +514,19 @@ export class Scene3dLayer implements CustomLayerInterface {
       gl.vertexAttribPointer(pos, 3, gl.FLOAT, false, STRIDE * 4, 0);
       gl.enableVertexAttribArray(pick);
       gl.vertexAttribPointer(pick, 1, gl.FLOAT, false, STRIDE * 4, 11 * 4);
-      gl.drawArrays(gl.TRIANGLES, 0, b.solidCount);
+      if (this.showBuildings) gl.drawArrays(gl.TRIANGLES, 0, b.solidCount);
+      if (this.showStructures && b.structuresCount) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, b.structures);
+        gl.vertexAttribPointer(pos, 3, gl.FLOAT, false, STRIDE * 4, 0);
+        gl.vertexAttribPointer(pick, 1, gl.FLOAT, false, STRIDE * 4, 11 * 4);
+        gl.drawArrays(gl.TRIANGLES, 0, b.structuresCount);
+      }
       gl.disableVertexAttribArray(pos);
       gl.disableVertexAttribArray(pick);
       const px = new Uint8Array(4);
       gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
       const id = px[0] + px[1] * 256 + px[2] * 65536;
-      job.resolve(px[3] > 128 && id > 0 ? this.mesh!.buildingIds[id - 1] ?? null : null);
+      job.resolve(px[3] > 128 && id > 0 ? this.mesh!.pickIds[id - 1] ?? null : null);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
@@ -529,10 +535,10 @@ export class Scene3dLayer implements CustomLayerInterface {
   private uploadSelection(gl: GL) {
     if (!this.selDirty || !this.mesh) return;
     this.selDirty = false;
-    const n = this.mesh.buildingIds.length;
+    const n = this.mesh.pickIds.length;
     const rows = Math.max(1, Math.ceil((n + 1) / CUT_TEX_WIDTH));
     const data = new Uint8Array(CUT_TEX_WIDTH * rows * 4);
-    this.mesh.buildingIds.forEach((id, i) => { if (this.selected.has(id)) data[(i + 1) * 4 + 3] = 255; });
+    this.mesh.pickIds.forEach((id, i) => { if (this.selected.has(id)) data[(i + 1) * 4 + 3] = 255; });
     if (this.selTex) gl.deleteTexture(this.selTex);
     this.selTex = makeTexture(gl, CUT_TEX_WIDTH, rows, data);
     this.selRows = rows;

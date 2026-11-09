@@ -83,7 +83,7 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
   useEffect(() => {
     if (!alive(map)) return;
     const ids = multi.length ? multi : selection?.type === 'way' ? [selection.id] : [];
-    sceneOf(map)?.setSelected(ids.filter((id) => doc.ways[id]?.tags.building), sceneColors(MAP_PALETTE[theme]).selection);
+    sceneOf(map)?.setSelected(ids, sceneColors(MAP_PALETTE[theme]).selection);
   }, [map, doc, selection, multi, theme]);
 
   useEffect(() => {

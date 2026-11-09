@@ -27,7 +27,9 @@ export function hitNode(map: MapLibreMap, point: { x: number; y: number }, exclu
 
 /** Nearest point on any rendered road within tolerance, measured in screen pixels. */
 export function hitWay(map: MapLibreMap, doc: OsmDoc, point: { x: number; y: number }): WayHit | null {
-  const features = map.queryRenderedFeatures(box(point), { layers: [...HIT_LAYERS.roads] });
+  // In 3D bridges are decks of the scene layer: the flat line on the ground does not take clicks.
+  const layers = in3d(map) ? HIT_LAYERS.roads.filter((l) => l !== 'roads-bridge') : [...HIT_LAYERS.roads];
+  const features = map.queryRenderedFeatures(box(point), { layers });
   let best: (WayHit & { dist2: number }) | null = null;
   for (const wayId of new Set(features.map((f) => String(f.properties?.id)))) {
     const way = doc.ways[wayId];
@@ -44,12 +46,14 @@ export function hitWay(map: MapLibreMap, doc: OsmDoc, point: { x: number; y: num
   return best && { wayId: best.wayId, index: best.index, lon: best.lon, lat: best.lat };
 }
 
+const in3d = (map: MapLibreMap) => map.getLayoutProperty(SCENE3D_LAYER, 'visibility') === 'visible';
+
 /**
- * Building under a point: in 3D the scene layer renders what is under the cursor, in 2D the flat
- * building layer is queried. Resolves to the OSM way id or null.
+ * Building or bridge under a point: in 3D the scene layer renders what is under the cursor, in
+ * 2D the flat building layer is queried. Resolves to the OSM way id or null.
  */
 export async function hitBuilding(map: MapLibreMap, point: { x: number; y: number }): Promise<string | null> {
-  if (map.getLayoutProperty(SCENE3D_LAYER, 'visibility') === 'visible') return (await sceneOf(map)?.pick(point.x, point.y)) ?? null;
+  if (in3d(map)) return (await sceneOf(map)?.pick(point.x, point.y)) ?? null;
   const features = map.queryRenderedFeatures([point.x, point.y], { layers: ['buildings'] });
   return features.length ? String(features[0].properties?.id) : null;
 }
