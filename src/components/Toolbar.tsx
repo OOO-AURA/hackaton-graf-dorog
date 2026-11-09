@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { useEditor, type Basemap, type Mode } from '../state/store';
-import { finishDrawing, loadExample, loadXml, saveOsm } from '../state/actions';
+import { BROWSER_FILE_INPUT, finishDrawing, loadExample, loadXml, openFile, saveOsm } from '../state/actions';
+import { isDesktop } from '../platform';
+import { CheckButton } from './CheckPanel';
 
 const MODES: ReadonlyArray<[Mode, string, string]> = [
   ['select', '↖ Выбор', 'V'], ['draw', '✎ Дорога', 'D'], ['insert', '• Узел', 'N'], ['signal', '🚦 Светофор', 'T'],
@@ -9,9 +10,7 @@ const MODES: ReadonlyArray<[Mode, string, string]> = [
 const BASEMAPS: ReadonlyArray<[Basemap, string]> = [['osm', 'Схема'], ['satellite', 'Спутник'], ['none', 'Без подложки']];
 
 export function Toolbar() {
-  const fileInput = useRef<HTMLInputElement>(null);
   const s = useEditor();
-  const [saveName, setSaveName] = useState('team.osm');
 
   const onFile = async (file: File | undefined) => {
     if (!file) return;
@@ -22,8 +21,8 @@ export function Toolbar() {
     <header className="toolbar">
       <strong className="brand">Редактор УДС</strong>
       <div className="group">
-        <button onClick={() => fileInput.current?.click()}>Открыть .osm</button>
-        <input ref={fileInput} type="file" accept=".osm,.xml" hidden onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
+        <button onClick={() => void openFile()} title="⌘O">Открыть .osm</button>
+        {!isDesktop && <input id={BROWSER_FILE_INPUT} type="file" accept=".osm,.xml" hidden onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />}
         <button onClick={() => void loadExample()}>Пример</button>
       </div>
       <div className="group">
@@ -49,8 +48,9 @@ export function Toolbar() {
         </select>
       </div>
       <div className="group save">
-        <input value={saveName} onChange={(e) => setSaveName(e.target.value)} title="Имя файла = имя команды" />
-        <button className="primary" onClick={() => saveOsm(saveName)} disabled={!Object.keys(s.doc.nodes).length}>Сохранить .osm</button>
+        <CheckButton />
+        <input value={s.saveName} onChange={(e) => s.setSaveName(e.target.value)} title="Имя файла = имя команды" />
+        <button className="primary" onClick={() => void saveOsm()} disabled={!Object.keys(s.doc.nodes).length} title="⌘S, ⌘⇧S сохранить как">Сохранить .osm</button>
       </div>
     </header>
   );

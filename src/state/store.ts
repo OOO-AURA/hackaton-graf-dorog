@@ -15,6 +15,11 @@ const HISTORY_LIMIT = 200;
 interface EditorState {
   doc: OsmDoc;
   fileName: string;
+  /** Absolute path on disk when running as the desktop app; null in the browser or for new files. */
+  filePath: string | null;
+  /** Name the file is saved under; the check server wants it to match the team name. */
+  saveName: string;
+  setSaveName: (name: string) => void;
   past: OsmDoc[];
   future: OsmDoc[];
   selection: Selection;
@@ -26,7 +31,8 @@ interface EditorState {
   focusIssue: string | null;
   message: string | null;
 
-  load: (doc: OsmDoc, fileName: string) => void;
+  load: (doc: OsmDoc, fileName: string, filePath?: string | null) => void;
+  markSaved: (fileName: string, filePath: string | null) => void;
   /** Applies an edit and records it in the undo history. */
   apply: (edit: (doc: OsmDoc) => OsmDoc) => void;
   /** Starts a continuous edit (e.g. dragging) — one undo step for the whole gesture. */
@@ -50,6 +56,9 @@ const pushPast = (past: OsmDoc[], doc: OsmDoc) => [...past, doc].slice(-HISTORY_
 export const useEditor = create<EditorState>((set, get) => ({
   doc: EMPTY_DOC,
   fileName: 'graph.osm',
+  filePath: null,
+  saveName: 'hack-team10.osm',
+  setSaveName: (saveName) => set({ saveName }),
   past: [],
   future: [],
   selection: null,
@@ -61,7 +70,8 @@ export const useEditor = create<EditorState>((set, get) => ({
   focusIssue: null,
   message: null,
 
-  load: (doc, fileName) => set({ doc, fileName, past: [], future: [], selection: null, drawing: [], report: null, mode: 'select' }),
+  markSaved: (fileName, filePath) => set({ fileName, filePath, saveName: fileName }),
+  load: (doc, fileName, filePath = null) => set({ doc, fileName, filePath, past: [], future: [], selection: null, drawing: [], report: null, mode: 'select' }),
   apply: (edit) => {
     const { doc, past } = get();
     const next = edit(doc);
