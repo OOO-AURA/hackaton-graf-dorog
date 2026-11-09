@@ -73,6 +73,13 @@ function addZoneBadges(map: MapLibreMap): void {
     if (!e.id.startsWith('zone-') || map.hasImage(e.id)) return;
     const img = zoneBadge(e.id.slice(5));
     if (img) map.addImage(e.id, img, { pixelRatio: 2 });
+    // Drawn before the web fonts arrived: redraw once they are in.
+    if (document.fonts.status !== 'loaded') {
+      void document.fonts.ready.then(() => {
+        const again = zoneBadge(e.id.slice(5));
+        if (again && map.hasImage(e.id)) { map.removeImage(e.id); map.addImage(e.id, again, { pixelRatio: 2 }); }
+      });
+    }
   });
 }
 

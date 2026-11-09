@@ -118,8 +118,8 @@ export function MicroPanel() {
               <p className="hint">По HCM, средняя задержка {result.mean_time_loss_s.toFixed(1)} с на поездку. Спрос: {DEMAND_LABEL[result.demand]}, {result.trips} поездок.</p>
             </div>
           </section>
-          {result.vehicles > 0 && result.finished < result.vehicles / 2 && (
-            <p className="cordon-hint">Доехали {result.finished} из {result.vehicles} машин: остальные ещё в пути, когда модель кончилась. Увеличьте длительность до 20 мин или проверьте разрывы сети во вкладке «Валидация».</p>
+          {result.trips > 0 && result.finished < result.trips / 2 && (
+            <p className="cordon-hint">Доехали {result.finished} из {result.trips} поездок: остальные стоят в очереди на въезд или ещё в пути, когда модель кончилась. Увеличьте длительность до 20 мин или проверьте разрывы сети во вкладке «Валидация».</p>
           )}
           <div className="kpis">
             <Kpi value={result.vehicles} base={b?.vehicles} label="ТС выпущено" digits={0} better="up" />

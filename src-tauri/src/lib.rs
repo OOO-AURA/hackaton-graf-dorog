@@ -51,7 +51,8 @@ fn quit_app(app: tauri::AppHandle) {
 const QUIT_ID: &str = "graf-quit";
 
 /// The stock Quit item terminates the process directly on macOS, past every guard.
-/// Swap it for our own item that asks the front end first.
+/// Swap it for our own item that asks the front end first. Other platforms have no app menu.
+#[cfg(target_os = "macos")]
 fn install_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
     use tauri::menu::{Menu, MenuItem, MenuItemKind};
     let menu = Menu::default(app)?;
@@ -76,8 +77,9 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![read_osm, write_osm, check_osm, simulate, export_sumo, quit_app])
-        .setup(|app| {
-            install_menu(app.handle())?;
+        .setup(|_app| {
+            #[cfg(target_os = "macos")]
+            install_menu(_app.handle())?;
             Ok(())
         })
         .on_menu_event(|app, event| {
