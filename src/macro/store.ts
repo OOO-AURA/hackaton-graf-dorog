@@ -55,7 +55,7 @@ export const useMacro = create<MacroState>((set, get) => ({
   points: null,
   placing: false,
   odEdited: false,
-  setPlacing: (placing) => set(({ points, result }) => ({ placing, points: placing && !points ? (result?.zones.map((z) => z.lonlat) ?? []) : points })),
+  setPlacing: (placing) => set(({ points, result }) => ({ placing, points: placing && !points && result?.zones.length ? result.zones.map((z) => z.lonlat) : points })),
   setPoints: (points) => set({ points: points?.length ? points : null, odEdited: false }),
   setCell: (i, j, v) => {
     const r = get().result;

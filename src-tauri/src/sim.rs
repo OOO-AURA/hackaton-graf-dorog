@@ -259,7 +259,10 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>) -> Resu
     let (_, ilog) = run(cmd.arg(&info_path))?;
     let info: NetInfo = match fs::read_to_string(&info_path) {
         Ok(text) => serde_json::from_str(&text).map_err(|e| e.to_string())?,
-        Err(_) if demand.is_none() => NetInfo::default(),
+        Err(_) if demand.is_none() => {
+            eprintln!("netinfo.py failed, signals are not shown:\n{}", tail(&ilog, 8));
+            NetInfo::default()
+        }
         Err(_) => return Err(format!("Не удалось сопоставить зоны с сетью SUMO:\n{}", tail(&ilog, 15))),
     };
 

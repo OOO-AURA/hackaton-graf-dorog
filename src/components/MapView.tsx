@@ -117,9 +117,14 @@ function useMapLook(map: MapLibreMap | null): void {
     if (!alive(map)) return;
     const features = workspace === 'macro'
       ? [...macroFeatures(flows?.features ?? [], placing ? points : null), ...(iso?.features ?? [])]
-      : [...los, ...(simResult ? signalFeatures(simResult, simTime) : [])];
+      : los;
     setData(map, 'macro', { type: 'FeatureCollection', features });
-  }, [map, flows, iso, workspace, los, simResult, simTime, placing, points]);
+  }, [map, flows, iso, workspace, los, placing, points]);
+  // Signal heads change every frame, so they live in a small source of their own.
+  useEffect(() => {
+    if (!alive(map)) return;
+    setData(map, 'signals', { type: 'FeatureCollection', features: workspace === 'micro' && simResult ? signalFeatures(simResult, simTime) : [] });
+  }, [map, workspace, simResult, simTime]);
   useEffect(() => {
     if (!alive(map)) return;
     const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

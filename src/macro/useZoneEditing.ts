@@ -26,7 +26,9 @@ export function useZoneEditing(map: MapLibreMap | null): void {
     const points = () => useMacro.getState().points ?? [];
     const commit = (next: Array<[number, number]>) => {
       useMacro.getState().setPoints(next);
+      // Fewer than two zones cannot carry trips, so the old result would only mislead.
       if (next.length >= 2) void useMacro.getState().run();
+      else useMacro.setState({ result: null });
     };
 
     const onDown = (e: MapMouseEvent) => {

@@ -78,6 +78,7 @@ function SelectedWay({ result, baseline }: { result: SimResult; baseline: SimRes
 export function MicroPanel() {
   const { result, time, running, error, baseline, keepBaseline, dropBaseline } = useSim();
   const select = useEditor((s) => s.select);
+  const ways = useEditor((s) => s.doc.ways);
   const b = baseline && baseline !== result ? baseline : null;
   const changes = useMemo(() => (result && b ? wayChanges(result, b) : []), [result, b]);
   const data = useMemo(() => (result ? series(result) : []), [result]);
@@ -122,7 +123,7 @@ export function MicroPanel() {
             {!baseline && <p className="hint">Запомните этот прогон, поправьте граф и пересчитайте: здесь появится разница по сети и по каждой дороге.</p>}
             {b && (changes.length
               ? <ul className="changes">{changes.slice(0, 6).map(({ w, d }) => (
-                <li key={w.way}><button className="link" onClick={() => select({ type: 'way', id: w.way })}>{useEditor.getState().doc.ways[w.way]?.tags.name || `way ${w.way}`}</button>
+                <li key={w.way}><button className="link" onClick={() => select({ type: 'way', id: w.way })}>{ways[w.way]?.tags.name || `way ${w.way}`}</button>
                   <span className={`mono ${d < 0 ? 'good' : 'bad'}`}>{d > 0 ? '+' : '−'}{Math.abs(d).toFixed(0)} с</span></li>))}</ul>
               : <p className="hint">Задержки на дорогах почти не изменились.</p>)}
             {baseline === result && <p className="hint">Это базовый прогон. Внесите правку и нажмите «Пересчитать».</p>}

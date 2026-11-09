@@ -200,7 +200,8 @@ export function buildingMass(doc: OsmDoc): Array<{ c: [number, number]; w: numbe
   const out: Array<{ c: [number, number]; w: number }> = [];
   for (const way of Object.values(doc.ways)) {
     if (!way.tags.building || way.tags.building === 'no') continue;
-    const pts = way.refs.map((r) => doc.nodes[r]).filter(Boolean);
+    const refs = way.refs.length > 1 && way.refs[0] === way.refs[way.refs.length - 1] ? way.refs.slice(0, -1) : way.refs;
+    const pts = refs.map((r) => doc.nodes[r]).filter(Boolean);
     if (pts.length < 3) continue;
     const lat0 = pts[0].lat * (Math.PI / 180);
     const kx = 111320 * Math.cos(lat0); const ky = 110540;
@@ -233,9 +234,13 @@ export function weighByBuildings(zones: Zone[], mass: ReturnType<typeof building
 /** Zones placed by hand: each point is served by its nearest node that has outgoing links. */
 export function pointZones(net: Network, points: ReadonlyArray<readonly [number, number]>): Zone[] {
   const pool = net.lonlat.map((_, i) => i).filter((i) => net.out[i].length);
+  const taken = new Set<number>();
   return points.flatMap((p, k) => {
-    if (!pool.length) return [];
-    const node = pool.reduce((best, i) => (metres(net.lonlat[i], p) < metres(net.lonlat[best], p) ? i : best), pool[0]);
+    // Two zones on one node would exchange trips of zero length, so each takes its own node.
+    const free = pool.filter((i) => !taken.has(i));
+    if (!free.length) return [];
+    const node = free.reduce((best, i) => (metres(net.lonlat[i], p) < metres(net.lonlat[best], p) ? i : best), free[0]);
+    taken.add(node);
     return [{ id: k + 1, name: `З${k + 1}`, node, lonlat: net.lonlat[node], weight: 1 }];
   });
 }

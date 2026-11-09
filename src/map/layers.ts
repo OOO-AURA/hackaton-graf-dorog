@@ -4,7 +4,7 @@ import { roadColorExpression, type MapPalette } from './palette';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
 export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'] } as const;
@@ -115,7 +115,7 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   });
   map.addLayer({ id: 'macro-iso', type: 'circle', source: 'macro', filter: ['==', ['get', 'kind'], 'iso'], paint: { 'circle-color': ['get', 'color'], 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 3, 18, 8], 'circle-opacity': 0.85 } });
   map.addLayer({ id: 'macro-zone', type: 'circle', source: 'macro', filter: ['==', ['get', 'kind'], 'zone'], paint: { 'circle-color': '#E54489', 'circle-radius': 9, 'circle-stroke-width': 3, 'circle-stroke-color': '#FBF6EA' } });
-  map.addLayer({ id: 'macro-signal', type: 'circle', source: 'macro', filter: ['==', ['get', 'kind'], 'sig'], paint: { 'circle-color': ['get', 'color'], 'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 2.5, 18, 6], 'circle-stroke-width': 1.5, 'circle-stroke-color': '#1B110A' } });
+  map.addLayer({ id: 'macro-signal', type: 'circle', source: 'signals', paint: { 'circle-color': ['get', 'color'], 'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 2.5, 18, 6], 'circle-stroke-width': 1.5, 'circle-stroke-color': '#1B110A' } });
   map.addLayer({
     id: 'vehicles', type: 'circle', source: 'vehicles',
     paint: {
