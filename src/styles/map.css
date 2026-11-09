@@ -57,3 +57,9 @@
 .sim-bar .tool { width: 28px; height: 28px; }
 .sim-bar .tool:disabled { opacity: 0.4; }
 .sim-check { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; white-space: nowrap; }
+/* Narrow windows: the centre column is under 600 px, so the bar spans it left of the zoom stack and its groups wrap. */
+@media (max-width: 1360px) {
+  .sim-bar { left: 12px; right: 64px; transform: none; max-width: none; justify-content: flex-start; animation-name: float-in; }
+  .sim-group { flex-wrap: wrap; row-gap: 4px; }
+  .sim-group + .sim-group { padding-left: 0; border-left: 0; }
+}
