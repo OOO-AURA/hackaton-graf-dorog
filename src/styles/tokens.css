@@ -1,0 +1,57 @@
+/* Sakura Chroma tokens adapted for a dense work tool. Text colours meet WCAG AA on --paper and --panel. */
+:root {
+  --paper: #F1E6CB;
+  --paper-dk: #E5D6B0;
+  --panel: #F6EEDA;
+  --field: #FBF6EA;
+  --ink: #3A2516;
+  --ink-2: #6E5743;
+  --line: rgba(58, 37, 22, 0.16);
+  --line-strong: rgba(58, 37, 22, 0.42);
+  --hover: rgba(58, 37, 22, 0.06);
+  --on-ink: #F1E6CB;
+
+  /* Palette fills (decoration, map, swatches). */
+  --red: #E5392A; --pink: #E54489; --orange: #F09131; --green: #3D9F47; --blue: #3F8BC4; --yellow: #F0BC2A;
+  /* Same hues darkened for text and thin strokes on paper. */
+  --red-text: #B42318; --orange-text: #8F4C08; --green-text: #286B30; --blue-text: #2D6A99; --pink-text: #B0235F;
+  --red-wash: rgba(229, 57, 42, 0.10); --orange-wash: rgba(240, 145, 49, 0.14); --green-wash: rgba(61, 159, 71, 0.12); --blue-wash: rgba(63, 139, 196, 0.12);
+
+  --font-display: 'Big Shoulders Display', 'Fira Sans Extra Condensed', 'Arial Narrow', sans-serif;
+  --font-body: 'Albert Sans', 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --fs-micro: 10.5px; --fs-sm: 12px; --fs-md: 13px; --fs-lg: 15px; --fs-xl: 20px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px;
+  --r-sm: 3px; --r-md: 5px; --r-lg: 8px;
+  --shadow-float: 0 1px 0 rgba(58, 37, 22, 0.08), 0 6px 18px -6px rgba(58, 37, 22, 0.28);
+  --shadow-pop: 0 12px 32px -8px rgba(58, 37, 22, 0.35);
+  --header-h: 48px; --nav-w: 264px; --insp-w: 320px; --dock-h: 196px;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --dur: 160ms;
+  color-scheme: light;
+}
+
+/* Dark: the paper goes to roasted brown, the ink becomes cream. Fills lift slightly so they read on dark. */
+:root[data-theme='dark'] {
+  --paper: #1C140E;
+  --paper-dk: #2C2118;
+  --panel: #241A12;
+  --field: #2F2319;
+  --ink: #F1E6CB;
+  --ink-2: #BBA685;
+  --line: rgba(241, 230, 203, 0.13);
+  --line-strong: rgba(241, 230, 203, 0.36);
+  --hover: rgba(241, 230, 203, 0.07);
+  --on-ink: #1C140E;
+  --red: #F0503F; --pink: #EE5C9C; --orange: #F5A04A; --green: #55B45F; --blue: #5FA3D6; --yellow: #F3C640;
+  --red-text: #FF7A68; --orange-text: #F5A75A; --green-text: #6BC475; --blue-text: #7DB6E3; --pink-text: #F27BB0;
+  --red-wash: rgba(240, 80, 63, 0.16); --orange-wash: rgba(245, 160, 74, 0.16); --green-wash: rgba(85, 180, 95, 0.16); --blue-wash: rgba(95, 163, 214, 0.16);
+  --shadow-float: 0 1px 0 rgba(0, 0, 0, 0.3), 0 8px 22px -6px rgba(0, 0, 0, 0.6);
+  --shadow-pop: 0 14px 36px -8px rgba(0, 0, 0, 0.7);
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur: 0ms; }
+}
