@@ -6,10 +6,10 @@ import type { Rgb, Scene3dColors } from './mesh3d';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
-export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'] } as const;
+export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'], laneEnds: ['lane-ends'], laneLinks: ['lane-links'] } as const;
 
 function arrowImage(color: string): ImageData | null {
   const size = 24;
@@ -140,6 +140,23 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     id: 'roads-arrows', type: 'symbol', source: 'roads', filter: ['!=', ['get', 'dir'], 'both'], minzoom: 15,
     layout: { 'symbol-placement': 'line', 'symbol-spacing': 60, 'icon-image': 'arrow', 'icon-allow-overlap': true, 'icon-rotate': ['case', ['==', ['get', 'dir'], 'backward'], 180, 0] },
   });
+  // Lanes close in: thin lines in the colour of their load, links across junctions, lane ends at
+  // the junction being edited (red where traffic comes in, blue where it leaves).
+  map.addLayer({ id: 'lanes', type: 'line', source: 'lanes', minzoom: 17, layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 17, 1, 19, 2.2], 'line-opacity': 0.95 } });
+  map.addLayer({ id: 'lane-links', type: 'line', source: 'lane-links', minzoom: 17, layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-color': ['get', 'color'],
+      'line-width': ['case', ['get', 'picked'], 4, ['get', 'edit'], 2.4, 1.1],
+      'line-opacity': ['case', ['get', 'edit'], 0.95, 0.5],
+    } });
+  map.addLayer({ id: 'lane-ends', type: 'circle', source: 'lane-ends', minzoom: 16,
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 16, 4, 19, 8],
+      'circle-color': ['case', ['get', 'hot'], ['match', ['get', 'kind'], 'in', '#E5392A', '#3F8BC4'], '#FBF6EA'],
+      'circle-stroke-width': 2.5,
+      'circle-stroke-color': ['match', ['get', 'kind'], 'in', '#E5392A', '#3F8BC4'],
+    } });
   const scene = new Scene3dLayer();
   scenes.set(map, scene);
   map.addLayer(scene);
@@ -219,7 +236,7 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
   set('draw-points', 'circle-stroke-color', p.draw);
 }
 
-const ROAD_LAYERS = ['roads-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line'];
+const ROAD_LAYERS = ['roads-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line', 'lanes', 'lane-links', 'lane-ends'];
 
 /** Applies the layer toggles from the bottom bar. Bridges and tunnels are filters on the road layers. */
 export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boolean>, view3d = false): void {

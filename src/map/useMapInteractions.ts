@@ -7,6 +7,7 @@ import { useEditor } from '../state/store';
 import { finishDrawing } from '../state/actions';
 import { hitBuilding, hitNode, hitWay } from './hit';
 import { useBoxSelect } from './useBoxSelect';
+import { laneLinkAt, useLaneEditing } from './useLaneEditing';
 import { zoneEditingActive } from '../macro/useZoneEditing';
 
 const DRAG_THRESHOLD_PX = 3;
@@ -14,6 +15,14 @@ const DRAG_THRESHOLD_PX = 3;
 function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
   if (zoneEditingActive()) return;
   const s = useEditor.getState();
+  // At the junction being edited a click on a lane link picks it; Delete then forbids that turn.
+  if (s.mode === 'select') {
+    const link = laneLinkAt(map, e.point);
+    useUi.getState().setLaneLink(link);
+    if (link) return;
+    // A lane end is where a link is dragged from: a click on it keeps the junction selected.
+    if (map.queryRenderedFeatures([e.point.x, e.point.y], { layers: ['lane-ends'] }).length) return;
+  }
   const nodeId = hitNode(map, e.point);
   const way = nodeId ? null : hitWay(map, s.doc, e.point);
 
@@ -128,6 +137,7 @@ function useNodeDrag(map: MapLibreMap | null): void {
 export function useMapInteractions(map: MapLibreMap | null, onPointer: (lon: number, lat: number) => void): void {
   useNodeDrag(map);
   useBoxSelect(map);
+  useLaneEditing(map);
   useEffect(() => {
     if (!map) return undefined;
     const onClick = (e: MapMouseEvent) => handleClick(map, e);

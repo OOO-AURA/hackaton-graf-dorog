@@ -23,6 +23,9 @@ const systemDark = () => typeof window !== 'undefined' && window.matchMedia?.('(
 
 export const resolveTheme = (choice: ThemeChoice): Theme => (choice === 'system' ? (systemDark() ? 'dark' : 'light') : choice);
 
+/** A link across a junction: from lane `lane` of the arm `from` (see armKey), taking `turn`. */
+export interface LaneLinkRef { node: string; from: string; lane: number; to: string; turn: string }
+
 /** A request for the map to move; `seq` changes on every request so repeats still fire. */
 export interface FlyRequest { bounds: [number, number, number, number]; seq: number }
 
@@ -43,6 +46,9 @@ interface UiState {
   featureKind: string;
   setFeatureKind: (id: string) => void;
   fly: FlyRequest | null;
+  /** Lane link picked on the map at the junction being edited; Delete forbids that turn. */
+  laneLink: LaneLinkRef | null;
+  setLaneLink: (link: LaneLinkRef | null) => void;
   setThemeChoice: (choice: ThemeChoice) => void;
   syncSystemTheme: () => void;
   setWorkspace: (w: Workspace) => void;
@@ -57,6 +63,8 @@ interface UiState {
 const initialChoice = readThemeChoice();
 
 export const useUi = create<UiState>((set, get) => ({
+  laneLink: null,
+  setLaneLink: (laneLink) => set({ laneLink }),
   themeChoice: initialChoice,
   theme: resolveTheme(initialChoice),
   workspace: 'macro',

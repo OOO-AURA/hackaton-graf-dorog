@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { useEditor, type Mode } from './store';
 import { useUi } from './ui';
+import { removePickedLink } from './laneActions';
 import { deleteSelection, openFile, saveOsm, finishDrawing, flipSelected, reverseSelected, splitAtSelected, toggleSignalSelected } from './actions';
 
 const MODE_KEYS: Readonly<Record<string, Mode>> = { v: 'select', d: 'draw', n: 'insert', t: 'signal' };
@@ -32,6 +33,9 @@ function physicalKey(e: KeyboardEvent): string {
   return e.key.toLowerCase();
 }
 
+/** Delete forbids the picked lane link, if there is one, and otherwise deletes the selection. */
+const removeOrDelete = () => (useUi.getState().laneLink ? removePickedLink() : deleteSelection());
+
 function handleKey(e: KeyboardEvent): void {
   const key = physicalKey(e);
   const mod = e.ctrlKey || e.metaKey;
@@ -49,9 +53,13 @@ function handleKey(e: KeyboardEvent): void {
   if (template >= 1 && template <= ROAD_TEMPLATES.length) { s.setTemplate(template - 1); return; }
   const actions: Record<string, () => void> = {
     enter: finishDrawing,
-    escape: () => (s.drawing.length ? s.setDrawing([]) : s.select(null)),
-    delete: deleteSelection,
-    backspace: deleteSelection,
+    escape: () => {
+      if (useUi.getState().laneLink) useUi.getState().setLaneLink(null);
+      else if (s.drawing.length) s.setDrawing([]);
+      else s.select(null);
+    },
+    delete: removeOrDelete,
+    backspace: removeOrDelete,
     r: reverseSelected,
     f: flipSelected,
     s: toggleSignalSelected,

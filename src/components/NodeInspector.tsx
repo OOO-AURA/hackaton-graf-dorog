@@ -10,6 +10,7 @@ import { Section } from './Section';
 import { NODE_FEATURES, nodeSymbol } from '../map/features';
 import { Icon } from './icons';
 import { SignalPlanSection } from './SignalPlanSection';
+import { LaneTurnsSection } from './LaneTurnsSection';
 
 const NODE_KIND_OPTIONS = [
   ['', 'Обычный узел'], ['traffic_signals', 'Светофор'], ['crossing', 'Пешеходный переход'],
@@ -50,6 +51,7 @@ export function NodeInspector({ node }: { node: OsmNode }) {
           <button className="btn" onClick={splitAtSelected} disabled={!inner} title="X"><Icon name="scissors" /> Разрезать здесь <kbd>X</kbd></button>
         </div>
       </Section>
+      <LaneTurnsSection node={node} />
       {isSignal && <SignalPlanSection node={node} ways={ways} />}
       <Section title="Высота" open={false}>
         <TextField

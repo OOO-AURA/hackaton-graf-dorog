@@ -6,6 +6,9 @@ import maplibregl, { type GeoJSONSource, type Map as MapLibreMap } from 'maplibr
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { addEditorLayers, applyLayerVisibility, applyPalette, sceneColors, sceneOf, type SourceId } from '../map/layers';
 import { buildScene3d } from '../map/mesh3d';
+import { junctionGeometry, laneLines, type LaneStyle } from '../map/lanesGeo';
+import { junctions } from '../osm/lanes';
+import { vcColor } from '../macro/compute';
 import { loadCamera, saveCamera } from '../map/camera';
 import { applyBasemapTone, BASE_STYLE } from '../map/style';
 import { MAP_PALETTE } from '../map/palette';
@@ -110,6 +113,38 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     map.setLayoutProperty('osm', 'visibility', basemap === 'osm' ? 'visible' : 'none');
     map.setLayoutProperty('satellite', 'visibility', basemap === 'satellite' ? 'visible' : 'none');
   }, [map, basemap]);
+}
+
+/** Lanes, links across junctions and, at the selected junction, the lane ends. */
+function useLanes(map: MapLibreMap | null): void {
+  const doc = useEditor((s) => s.doc);
+  const selection = useEditor((s) => currentSelection(s));
+  const theme = useUi((s) => s.theme);
+  const flows = useMacro((s) => s.result?.flows);
+  const picked = useUi((s) => s.laneLink);
+  const style = useMemo<LaneStyle>(() => {
+    const load = new Map<string, number>();
+    for (const f of (flows?.features ?? []) as Array<{ properties: { kind: string; way?: string; vc?: number } }>) {
+      const p = f.properties;
+      if (p.kind === 'flow' && p.way && typeof p.vc === 'number') load.set(p.way, Math.max(load.get(p.way) ?? 0, p.vc));
+    }
+    return { load: (id) => load.get(id) ?? null, color: (vc) => (vc === null ? MAP_PALETTE[theme].lane : vcColor(vc)) };
+  }, [flows, theme]);
+  const nodes = useMemo(() => junctions(doc), [doc]);
+  const editing = selection?.type === 'node' && nodes.includes(selection.id) ? selection.id : null;
+  useEffect(() => { if (map) setData(map, 'lanes', laneLines(doc, style)); }, [map, doc, style]);
+  useEffect(() => {
+    if (!map) return;
+    const { ends, links } = junctionGeometry(doc, nodes, editing, style);
+    const same = (p: Record<string, unknown>) => Boolean(picked && p.node === picked.node && p.from === picked.from && p.lane === picked.lane && p.turn === picked.turn);
+    links.features.forEach((f) => { f.properties.picked = same(f.properties); });
+    ends.features.forEach((f) => {
+      const p = f.properties;
+      f.properties.hot = Boolean(picked && p.node === picked.node && ((p.kind === 'in' && p.arm === picked.from && p.lane === picked.lane) || (p.kind === 'out' && p.arm === picked.to)));
+    });
+    setData(map, 'lane-links', links);
+    setData(map, 'lane-ends', ends);
+  }, [map, doc, nodes, editing, style, picked]);
 }
 
 function useMapLook(map: MapLibreMap | null): void {
@@ -240,6 +275,7 @@ export function MapView() {
   useZoneEditing(map);
   useSyncedSources(map, drawingActive ? pointer : null);
   useCameraPerFile(map);
+  useLanes(map);
   useMapLook(map);
 
   useEffect(() => {
