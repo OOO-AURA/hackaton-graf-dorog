@@ -9,7 +9,7 @@ import { Petals } from './EmptyState';
 
 const WORKSPACES: ReadonlyArray<[Workspace, string, string]> = [
   ['macro', 'Макро', 'Граф УДС для MATSim и SUMO: правка и проверка'],
-  ['micro', 'Микро', 'Перекрёсток и полосы: движение по полосам'],
+  ['micro', 'Микро', 'Микросимуляция SUMO: машины по полосам, LOS, графики'],
 ];
 
 function SaveStatus() {

@@ -148,3 +148,15 @@
 .s-signal { background: #E5392A; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--ink); width: 11px; height: 11px; margin: 0 1.5px; }
 .s-crossing { background: repeating-linear-gradient(90deg, #fff 0 2px, #3F8BC4 2px 4px); outline: 1.5px solid #3F8BC4; }
 .s-bump { background: #F0BC2A; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+
+/* Micro level */
+.los-card { display: flex; align-items: center; gap: 14px; margin: var(--sp-3) var(--sp-4); padding: 10px 12px; border: 1.5px solid var(--ink); border-radius: var(--r-md); }
+.los-letter { display: grid; place-items: center; width: 52px; height: 52px; border-radius: var(--r-md); background: var(--los); color: #1B110A; font-family: var(--font-display); font-weight: 900; font-size: 40px; line-height: 1; }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); margin: 0 var(--sp-4) var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--r-md); }
+.kpis > div { display: grid; gap: 3px; padding: 8px 10px; }
+.kpis > div:nth-child(n + 4) { border-top: 1px solid var(--line); }
+.kpis > div:not(:nth-child(3n + 1)) { border-left: 1px solid var(--line); }
+.kpi { font-family: var(--font-display); font-weight: 900; font-size: 24px; line-height: 1; }
+.chart { margin: 0; }
+.chart figcaption { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.chart svg { width: 100%; height: 64px; display: block; background: var(--field); border-radius: var(--r-sm); }

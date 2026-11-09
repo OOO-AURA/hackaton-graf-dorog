@@ -4,7 +4,7 @@ import { Header } from './components/Header';
 import { Navigator } from './components/Navigator';
 import { Inspector } from './components/Inspector';
 import { BottomDock } from './components/BottomDock';
-import { WorkspaceSoon } from './components/Workspace';
+import { MicroPanel } from './components/sim/MicroPanel';
 import { useEditor } from './state/store';
 import { useUi } from './state/ui';
 import { useHotkeys } from './state/useHotkeys';
@@ -53,15 +53,15 @@ export function App() {
   useLiveValidation();
   useCloseGuard();
   const empty = useEditor((s) => !Object.keys(s.doc.nodes).length);
+  const workspace = useUi((s) => s.workspace);
   return (
     <div className={`app${empty ? ' is-empty' : ''}`}>
       <Header />
       <Navigator />
       <main className="center">
         <MapView />
-        <WorkspaceSoon />
       </main>
-      <Inspector />
+      {workspace === 'micro' ? <MicroPanel /> : <Inspector />}
       <BottomDock />
       <Toast />
     </div>

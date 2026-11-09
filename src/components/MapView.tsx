@@ -6,6 +6,7 @@ import { applyBasemapTone, BASE_STYLE } from '../map/style';
 import { MAP_PALETTE } from '../map/palette';
 import { useUi } from '../state/ui';
 import { MapOverlay } from './MapOverlay';
+import { useSim, vehiclesAt } from '../sim/store';
 import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson } from '../map/geojson';
 import { useMapInteractions } from '../map/useMapInteractions';
 import { currentSelection, useEditor } from '../state/store';
@@ -87,6 +88,14 @@ function useMapLook(map: MapLibreMap | null): void {
   useEffect(() => { if (alive(map)) applyPalette(map, MAP_PALETTE[theme]); }, [map, theme]);
   useEffect(() => { if (alive(map)) applyBasemapTone(map, theme, opacity); }, [map, theme, opacity]);
   useEffect(() => { if (alive(map)) applyLayerVisibility(map, layers); }, [map, layers]);
+  const simResult = useSim((s) => s.result);
+  const simTime = useSim((s) => s.time);
+  const workspace = useUi((s) => s.workspace);
+  useEffect(() => {
+    if (!alive(map)) return;
+    const empty = { type: 'FeatureCollection', features: [] };
+    setData(map, 'vehicles', workspace === 'micro' && simResult ? vehiclesAt(simResult, simTime) : empty);
+  }, [map, simResult, simTime, workspace]);
   useEffect(() => {
     if (!alive(map)) return;
     const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

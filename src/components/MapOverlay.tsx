@@ -7,6 +7,7 @@ import { ROAD_TEMPLATES } from '../osm/tags';
 import { Icon } from './icons';
 import { TOOLS } from './tools';
 import { EmptyState } from './EmptyState';
+import { SimBar } from './sim/SimBar';
 
 const BASEMAPS: ReadonlyArray<[Basemap, string]> = [['osm', 'Схема'], ['satellite', 'Спутник'], ['none', 'Нет']];
 
@@ -95,10 +96,11 @@ function LayerBar() {
 
 export function MapOverlay({ map }: { map: MapLibreMap | null }) {
   const empty = useEditor((s) => !Object.keys(s.doc.nodes).length);
+  const micro = useUi((s) => s.workspace === 'micro');
   if (empty) return <EmptyState />;
   return (
     <>
-      <FloatingTools />
+      {micro ? <SimBar /> : <FloatingTools />}
       <ZoomControls map={map} />
       <BasemapSwitch />
       <LayerBar />

@@ -1,4 +1,5 @@
 mod check;
+mod sim;
 
 use std::fs;
 use std::path::PathBuf;
@@ -24,11 +25,19 @@ async fn check_osm(app: tauri::AppHandle, text: String) -> Result<check::Report,
         .map_err(|e| e.to_string())?
 }
 
+/// Micro level: SUMO run on the current graph, played back in the app.
+#[tauri::command]
+async fn simulate(text: String, minutes: u32) -> Result<sim::SimResult, String> {
+    tauri::async_runtime::spawn_blocking(move || sim::simulate(&text, minutes))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![read_osm, write_osm, check_osm])
+        .invoke_handler(tauri::generate_handler![read_osm, write_osm, check_osm, simulate])
         .run(tauri::generate_context!())
         .expect("error while running application");
 }

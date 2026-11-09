@@ -74,7 +74,7 @@ impl Stage {
     }
 }
 
-fn home() -> PathBuf {
+pub(crate) fn home() -> PathBuf {
     env::var_os("HOME").or_else(|| env::var_os("USERPROFILE")).map(PathBuf::from).unwrap_or_default()
 }
 
@@ -90,12 +90,12 @@ fn exe(name: &str) -> String {
     if cfg!(windows) { format!("{name}.exe") } else { name.to_string() }
 }
 
-fn sumo_bin(name: &str) -> PathBuf {
+pub(crate) fn sumo_bin(name: &str) -> PathBuf {
     let dir = locate("GRAF_SUMO_BIN", &[home().join("tools/sumo-venv/bin"), PathBuf::from("/tools/sumo-venv/bin")], "");
     if dir.as_os_str().is_empty() { PathBuf::from(exe(name)) } else { dir.join(exe(name)) }
 }
 
-fn sumo_home() -> Option<PathBuf> {
+pub(crate) fn sumo_home() -> Option<PathBuf> {
     if let Some(p) = env::var_os("SUMO_HOME") {
         return Some(PathBuf::from(p));
     }
@@ -103,12 +103,12 @@ fn sumo_home() -> Option<PathBuf> {
     fs::read_dir(&lib).ok()?.flatten().map(|e| e.path().join("site-packages/sumo")).find(|p| p.exists())
 }
 
-fn tail(text: &str, lines: usize) -> String {
+pub(crate) fn tail(text: &str, lines: usize) -> String {
     let all: Vec<&str> = text.lines().collect();
     all[all.len().saturating_sub(lines)..].join("\n")
 }
 
-fn run(cmd: &mut Command) -> Result<(Output, String), String> {
+pub(crate) fn run(cmd: &mut Command) -> Result<(Output, String), String> {
     let program = cmd.get_program().to_string_lossy().into_owned();
     let out = cmd.output().map_err(|e| format!("Не удалось запустить {program}: {e}"))?;
     let text = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
@@ -116,7 +116,7 @@ fn run(cmd: &mut Command) -> Result<(Output, String), String> {
 }
 
 /// Number after `key` on the first line that contains it, e.g. "Inserted: 600".
-fn number_after(text: &str, key: &str) -> Option<f64> {
+pub(crate) fn number_after(text: &str, key: &str) -> Option<f64> {
     text.lines().find_map(|l| {
         let rest = l.split_once(key)?.1.trim_start_matches([':', ' ']);
         let num: String = rest.chars().take_while(|c| c.is_ascii_digit() || *c == '.').collect();
