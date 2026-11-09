@@ -1,5 +1,6 @@
 import type { OsmDoc } from '../osm/types';
-import { assign, buildingMass, buildNetwork, dijkstra, gravityOd, gridZones, metres, pointZones, weighByBuildings, type Zone } from './model';
+import { assign, buildingMass, buildNetwork, dijkstra, gridZones, metres, pointZones, weighByBuildings, type Zone } from './model';
+import { DEFAULT_BETA, meanTime, PURPOSES, purposeMatrices, roundOd, skim, solveBeta, timeHistogram } from './purposes';
 
 /** Load bands by volume to capacity ratio. */
 export const VC_BANDS = [
@@ -29,6 +30,15 @@ export interface MacroResult {
   vkt: number;
   vht: number;
   overloaded: number;
+  /** Base β of the gravity model, 1/min, and whether it came from calibration. */
+  beta: number;
+  calibrated: 'ok' | 'unreachable' | null;
+  /** Mean trip times β can give on this fragment, from the largest to the smallest β. */
+  reachable: [number, number] | null;
+  /** Mean trip time on the loaded network, minutes, and its distribution. */
+  meanTime: number;
+  histogram: Array<{ from: number; share: number }>;
+  purposes: Array<{ id: string; label: string; trips: number; meanTime: number }>;
 }
 
 
@@ -39,14 +49,35 @@ export interface FlowsOptions {
   points?: ReadonlyArray<readonly [number, number]> | null;
   /** Matrix edited by hand; used as is when it matches the zones. */
   od?: number[][] | null;
+  /** Base β, 1/min; defaults to DEFAULT_BETA. */
+  beta?: number;
+  /** Mean trip time to calibrate β to, minutes; overrides `beta`. */
+  targetMinutes?: number | null;
 }
 
 export function computeFlows(doc: OsmDoc, opts: FlowsOptions): MacroResult {
   const net = buildNetwork(doc);
   const base = opts.points?.length ? pointZones(net, opts.points) : gridZones(net, opts.side);
   const zones = weighByBuildings(base, buildingMass(doc));
-  const od = opts.od && opts.od.length === zones.length ? opts.od : gravityOd(net, zones, opts.trips);
+  const free = skim(net, zones);
+  let beta = opts.beta ?? DEFAULT_BETA;
+  let calibrated: MacroResult['calibrated'] = null;
+  let reachable: [number, number] | null = null;
+  if (opts.targetMinutes) {
+    // Calibrate on the loaded network: one assignment with the current β gives the congested times.
+    const first = assign(net, zones, roundOd(purposeMatrices(free, zones, opts.trips, beta).od), 20);
+    const congested = skim(net, zones, first.time);
+    const at = (b: number) => meanTime(purposeMatrices(congested, zones, 1000, b).od, congested);
+    const solved = solveBeta(at, opts.targetMinutes);
+    reachable = [at(2), at(0.001)];
+    calibrated = solved === null ? 'unreachable' : 'ok';
+    if (solved !== null) beta = solved;
+  }
+  const split = purposeMatrices(free, zones, opts.trips, beta);
+  const edited = opts.od && opts.od.length === zones.length ? opts.od : null;
+  const od = edited ?? roundOd(split.od);
   const a = assign(net, zones, od, 40);
+  const loaded = skim(net, zones, a.time);
   let vkt = 0; let vht = 0; let overloaded = 0;
   const features: unknown[] = net.links.map((l, i) => {
     const v = a.volume[i]; const vc = v / l.cap;
@@ -56,7 +87,15 @@ export function computeFlows(doc: OsmDoc, opts: FlowsOptions): MacroResult {
     return { type: 'Feature', geometry: { type: 'LineString', coordinates: l.coords }, properties: { kind: 'flow', v: Math.round(v), vc: Math.round(vc * 100) / 100, color: vcColor(vc), way: l.wayId } };
   });
   zones.forEach((z) => features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: z.lonlat }, properties: { kind: 'zone', name: z.name, idx: z.id - 1 } }));
-  return { zones, od, flows: { type: 'FeatureCollection', features }, iterations: a.iterations, gap: a.gap, unrouted: a.unrouted, vkt, vht, overloaded };
+  const purposes = PURPOSES.map((p, k) => ({
+    id: p.id, label: p.label,
+    trips: Math.round(split.mats[k].flat().reduce((x, v) => x + v, 0)),
+    meanTime: meanTime(split.mats[k], loaded),
+  }));
+  return {
+    zones, od, flows: { type: 'FeatureCollection', features }, iterations: a.iterations, gap: a.gap, unrouted: a.unrouted, vkt, vht, overloaded,
+    beta, calibrated, reachable, meanTime: meanTime(od, loaded), histogram: timeHistogram(od, loaded, 1), purposes: edited ? [] : purposes,
+  };
 }
 
 export function computeIsochrone(doc: OsmDoc, nodeId: string): Fc | null {

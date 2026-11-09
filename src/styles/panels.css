@@ -239,3 +239,15 @@
 .kpis.kpis-2 { grid-template-columns: repeat(2, 1fr); }
 .kpis.kpis-2 > div:not(:nth-child(3n + 1)) { border-left: 0; }
 .kpis.kpis-2 > div:nth-child(2n) { border-left: 1px solid var(--line); }
+.field-beta input { width: 150px; }
+.calibrate { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.calibrate input { height: 30px; width: 110px; }
+.trip-side { display: grid; gap: 8px; min-width: 260px; max-width: 320px; }
+.trip-chart svg { height: 90px; }
+.trip-chart .bar { fill: var(--ink-2); }
+.trip-chart .mean { stroke: #E54489; stroke-width: 1.5; stroke-dasharray: 3 2; }
+.trip-chart .axis { stroke: var(--line-strong); }
+.trip-chart .tick { fill: var(--muted); font-size: 9px; font-family: var(--font-mono); }
+.purposes { border-collapse: collapse; font-size: 12px; }
+.purposes th, .purposes td { padding: 3px 8px; border-bottom: 1px solid var(--line); text-align: right; }
+.purposes th:first-child { text-align: left; font-weight: 500; }

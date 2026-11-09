@@ -1,3 +1,4 @@
+import { homeShare } from './purposes';
 import { capacity } from '../osm/profile';
 import { direction, isDrivable } from '../osm/tags';
 import type { OsmDoc } from '../osm/types';
@@ -105,7 +106,11 @@ export function dijkstra(net: Network, source: number, cost: ArrayLike<number>):
   return { dist, via };
 }
 
-export interface Zone { readonly id: number; readonly name: string; readonly node: number; readonly lonlat: [number, number]; readonly weight: number }
+export interface Zone {
+  readonly id: number; readonly name: string; readonly node: number; readonly lonlat: [number, number]; readonly weight: number;
+  /** Floor area of homes and of everything else (jobs, shops, schools) nearest to the zone. */
+  readonly home?: number; readonly work?: number;
+}
 
 /** Splits the network into a grid of zones; each zone is served by the node closest to its centre. */
 export function gridZones(net: Network, side: number): Zone[] {
@@ -196,8 +201,8 @@ export function nearestNode(net: Network, p: readonly [number, number]): number 
 }
 
 /** Floor area proxy of every building: footprint area times levels, at its centroid. */
-export function buildingMass(doc: OsmDoc): Array<{ c: [number, number]; w: number }> {
-  const out: Array<{ c: [number, number]; w: number }> = [];
+export function buildingMass(doc: OsmDoc): Array<{ c: [number, number]; w: number; home?: number }> {
+  const out: Array<{ c: [number, number]; w: number; home?: number }> = [];
   for (const way of Object.values(doc.ways)) {
     if (!way.tags.building || way.tags.building === 'no') continue;
     const refs = way.refs.length > 1 && way.refs[0] === way.refs[way.refs.length - 1] ? way.refs.slice(0, -1) : way.refs;
@@ -212,7 +217,7 @@ export function buildingMass(doc: OsmDoc): Array<{ c: [number, number]; w: numbe
       cx += a.lon; cy += a.lat;
     }
     const levels = parseFloat(way.tags['building:levels'] ?? '') || 2;
-    out.push({ c: [cx / pts.length, cy / pts.length], w: (Math.abs(area) / 2) * levels });
+    out.push({ c: [cx / pts.length, cy / pts.length], w: (Math.abs(area) / 2) * levels, home: homeShare(way.tags.building) });
   }
   return out;
 }
@@ -221,14 +226,19 @@ export function buildingMass(doc: OsmDoc): Array<{ c: [number, number]; w: numbe
 export function weighByBuildings(zones: Zone[], mass: ReturnType<typeof buildingMass>): Zone[] {
   if (!mass.length || !zones.length) return zones;
   const w = zones.map(() => 0);
+  const home = zones.map(() => 0);
   for (const b of mass) {
     let best = 0; let bd = Infinity;
     zones.forEach((z, i) => { const d = metres(b.c, z.lonlat); if (d < bd) { bd = d; best = i; } });
     w[best] += b.w;
+    home[best] += b.w * (b.home ?? 0.5);
   }
   // A zone with no buildings still produces a little traffic, so it does not vanish from the matrix.
   const floor = Math.max(1, Math.max(...w) * 0.02);
-  return zones.map((z, i) => ({ ...z, weight: Math.max(floor, w[i]) }));
+  return zones.map((z, i) => {
+    const weight = Math.max(floor, w[i]);
+    return { ...z, weight, home: Math.max(floor / 2, home[i]), work: Math.max(floor / 2, w[i] - home[i]) };
+  });
 }
 
 /** Zones placed by hand: each point is served by its nearest node that has outgoing links. */
