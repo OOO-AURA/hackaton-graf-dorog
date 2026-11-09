@@ -313,3 +313,7 @@ button.link:hover { text-decoration: underline; }
 .bundle { display: grid; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .bundle-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .changes-summary { display: grid; gap: 4px; padding: 8px 10px; margin-bottom: 8px; border: 1px solid var(--line); border-radius: var(--r-md, 8px); font-size: 12px; }
+.check-stage th { font-size: 10.5px; font-weight: 700; text-align: left; opacity: 0.7; }
+.check-stage td.was { opacity: 0.6; }
+.delta { font-size: 11px; font-weight: 700; margin-left: 4px; color: var(--ink-2); }
+/* Neutral on purpose: more links is good, more teleports is bad, so colour would mislead. */
