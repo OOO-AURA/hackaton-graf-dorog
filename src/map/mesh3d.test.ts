@@ -4,7 +4,7 @@ import { parseOsm } from '../osm/parse';
 import { bridgeHeight, buildScene3d, deckProfile, LANE_WIDTH, LAYER_HEIGHT, roadWidth, STRIDE, type Scene3dColors } from './mesh3d';
 
 const COLORS: Scene3dColors = {
-  building: [0.8, 0.7, 0.6], edge: [0.5, 0.4, 0.3], deck: () => [1, 0.8, 0], deckSide: [0.5, 0.4, 0.3], pier: [0.5, 0.4, 0.3], portal: [0.5, 0.4, 0.3],
+  building: [0.8, 0.7, 0.6], deck: () => [1, 0.8, 0], deckSide: [0.5, 0.4, 0.3], pier: [0.5, 0.4, 0.3], portal: [0.5, 0.4, 0.3],
 };
 
 const osm = (body: string) => parseOsm(`<osm version="0.6">${body}</osm>`);
@@ -113,7 +113,7 @@ describe('3D scene geometry', () => {
     const mesh = buildScene3d(doc, COLORS)!;
     expect(mesh.solid.length).toBeGreaterThan(0);
     expect(mesh.structures.length).toBeGreaterThan(0);
-    for (const arr of [mesh.solid, mesh.structures, mesh.edges, mesh.roadMask]) expect(arr.every(Number.isFinite)).toBe(true);
+    for (const arr of [mesh.solid, mesh.structures, mesh.roadMask]) expect(arr.every(Number.isFinite)).toBe(true);
   });
 
   test('an empty document has no scene', () => {

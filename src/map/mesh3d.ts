@@ -9,7 +9,7 @@ import { buildingHeight } from './geojson';
  */
 
 export type Rgb = readonly [number, number, number];
-export type Scene3dColors = { building: Rgb; edge: Rgb; deck: (highway: string) => Rgb; deckSide: Rgb; pier: Rgb; portal: Rgb };
+export type Scene3dColors = { building: Rgb; deck: (highway: string) => Rgb; deckSide: Rgb; pier: Rgb; portal: Rgb };
 
 /**
  * Interleaved x, y, z, r, g, b, cut, nx, ny, nz, shade. `cut` is 1 for geometry that the road
@@ -25,8 +25,6 @@ export type Scene3dMesh = {
   solid: Float32Array;
   /** Bridge decks, piers and tunnel portals: opaque, never cut away. */
   structures: Float32Array;
-  /** Building outlines as line pairs, shown only where the cutaway removes the building. */
-  edges: Float32Array;
   /** Road ribbons as triangles with x, y, z only: what the cutaway looks for behind buildings. */
   roadMask: Float32Array;
 };
@@ -180,7 +178,7 @@ function signedArea(ring: readonly P2[]): number {
 
 const ccw = (ring: P2[]) => (signedArea(ring) < 0 ? ring.reverse() : ring);
 
-function addBuilding(solid: Buf, edges: Buf, ring: P2[], base: number, height: number, colors: Scene3dColors) {
+function addBuilding(solid: Buf, ring: P2[], base: number, height: number, colors: Scene3dColors) {
   if (ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]) ring = ring.slice(0, -1);
   if (ring.length < 3 || height <= base) return;
   ring = ccw(ring);
@@ -199,15 +197,6 @@ function addBuilding(solid: Buf, edges: Buf, ring: P2[], base: number, height: n
     // Wound clockwise seen from above, like the walls seen from outside: both face the camera.
     if (signedArea(t) > 0) t.reverse();
     tri(solid, c, 1, [t[0][0], t[0][1], height], [t[1][0], t[1][1], height], [t[2][0], t[2][1], height], FLAT, -OUTWARD);
-  }
-  const e = colors.edge;
-  for (let i = 0; i < n; i += 1) {
-    const a = ring[i];
-    const b = ring[(i + 1) % n];
-    const v = (x: number, y: number, z: number) => edges.push(x, y, z, e[0], e[1], e[2], 1, 0, 0, 0, 1);
-    v(a[0], a[1], height); v(b[0], b[1], height);
-    v(a[0], a[1], base); v(a[0], a[1], height);
-    v(a[0], a[1], base); v(b[0], b[1], base);
   }
 }
 
@@ -299,7 +288,6 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
 
   const solid = new Buf();
   const structures = new Buf();
-  const edges = new Buf();
   const mask = new Buf();
 
   // How many drivable non-tunnel ways touch each node: a tunnel end there is a portal.
@@ -315,7 +303,7 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     if (w.tags.building) {
       const height = buildingHeight(w.tags);
       const minH = Number.parseFloat(w.tags.min_height ?? '');
-      addBuilding(solid, edges, pts, Number.isFinite(minH) && minH > 0 ? minH : 0, height, colors);
+      addBuilding(solid, pts, Number.isFinite(minH) && minH > 0 ? minH : 0, height, colors);
       return;
     }
     if (!isDrivable(w.tags)) return;
@@ -333,5 +321,5 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     for (let i = 0; i < pts.length - 1; i += 1) ribbon(mask, left[i], left[i + 1], right[i], right[i + 1], 0, 0);
   });
 
-  return { origin, solid: solid.array, structures: structures.array, edges: edges.array, roadMask: mask.array };
+  return { origin, solid: solid.array, structures: structures.array, roadMask: mask.array };
 }

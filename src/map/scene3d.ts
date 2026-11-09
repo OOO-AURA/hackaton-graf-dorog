@@ -16,6 +16,10 @@ export const SCENE3D_LAYER = 'scene-3d';
 /** The cutaway fades in between these zooms and is off when the map is further out. */
 const CUT_ZOOM_FROM = 16.5;
 const CUT_ZOOM_FULL = 17.2;
+/** Neighbouring columns each side the cut line is taken over, and the step between them in CSS px. */
+const SPREAD_TAPS = 6;
+const SPREAD_PX = 3;
+
 /** Opacity of extruded buildings, as the old fill-extrusion layer had it. */
 const BUILDING_OPACITY = 0.85;
 
@@ -116,7 +120,6 @@ attribute vec3 a_normal;
 attribute float a_shade;
 uniform mat4 u_matrix;
 uniform vec3 u_lightpos;
-uniform float u_edges;
 varying vec3 v_color;
 varying float v_cut;
 varying float v_w;
@@ -124,7 +127,6 @@ void main() {
   v_cut = a_cut;
   gl_Position = u_matrix * vec4(a_pos, 1.0);
   v_w = gl_Position.w;
-  if (u_edges > 0.5) { v_color = a_color; return; }
   float colorvalue = dot(a_color, vec3(0.2126, 0.7152, 0.0722));
   vec3 color = a_color + 0.03;
   float d = dot(a_normal, u_lightpos);
@@ -144,20 +146,26 @@ uniform vec2 u_size;
 uniform float u_fade;
 uniform float u_cutaway;
 uniform float u_opacity;
-uniform float u_edges;
+uniform float u_spread;
 varying vec3 v_color;
 varying float v_cut;
 varying float v_w;
 void main() {
   float alpha = 1.0;
   if (v_cut > 0.5 && u_cutaway > 0.0) {
-    vec4 c = texture2D(u_columns, vec2(gl_FragCoord.x / u_size.x, 0.5));
-    float y = unpack16(c.rg) * (u_size.y + 1.0);
-    float road = unpack16(c.ba);
-    if (y > 0.0 && linearDepth(v_w) < road) alpha = mix(1.0, clamp((y - gl_FragCoord.y) / u_fade, 0.0, 1.0), u_cutaway);
+    // The cut line of neighbouring columns too: the highest one wins, so a road seen through a
+    // gap between pixels does not comb the fade into stripes.
+    float me = linearDepth(v_w);
+    float cutY = 0.0;
+    for (int i = -${SPREAD_TAPS}; i <= ${SPREAD_TAPS}; i++) {
+      float x = gl_FragCoord.x + float(i) * u_spread;
+      vec4 c = texture2D(u_columns, vec2(x / u_size.x, 0.5));
+      float y = unpack16(c.rg) * (u_size.y + 1.0);
+      if (y > 0.0 && me < unpack16(c.ba)) cutY = max(cutY, y);
+    }
+    if (cutY > 0.0) alpha = mix(1.0, clamp((cutY - gl_FragCoord.y) / u_fade, 0.0, 1.0), u_cutaway);
   }
-  // Outlines show only where the building has been cut away, so its shape stays readable.
-  alpha = u_edges > 0.5 ? (1.0 - alpha) * 0.8 : alpha * (v_cut > 0.5 ? u_opacity : 1.0);
+  alpha *= v_cut > 0.5 ? u_opacity : 1.0;
   if (alpha < 0.004) discard;
   gl_FragColor = vec4(v_color * alpha, alpha);
 }
@@ -222,7 +230,7 @@ function mul(a: ArrayLike<number>, b: ArrayLike<number>): Float32Array {
   return new Float32Array(out);
 }
 
-type Buffers = { solid: WebGLBuffer; solidCount: number; structures: WebGLBuffer; structuresCount: number; edges: WebGLBuffer; edgesCount: number; mask: WebGLBuffer; maskCount: number };
+type Buffers = { solid: WebGLBuffer; solidCount: number; structures: WebGLBuffer; structuresCount: number; mask: WebGLBuffer; maskCount: number };
 
 export class Scene3dLayer implements CustomLayerInterface {
   readonly id = SCENE3D_LAYER;
@@ -285,7 +293,7 @@ export class Scene3dLayer implements CustomLayerInterface {
   private dropBuffers(gl: GL) {
     if (!this.buffers) return;
     const b = this.buffers;
-    [b.solid, b.structures, b.edges, b.mask].forEach((x) => gl.deleteBuffer(x));
+    [b.solid, b.structures, b.mask].forEach((x) => gl.deleteBuffer(x));
     this.buffers = null;
   }
 
@@ -304,7 +312,6 @@ export class Scene3dLayer implements CustomLayerInterface {
     this.buffers = {
       solid: make(m.solid), solidCount: m.solid.length / STRIDE,
       structures: make(m.structures), structuresCount: m.structures.length / STRIDE,
-      edges: make(m.edges), edgesCount: m.edges.length / STRIDE,
       mask: make(m.roadMask), maskCount: m.roadMask.length / 3,
     };
   }
@@ -421,9 +428,8 @@ export class Scene3dLayer implements CustomLayerInterface {
     const cut = strength > 0;
     gl.uniform1f(gl.getUniformLocation(p, 'u_cutaway'), strength);
     gl.uniform1f(gl.getUniformLocation(p, 'u_opacity'), BUILDING_OPACITY);
+    gl.uniform1f(gl.getUniformLocation(p, 'u_spread'), SPREAD_PX * (window.devicePixelRatio || 1));
     gl.uniform3fv(gl.getUniformLocation(p, 'u_lightpos'), lightPosition(this.map?.getBearing() ?? 0));
-    const edgesLoc = gl.getUniformLocation(p, 'u_edges');
-    gl.uniform1f(edgesLoc, 0);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, cut ? this.columnTarget!.tex : null);
     gl.uniform1i(gl.getUniformLocation(p, 'u_columns'), 0);
@@ -477,11 +483,6 @@ export class Scene3dLayer implements CustomLayerInterface {
       gl.depthMask(false);
       draw(b.solid, gl.TRIANGLES, b.solidCount);
       gl.disable(gl.CULL_FACE);
-      if (cut) {
-        gl.uniform1f(edgesLoc, 1);
-        draw(b.edges, gl.LINES, b.edgesCount);
-        gl.uniform1f(edgesLoc, 0);
-      }
       gl.depthMask(true);
     }
     gl.disable(gl.BLEND);
