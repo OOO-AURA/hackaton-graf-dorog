@@ -56,6 +56,7 @@ export async function saveOsm(saveAs = false): Promise<void> {
   const text = serializeOsm(s.doc);
   if (!isDesktop) {
     downloadText(text, name);
+    useEditor.setState({ savedDoc: s.doc });
     s.notify(`Сохранено ${name}`);
     return;
   }

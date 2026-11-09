@@ -14,6 +14,8 @@ const HISTORY_LIMIT = 200;
 
 interface EditorState {
   doc: OsmDoc;
+  /** Document as it was last loaded or saved; differs from `doc` when there are unsaved edits. */
+  savedDoc: OsmDoc;
   fileName: string;
   /** Absolute path on disk when running as the desktop app; null in the browser or for new files. */
   filePath: string | null;
@@ -55,6 +57,7 @@ const pushPast = (past: OsmDoc[], doc: OsmDoc) => [...past, doc].slice(-HISTORY_
 
 export const useEditor = create<EditorState>((set, get) => ({
   doc: EMPTY_DOC,
+  savedDoc: EMPTY_DOC,
   fileName: 'graph.osm',
   filePath: null,
   saveName: 'hack-team10.osm',
@@ -70,8 +73,8 @@ export const useEditor = create<EditorState>((set, get) => ({
   focusIssue: null,
   message: null,
 
-  markSaved: (fileName, filePath) => set({ fileName, filePath, saveName: fileName }),
-  load: (doc, fileName, filePath = null) => set({ doc, fileName, filePath, past: [], future: [], selection: null, drawing: [], report: null, mode: 'select' }),
+  markSaved: (fileName, filePath) => set(({ doc }) => ({ fileName, filePath, saveName: fileName, savedDoc: doc })),
+  load: (doc, fileName, filePath = null) => set({ doc, savedDoc: doc, fileName, filePath, past: [], future: [], selection: null, drawing: [], report: null, mode: 'select' }),
   apply: (edit) => {
     const { doc, past } = get();
     const next = edit(doc);
@@ -111,3 +114,6 @@ export function currentSelection(state: Pick<EditorState, 'doc' | 'selection'>):
   const exists = selection.type === 'node' ? doc.nodes[selection.id] : doc.ways[selection.id];
   return exists ? selection : null;
 }
+
+/** True when the document has edits that are not written to disk yet. */
+export const isDirty = (state: Pick<EditorState, 'doc' | 'savedDoc'>): boolean => state.doc !== state.savedDoc;
