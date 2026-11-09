@@ -36,24 +36,6 @@ const SIGN_ICONS: Record<string, (c: CanvasRenderingContext2D) => void> = {
     c.beginPath(); c.moveTo(16, 3); c.lineTo(29, 28); c.lineTo(3, 28); c.closePath(); c.fill(); c.stroke();
     c.fillStyle = '#3A2516'; c.beginPath(); c.ellipse(16, 23, 7, 3.5, 0, Math.PI, 0); c.fill(); c.fillRect(8, 23, 16, 2);
   },
-  stop: (c) => {
-    c.fillStyle = '#E5392A'; c.strokeStyle = '#FFFFFF'; c.lineWidth = 2;
-    c.beginPath(); for (let i = 0; i < 8; i += 1) { const a = Math.PI / 8 + (i * Math.PI) / 4; c.lineTo(16 + 13 * Math.cos(a), 16 + 13 * Math.sin(a)); } c.closePath(); c.fill(); c.stroke();
-    c.fillStyle = '#FFFFFF'; c.fillRect(9, 14.5, 14, 3);
-  },
-  give_way: (c) => {
-    c.fillStyle = '#FFFFFF'; c.strokeStyle = '#E5392A'; c.lineWidth = 4;
-    c.beginPath(); c.moveTo(4, 6); c.lineTo(28, 6); c.lineTo(16, 28); c.closePath(); c.fill(); c.stroke();
-  },
-  speed: (c) => {
-    c.fillStyle = '#FFFFFF'; c.strokeStyle = '#E5392A'; c.lineWidth = 4.5;
-    c.beginPath(); c.arc(16, 16, 11.5, 0, Math.PI * 2); c.fill(); c.stroke();
-    c.fillStyle = '#3A2516'; c.fillRect(10, 13, 2.5, 7); c.fillRect(14.5, 13, 7, 2.2); c.fillRect(14.5, 17.8, 7, 2.2); c.fillRect(19.3, 13, 2.2, 7); c.fillRect(14.5, 13, 2.2, 7);
-  },
-  bus_stop: (c) => {
-    c.fillStyle = '#3F8BC4'; c.fillRect(3, 3, 26, 26); c.fillStyle = '#FFFFFF'; c.fillRect(9, 8, 14, 13); c.fillStyle = '#3F8BC4'; c.fillRect(11, 10, 10, 5);
-    c.fillStyle = '#FFFFFF'; c.fillRect(10, 22, 3, 3); c.fillRect(19, 22, 3, 3);
-  },
 };
 
 function addSignImages(map: MapLibreMap): void {
@@ -110,7 +92,7 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   });
   const signLayout = (size: number) => ({ 'icon-image': ['concat', 'sign-', ['get', 'symbol']], 'icon-allow-overlap': true, 'icon-size': ['interpolate', ['linear'], ['zoom'], 14, size * 0.7, 18, size] }) as never;
   map.addLayer({ id: 'crossings', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['==', ['get', 'symbol'], 'crossing'], layout: signLayout(1) });
-  map.addLayer({ id: 'signs', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['in', ['get', 'symbol'], ['literal', ['bump', 'stop', 'give_way', 'speed', 'bus_stop']]], layout: signLayout(1) });
+  map.addLayer({ id: 'signs', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['in', ['get', 'symbol'], ['literal', ['bump']]], layout: signLayout(1) });
   map.addLayer({ id: 'signals', type: 'circle', source: 'nodes', minzoom: 13, filter: ['==', ['get', 'kind'], 'signal'], paint: { 'circle-radius': 6, 'circle-stroke-width': 2 } });
   map.addLayer({ id: 'selection-node', type: 'circle', source: 'selection', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 10, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 3 } });
   map.addLayer({ id: 'issues-halo', type: 'circle', source: 'issues', filter: ['any', ['get', 'focused'], ['!=', ['get', 'kind'], 'cordon']], paint: { 'circle-radius': ['case', ['get', 'focused'], 22, 13], 'circle-opacity': 0.18, 'circle-blur': 0.4 } });

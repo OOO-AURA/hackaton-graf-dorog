@@ -3,7 +3,7 @@ import { withTag } from '../osm/tags';
 import type { OsmNode } from '../osm/types';
 import { useEditor } from '../state/store';
 import { deleteSelection, splitAtSelected, toggleSignalSelected } from '../state/actions';
-import { SelectField, TextField } from './fields';
+import { SelectField } from './fields';
 import { TagTable } from './TagTable';
 import { Section } from './Section';
 import { NODE_FEATURES, nodeSymbol } from '../map/features';
@@ -42,8 +42,6 @@ export function NodeInspector({ node }: { node: OsmNode }) {
         {node.tags.highway === 'crossing' && <SelectField label="Переход" value={node.tags.crossing ?? ''} options={CROSSING_OPTIONS} onChange={setTag('crossing')} />}
         <div className="row">
           <SelectField label="Неровность" value={node.tags.traffic_calming ?? ''} options={CALMING_OPTIONS} onChange={setTag('traffic_calming')} />
-          <TextField label="Знак скорости, км/ч" type="number" value={node.tags.traffic_sign?.startsWith('RU:3.24') ? node.tags.maxspeed ?? '' : ''} placeholder="нет"
-            onCommit={(v) => apply((d) => setNodeTags(d, node.id, withTag(withTag(node.tags, 'traffic_sign', v ? 'RU:3.24' : null), 'maxspeed', v || null)))} />
         </div>
         <div className="buttons">
           <button className="btn" onClick={toggleSignalSelected} title="S"><Icon name="signal" /> {isSignal ? 'Убрать светофор' : 'Светофор'} <kbd>S</kbd></button>

@@ -123,7 +123,6 @@ function Legend() {
         <li><i className="swatch-dot" style={{ background: p.signal }} />Светофор</li>
         <li><i className="sign-swatch s-crossing" />Переход</li>
         <li><i className="sign-swatch s-bump" />Лежачий полицейский</li>
-        <li><i className="sign-swatch s-stop" />Знаки: STOP, уступи, скорость</li>
         <li><i className="swatch-ring" style={{ borderColor: p.error }} />Ошибка графа</li>
         <li><i className="swatch-ring" style={{ borderColor: p.warning }} />Замечание</li>
         <li><i className="swatch-ring" style={{ borderColor: p.cordon }} />Граница фрагмента</li>

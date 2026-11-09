@@ -18,15 +18,11 @@ export const NODE_FEATURES: readonly NodeFeature[] = [
   { id: 'signal', label: 'Светофор', hint: 'highway=traffic_signals. SUMO строит по нему светофорный объект, MATSim снижает пропускную способность.', tags: { highway: 'traffic_signals' } },
   { id: 'crossing', label: 'Пешеходный переход', hint: 'highway=crossing, crossing=uncontrolled. SUMO ставит переход на перекрёстке, Webots рисует зебру.', tags: { highway: 'crossing', crossing: 'uncontrolled' } },
   { id: 'bump', label: 'Лежачий полицейский', hint: 'traffic_calming=bump. Отмечает искусственную неровность, машины перед ней сбрасывают скорость.', tags: { traffic_calming: 'bump' } },
-  { id: 'stop', label: 'Знак STOP', hint: 'highway=stop. SUMO даёт этому направлению обязательную остановку перед перекрёстком.', tags: { highway: 'stop' } },
-  { id: 'give_way', label: 'Уступи дорогу', hint: 'highway=give_way. SUMO делает это направление второстепенным на перекрёстке.', tags: { highway: 'give_way' } },
-  { id: 'speed', label: 'Ограничение скорости', hint: 'traffic_sign=RU:3.24 и maxspeed. Значение меняется в инспекторе узла.', tags: { traffic_sign: 'RU:3.24', maxspeed: '40' } },
-  { id: 'bus_stop', label: 'Остановка', hint: 'highway=bus_stop. Остановка общественного транспорта на дороге.', tags: { highway: 'bus_stop' } },
 ];
 
 export const featureById = (id: string): NodeFeature => NODE_FEATURES.find((f) => f.id === id) ?? NODE_FEATURES[0];
 
-export const hasFeature = (tags: Tags, f: NodeFeature): boolean => Object.entries(f.tags).every(([k, v]) => k === 'maxspeed' || tags[k] === v);
+export const hasFeature = (tags: Tags, f: NodeFeature): boolean => Object.entries(f.tags).every(([k, v]) => tags[k] === v);
 
 /** Adds the feature to the node, or removes it if the node already has it. */
 export function toggleNodeFeature(doc: OsmDoc, nodeId: string, f: NodeFeature): OsmDoc {
@@ -41,10 +37,6 @@ export function toggleNodeFeature(doc: OsmDoc, nodeId: string, f: NodeFeature): 
 export function nodeSymbol(tags: Tags): string {
   if (tags.highway === 'traffic_signals') return 'signal';
   if (tags.highway === 'crossing' || tags.crossing) return 'crossing';
-  if (tags.highway === 'stop') return 'stop';
-  if (tags.highway === 'give_way') return 'give_way';
   if (tags.traffic_calming) return 'bump';
-  if (tags.traffic_sign?.startsWith('RU:3.24') || tags.traffic_sign === 'maxspeed') return 'speed';
-  if (tags.highway === 'bus_stop') return 'bus_stop';
   return '';
 }
