@@ -1,24 +1,56 @@
 # Редактор графа УДС
 
-Веб-редактор графа улично-дорожной сети в формате OpenStreetMap для хакатона «Транспортное планирование городов» (Иркутск, 2026).
+Редактор графа улично-дорожной сети в формате OpenStreetMap для хакатона «Транспортное планирование городов» (Иркутск, 2026).
 
 Редактор открывает `.osm`, показывает дорожную сеть в 2D на подложке (схема или спутник), позволяет визуально её править и сохраняет результат обратно в `.osm`. Сохранённый файл можно отправить на проверку в MatSim, SUMO и Webots.
 
 ## Запуск
 
+Готовые сборки под macOS (`.dmg`) и Windows (`.msi`, `.exe`) собирает GitHub Actions, их можно скачать во вкладке Actions из последнего прогона `build`.
+
+Приложение из исходников (нужны Node 22 и Rust):
+
 ```bash
 npm install
-npm run dev        # http://localhost:5173
+npm run app          # окно приложения с горячей перезагрузкой
+npm run app:build    # .app и .dmg в src-tauri/target/release/bundle/
 ```
 
-Сборка статического сайта (папка `dist/` открывается любым веб-сервером):
+Без Tauri редактор работает и в браузере, только без проверки на SUMO, MATSim и Webots:
 
 ```bash
-npm run build
-npm run preview
+npm run dev          # http://localhost:5173
 ```
 
-Тесты: `npm test`.
+Тесты: `npm test` для интерфейса и модели OSM, `cargo test` в `src-tauri/` для Rust.
+
+## Проверка как на сервере
+
+Кнопка «Проверить как на сервере» прогоняет текущий граф через те же адаптеры, что и сервер организаторов, и показывает отчёт по каждому уровню:
+
+- **SUMO.** `netconvert` с опциями OSM WebWizard (`--geometry.remove --ramps.guess --junctions.join --tls.guess-signals --tls.discard-simple --tls.join --tls.default-type actuated`), затем `randomTrips.py` и 20 минут модели в `sumo`. В отчёте рёбра, перекрёстки, светофоры, тупики, поездки без маршрута, телепортации, столкновения, средняя скорость.
+- **MATSim.** `OsmNetworkReader` строит сеть, `NetworkCleaner` показывает, какие линки выпадают из сильно связной части. По ним агенты не поедут.
+- **Webots.** Штатный `osm_importer/importer.py` собирает мир, в отчёте число дорог, перекрёстков и зданий и ошибки импорта.
+
+Так ошибки видны до отправки файла на сервер. Проверка ищет инструменты в стандартных местах, любое из них можно переопределить переменной окружения:
+
+| Инструмент | Где ищем | Переменная |
+|---|---|---|
+| SUMO 1.28 | `~/tools/sumo-venv/bin`, затем `PATH` | `GRAF_SUMO_BIN`, `SUMO_HOME` |
+| MATSim 2026.0 | `~/tools/matsim/matsim-2026.0` | `GRAF_MATSIM_DIR` |
+| Java 25+ | `/opt/homebrew/opt/openjdk/bin/java`, затем `PATH` | `GRAF_JAVA` |
+| Импортёр Webots R2025a | `/Applications/Webots.app/...` или `C:\Program Files\Webots\...` | `GRAF_WEBOTS_IMPORTER` |
+| Python для импортёра | `~/tools/webots-venv/bin/python`, затем `python3` | `GRAF_WEBOTS_PYTHON` |
+
+Как поставить окружение на маке:
+
+```bash
+python3 -m venv ~/tools/sumo-venv && ~/tools/sumo-venv/bin/pip install eclipse-sumo==1.28.0
+python3 -m venv ~/tools/webots-venv && ~/tools/webots-venv/bin/pip install pyproj shapely webcolors numpy
+brew install openjdk   # MATSim 2026.0 требует Java 25 или новее
+```
+
+MATSim 2026.0 берётся архивом с [matsim.org](https://matsim.org/downloads) и распаковывается в `~/tools/matsim/`. Webots R2025a ставится с [cyberbotics.com](https://cyberbotics.com/).
 
 ## Как устроено сохранение
 
@@ -55,6 +87,8 @@ npm run preview
 
 ## Горячие клавиши
 
+Буквенные клавиши работают и в русской раскладке.
+
 | Клавиша | Действие |
 |---|---|
 | V / D / N / T | Выбор / Рисовать дорогу / Узел на дороге / Светофор |
@@ -66,7 +100,9 @@ npm run preview
 | S | Светофор в выбранном узле |
 | X | Разрезать дороги в выбранном узле |
 | Delete | Удалить выбранное |
-| Ctrl+Z / Ctrl+Shift+Z | Отменить / Повторить |
+| ⌘/Ctrl+Z, ⌘/Ctrl+Shift+Z | Отменить / Повторить |
+| ⌘/Ctrl+O | Открыть файл |
+| ⌘/Ctrl+S, ⌘/Ctrl+Shift+S | Сохранить / Сохранить как |
 
 ## Структура
 
@@ -74,5 +110,8 @@ npm run preview
 src/osm/        модель OSM: чтение, запись, правки, проверка графа (без React, покрыто тестами)
 src/map/        слои MapLibre, GeoJSON, попадание кликов, взаимодействие с картой
 src/state/      состояние редактора (zustand), история, действия, горячие клавиши
-src/components/ панель инструментов, инспекторы дороги и узла, панель проверки
+src/components/ панель инструментов, инспекторы дороги и узла, панели проверки
+src/platform.ts работа с файлами через Tauri или браузер
+src-tauri/      оболочка Tauri: чтение и запись файлов, проверка на SUMO, MATSim, Webots
+tools/          обёртка над MATSim OsmNetworkReader для проверки
 ```
