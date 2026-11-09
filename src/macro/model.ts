@@ -194,3 +194,48 @@ export function nearestNode(net: Network, p: readonly [number, number]): number 
   net.lonlat.forEach((q, i) => { const d = metres(p, q); if (d < bd) { bd = d; best = i; } });
   return best;
 }
+
+/** Floor area proxy of every building: footprint area times levels, at its centroid. */
+export function buildingMass(doc: OsmDoc): Array<{ c: [number, number]; w: number }> {
+  const out: Array<{ c: [number, number]; w: number }> = [];
+  for (const way of Object.values(doc.ways)) {
+    if (!way.tags.building || way.tags.building === 'no') continue;
+    const pts = way.refs.map((r) => doc.nodes[r]).filter(Boolean);
+    if (pts.length < 3) continue;
+    const lat0 = pts[0].lat * (Math.PI / 180);
+    const kx = 111320 * Math.cos(lat0); const ky = 110540;
+    let area = 0; let cx = 0; let cy = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i]; const b = pts[(i + 1) % pts.length];
+      area += (a.lon * kx) * (b.lat * ky) - (b.lon * kx) * (a.lat * ky);
+      cx += a.lon; cy += a.lat;
+    }
+    const levels = parseFloat(way.tags['building:levels'] ?? '') || 2;
+    out.push({ c: [cx / pts.length, cy / pts.length], w: (Math.abs(area) / 2) * levels });
+  }
+  return out;
+}
+
+/** Re-weights zones by the building floor area closest to each of them; keeps weights if there are no buildings. */
+export function weighByBuildings(zones: Zone[], mass: ReturnType<typeof buildingMass>): Zone[] {
+  if (!mass.length || !zones.length) return zones;
+  const w = zones.map(() => 0);
+  for (const b of mass) {
+    let best = 0; let bd = Infinity;
+    zones.forEach((z, i) => { const d = metres(b.c, z.lonlat); if (d < bd) { bd = d; best = i; } });
+    w[best] += b.w;
+  }
+  // A zone with no buildings still produces a little traffic, so it does not vanish from the matrix.
+  const floor = Math.max(1, Math.max(...w) * 0.02);
+  return zones.map((z, i) => ({ ...z, weight: Math.max(floor, w[i]) }));
+}
+
+/** Zones placed by hand: each point is served by its nearest node that has outgoing links. */
+export function pointZones(net: Network, points: ReadonlyArray<readonly [number, number]>): Zone[] {
+  const pool = net.lonlat.map((_, i) => i).filter((i) => net.out[i].length);
+  return points.flatMap((p, k) => {
+    if (!pool.length) return [];
+    const node = pool.reduce((best, i) => (metres(net.lonlat[i], p) < metres(net.lonlat[best], p) ? i : best), pool[0]);
+    return [{ id: k + 1, name: `З${k + 1}`, node, lonlat: net.lonlat[node], weight: 1 }];
+  });
+}

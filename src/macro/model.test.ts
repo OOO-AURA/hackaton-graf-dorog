@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { OsmDoc } from '../osm/types';
-import { assign, bpr, buildNetwork, dijkstra, gravityOd, gridZones } from './model';
+import { assign, bpr, buildingMass, buildNetwork, dijkstra, gravityOd, gridZones, pointZones, weighByBuildings } from './model';
 
 const node = (id: string, lon: number, lat: number) => ({ id, lon, lat, tags: {}, attrs: {} });
 const way = (id: string, refs: string[], tags: Record<string, string>) => ({ id, refs, tags, attrs: {} });
@@ -40,5 +40,18 @@ describe('macro model', () => {
   });
   it('bpr grows with load', () => {
     expect(bpr(10, 1000, 1000)).toBeCloseTo(11.5);
+  });
+  it('weighs zones by building floor area', () => {
+    const zones = pointZones(net, [[0, 0], [0.01, 0.001]]);
+    expect(zones.map((z) => net.nodeIds[z.node])).toEqual(['a', 'b']);
+    const mass = [{ c: [0.0001, 0] as [number, number], w: 1000 }, { c: [0.0099, 0.001] as [number, number], w: 3000 }];
+    expect(weighByBuildings(zones, mass).map((z) => z.weight)).toEqual([1000, 3000]);
+  });
+  it('measures a building as area times levels', () => {
+    const b = { ...doc, nodes: { ...doc.nodes, p: node('p', 0, 0), q: node('q', 0.001, 0), r: node('r', 0.001, 0.001), s: node('s', 0, 0.001) },
+      ways: { h: way('h', ['p', 'q', 'r', 's', 'p'], { building: 'yes', 'building:levels': '5' }) } };
+    const [m] = buildingMass(b);
+    expect(m.w).toBeGreaterThan(5 * 11000);
+    expect(m.w).toBeLessThan(5 * 13000);
   });
 });

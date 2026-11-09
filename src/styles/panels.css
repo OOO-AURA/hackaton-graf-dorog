@@ -191,3 +191,7 @@
 .way-los .kpis > div:nth-child(n + 3) { border-top: 1px solid var(--line); }
 .way-los .kpis > div:not(:nth-child(3n + 1)) { border-left: 0; }
 .way-los .kpis > div:nth-child(2n) { border-left: 1px solid var(--line); }
+.od-cell { width: 4.5em; padding: 2px 4px; font: inherit; text-align: right; background: transparent; border: 1px solid transparent; border-radius: var(--r-sm); color: inherit; }
+.od-cell:hover { border-color: var(--line-strong); }
+.od-cell:focus { border-color: var(--ink); outline: none; background: var(--paper); }
+.od-cell::-webkit-inner-spin-button { display: none; }

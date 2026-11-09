@@ -1,5 +1,5 @@
 import type { OsmDoc } from '../osm/types';
-import { assign, buildNetwork, dijkstra, gravityOd, gridZones, metres, type Zone } from './model';
+import { assign, buildingMass, buildNetwork, dijkstra, gravityOd, gridZones, metres, pointZones, weighByBuildings, type Zone } from './model';
 
 /** Load bands by volume to capacity ratio. */
 export const VC_BANDS = [
@@ -32,10 +32,20 @@ export interface MacroResult {
 }
 
 
-export function computeFlows(doc: OsmDoc, side: number, trips: number): MacroResult {
+export interface FlowsOptions {
+  side: number;
+  trips: number;
+  /** Zone centroids placed by hand; the grid is used when absent. */
+  points?: ReadonlyArray<readonly [number, number]> | null;
+  /** Matrix edited by hand; used as is when it matches the zones. */
+  od?: number[][] | null;
+}
+
+export function computeFlows(doc: OsmDoc, opts: FlowsOptions): MacroResult {
   const net = buildNetwork(doc);
-  const zones = gridZones(net, side);
-  const od = gravityOd(net, zones, trips);
+  const base = opts.points?.length ? pointZones(net, opts.points) : gridZones(net, opts.side);
+  const zones = weighByBuildings(base, buildingMass(doc));
+  const od = opts.od && opts.od.length === zones.length ? opts.od : gravityOd(net, zones, opts.trips);
   const a = assign(net, zones, od, 40);
   let vkt = 0; let vht = 0; let overloaded = 0;
   const features: unknown[] = net.links.map((l, i) => {
@@ -45,7 +55,7 @@ export function computeFlows(doc: OsmDoc, side: number, trips: number): MacroRes
     if (v > l.cap) overloaded++;
     return { type: 'Feature', geometry: { type: 'LineString', coordinates: l.coords }, properties: { kind: 'flow', v: Math.round(v), vc: Math.round(vc * 100) / 100, color: vcColor(vc), way: l.wayId } };
   });
-  zones.forEach((z) => features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: z.lonlat }, properties: { kind: 'zone', name: z.name } }));
+  zones.forEach((z) => features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: z.lonlat }, properties: { kind: 'zone', name: z.name, idx: z.id - 1 } }));
   return { zones, od, flows: { type: 'FeatureCollection', features }, iterations: a.iterations, gap: a.gap, unrouted: a.unrouted, vkt, vht, overloaded };
 }
 

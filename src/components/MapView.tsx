@@ -9,6 +9,7 @@ import { MapOverlay } from './MapOverlay';
 import { useSim, vehiclesAt } from '../sim/store';
 import { losFeatures, signalFeatures } from '../sim/overlay';
 import { useMacro } from '../macro/store';
+import { useZoneEditing } from '../macro/useZoneEditing';
 import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson } from '../map/geojson';
 import { useMapInteractions } from '../map/useMapInteractions';
 import { currentSelection, useEditor } from '../state/store';
@@ -29,6 +30,13 @@ function selectionGeoJson(doc: OsmDoc, sel: ReturnType<typeof currentSelection>)
     ? { type: 'Point', coordinates: [doc.nodes[sel.id].lon, doc.nodes[sel.id].lat] }
     : { type: 'LineString', coordinates: doc.ways[sel.id].refs.map((r) => [doc.nodes[r].lon, doc.nodes[r].lat]) };
   return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry }] };
+}
+
+/** While zones are being placed, the centroids come from the editor state, not from the last result. */
+function macroFeatures(features: unknown[], points: Array<[number, number]> | null): unknown[] {
+  if (!points) return features;
+  const zones = points.map((p, i) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: p }, properties: { kind: 'zone', name: `З${i + 1}`, idx: i } }));
+  return [...features.filter((f) => (f as { properties: { kind: string } }).properties.kind !== 'zone'), ...zones];
 }
 
 function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | null): void {
@@ -100,16 +108,18 @@ function useMapLook(map: MapLibreMap | null): void {
   }, [map, simResult, simTime, workspace]);
   const flows = useMacro((s) => s.result?.flows);
   const iso = useMacro((s) => s.iso);
+  const placing = useMacro((s) => s.placing);
+  const points = useMacro((s) => s.points);
   // Road LOS of the micro run only changes with the run itself; signals change with time.
   const simDoc = useEditor((s) => s.doc);
   const los = useMemo(() => (simResult ? losFeatures(simDoc, simResult) : []), [simDoc, simResult]);
   useEffect(() => {
     if (!alive(map)) return;
     const features = workspace === 'macro'
-      ? [...(flows?.features ?? []), ...(iso?.features ?? [])]
+      ? [...macroFeatures(flows?.features ?? [], placing ? points : null), ...(iso?.features ?? [])]
       : [...los, ...(simResult ? signalFeatures(simResult, simTime) : [])];
     setData(map, 'macro', { type: 'FeatureCollection', features });
-  }, [map, flows, iso, workspace, los, simResult, simTime]);
+  }, [map, flows, iso, workspace, los, simResult, simTime, placing, points]);
   useEffect(() => {
     if (!alive(map)) return;
     const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -161,6 +171,7 @@ export function MapView() {
   }, [drawingActive]);
 
   useMapInteractions(map, onPointer);
+  useZoneEditing(map);
   useSyncedSources(map, drawingActive ? pointer : null);
   useFitOnLoad(map);
   useMapLook(map);

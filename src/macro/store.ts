@@ -13,6 +13,16 @@ interface MacroState {
   result: MacroResult | null;
   iso: Fc | null;
   isoFrom: string | null;
+  /** Hand-placed zone centroids; null means the grid. */
+  points: Array<[number, number]> | null;
+  /** Click-to-place mode on the map. */
+  placing: boolean;
+  /** True once a matrix cell was edited by hand; recalculation keeps the matrix. */
+  odEdited: boolean;
+  setPlacing: (on: boolean) => void;
+  setPoints: (p: Array<[number, number]> | null) => void;
+  setCell: (i: number, j: number, v: number) => void;
+  resetOd: () => void;
   setSide: (n: number) => void;
   setTrips: (n: number) => void;
   run: () => Promise<void>;
@@ -42,12 +52,26 @@ export const useMacro = create<MacroState>((set, get) => ({
   result: null,
   iso: null,
   isoFrom: null,
-  setSide: (side) => set({ side }),
-  setTrips: (trips) => set({ trips }),
-  clear: () => set({ result: null, iso: null, isoFrom: null, error: null }),
+  points: null,
+  placing: false,
+  odEdited: false,
+  setPlacing: (placing) => set(({ points, result }) => ({ placing, points: placing && !points ? (result?.zones.map((z) => z.lonlat) ?? []) : points })),
+  setPoints: (points) => set({ points: points?.length ? points : null, odEdited: false }),
+  setCell: (i, j, v) => {
+    const r = get().result;
+    if (!r) return;
+    const od = r.od.map((row, a) => row.map((x, b) => (a === i && b === j ? Math.max(0, Math.round(v)) : x)));
+    set({ result: { ...r, od }, odEdited: true });
+    void get().run();
+  },
+  resetOd: () => { set({ odEdited: false }); void get().run(); },
+  setSide: (side) => set({ side, points: null, odEdited: false }),
+  setTrips: (trips) => set({ trips, odEdited: false }),
+  clear: () => set({ result: null, iso: null, isoFrom: null, error: null, odEdited: false }),
   run: async () => {
     set({ busy: true, error: null });
-    const r = await post({ kind: 'flows', doc: useEditor.getState().doc, side: get().side, trips: get().trips });
+    const { side, trips, points, odEdited, result } = get();
+    const r = await post({ kind: 'flows', doc: useEditor.getState().doc, opts: { side, trips, points, od: odEdited ? result?.od : null } });
     set({ busy: false, error: r.error ?? null, result: (r.result as MacroResult) ?? get().result });
   },
   isochrone: async (nodeId) => {

@@ -6,10 +6,12 @@ import { featureById, toggleNodeFeature } from './features';
 import { useEditor } from '../state/store';
 import { finishDrawing } from '../state/actions';
 import { hitNode, hitWay } from './hit';
+import { zoneEditingActive } from '../macro/useZoneEditing';
 
 const DRAG_THRESHOLD_PX = 3;
 
 function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
+  if (zoneEditingActive()) return;
   const s = useEditor.getState();
   const nodeId = hitNode(map, e.point);
   const way = nodeId ? null : hitWay(map, s.doc, e.point);
@@ -67,7 +69,7 @@ function useNodeDrag(map: MapLibreMap | null): void {
 
     const onDown = (e: MapMouseEvent) => {
       const s = useEditor.getState();
-      if (s.mode !== 'select' || e.originalEvent.button !== 0) return;
+      if (s.mode !== 'select' || e.originalEvent.button !== 0 || zoneEditingActive()) return;
       const id = hitNode(map, e.point);
       if (!id) return;
       e.preventDefault();
@@ -119,6 +121,7 @@ export function useMapInteractions(map: MapLibreMap | null, onPointer: (lon: num
     const onClick = (e: MapMouseEvent) => handleClick(map, e);
     const onMove = (e: MapMouseEvent) => {
       onPointer(e.lngLat.lng, e.lngLat.lat);
+      if (zoneEditingActive()) return;
       const s = useEditor.getState();
       const hovering = s.mode !== 'draw' && (hitNode(map, e.point) || hitWay(map, s.doc, e.point));
       map.getCanvas().style.cursor = s.mode === 'draw' ? 'crosshair' : hovering ? 'pointer' : '';
