@@ -20,7 +20,7 @@ export const SCENE3D_LAYER = 'scene-3d';
  */
 const CUT_ZOOM_ON = 17;
 const CUT_ZOOM_OFF = 16.8;
-const CUT_ANIM_MS = 400;
+const CUT_ANIM_MS = 180;
 /** Roads hidden only in this share of the screen at each edge do not start a cut. */
 export const CUT_MARGIN = 0.1;
 /** The cut is worked out at the screen resolution divided by this. */
