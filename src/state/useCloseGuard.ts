@@ -25,7 +25,13 @@ export function useCloseGuard(): void {
         const close = await ask(QUESTION, { title: 'Граф дорог', kind: 'warning', okLabel: 'Закрыть', cancelLabel: 'Остаться' });
         if (!close) event.preventDefault();
       });
-      if (disposed) stop(); else unlisten = stop;
+      const [{ listen }, { invoke }] = await Promise.all([import('@tauri-apps/api/event'), import('@tauri-apps/api/core')]);
+      const stopQuit = await listen('quit-requested', async () => {
+        if (isDirty(useEditor.getState()) && !(await ask(QUESTION, { title: 'Граф дорог', kind: 'warning', okLabel: 'Выйти', cancelLabel: 'Остаться' }))) return;
+        await invoke('quit_app');
+      });
+      const both = () => { stop(); stopQuit(); };
+      if (disposed) both(); else unlisten = both;
     })();
     return () => { disposed = true; unlisten?.(); };
   }, []);

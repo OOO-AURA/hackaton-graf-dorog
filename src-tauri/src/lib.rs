@@ -34,10 +34,27 @@ async fn simulate(text: String, minutes: u32) -> Result<sim::SimResult, String> 
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// Quits for real once the front end has confirmed that unsaved edits may be dropped.
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 pub fn run() {
+    use tauri::{Emitter, Manager};
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![read_osm, write_osm, check_osm, simulate])
-        .run(tauri::generate_context!())
-        .expect("error while running application");
+        .invoke_handler(tauri::generate_handler![read_osm, write_osm, check_osm, simulate, quit_app])
+        .build(tauri::generate_context!())
+        .expect("error while building application")
+        .run(|app, event| {
+            // Cmd+Q on macOS asks the app to exit without closing the window first, so the
+            // window's close guard never runs. Hold the exit and let the front end ask.
+            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = event {
+                if !app.webview_windows().is_empty() {
+                    api.prevent_exit();
+                    let _ = app.emit("quit-requested", ());
+                }
+            }
+        });
 }

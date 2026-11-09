@@ -4,7 +4,7 @@ import { useEditor } from '../state/store';
 
 /** Macro level: grid zones, gravity OD matrix, equilibrium assignment and isochrones. */
 export function FlowsPanel() {
-  const { side, trips, result, isoFrom, setSide, setTrips, run, isochrone, clear } = useMacro();
+  const { side, trips, busy, error, result, isoFrom, setSide, setTrips, run, isochrone, clear } = useMacro();
   const selection = useEditor((s) => s.selection);
   const node = selection?.type === 'node' ? selection.id : null;
 
@@ -26,10 +26,11 @@ export function FlowsPanel() {
         <label className="field"><span className="micro">Поездок в час пик</span>
           <input type="number" min={100} step={500} value={trips} onChange={(e) => setTrips(Math.max(0, Number(e.target.value) || 0))} />
         </label>
-        <button className="btn btn-primary" onClick={run}>Распределить потоки</button>
-        <button className="btn" disabled={!node} onClick={() => node && isochrone(node)} title={node ? '' : 'Выберите узел на карте'}>Изохроны от узла</button>
+        <button className="btn btn-primary" onClick={run} disabled={busy}>{busy ? 'Считаю…' : 'Распределить потоки'}</button>
+        <button className="btn" disabled={!node || busy} onClick={() => node && isochrone(node)} title={node ? '' : 'Выберите узел на карте'}>Изохроны от узла</button>
         {(result || isoFrom) && <button className="btn" onClick={clear}>Очистить</button>}
       </div>
+      {error && <p className="hint err">{error}</p>}
       {!result && !isoFrom && (
         <p className="hint">Граф делится на зоны сеткой, матрица корреспонденций считается гравитационной моделью, потоки распределяются по равновесию Вардропа (Франк-Вульф, BPR). Толщина линии показывает поток, цвет показывает загрузку V/C.</p>
       )}
