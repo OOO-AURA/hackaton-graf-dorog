@@ -2,8 +2,8 @@ import { create } from 'zustand';
 
 export type Theme = 'light' | 'dark';
 export type ThemeChoice = Theme | 'system';
-export type Workspace = 'macro' | 'meso' | 'micro';
-export type BottomTab = 'issues' | 'check' | 'journal' | 'graph';
+export type Workspace = 'macro' | 'micro';
+export type BottomTab = 'issues' | 'check' | 'journal';
 export type LayerId = 'roads' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram';
 
 export const LAYER_IDS: readonly LayerId[] = ['roads', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'tram'];
@@ -53,7 +53,7 @@ const initialChoice = readThemeChoice();
 export const useUi = create<UiState>((set, get) => ({
   themeChoice: initialChoice,
   theme: resolveTheme(initialChoice),
-  workspace: 'meso',
+  workspace: 'macro',
   bottomTab: 'issues',
   bottomOpen: true,
   layers: Object.fromEntries(LAYER_IDS.map((id) => [id, true])) as Record<LayerId, boolean>,

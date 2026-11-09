@@ -8,9 +8,8 @@ import { Icon } from './icons';
 import { Petals } from './EmptyState';
 
 const WORKSPACES: ReadonlyArray<[Workspace, string, string]> = [
-  ['macro', 'Макро', 'Спрос и потоки, MATSim'],
-  ['meso', 'Мезо', 'Граф УДС: правка и проверка'],
-  ['micro', 'Микро', 'Движение по полосам, SUMO'],
+  ['macro', 'Макро', 'Граф УДС для MATSim и SUMO: правка и проверка'],
+  ['micro', 'Микро', 'Перекрёсток и полосы: движение по полосам'],
 ];
 
 function SaveStatus() {
