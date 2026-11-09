@@ -1,3 +1,4 @@
+import { ROAD_CLASSES } from '../../map/palette';
 import { useMemo } from 'react';
 import { saveTextFile } from '../../platform';
 import { levelOfService, series, simEnd, SPEED_BANDS, useSim } from '../../sim/store';
@@ -26,6 +27,13 @@ function Chart({ points, value, label, unit, time, end }: { points: Array<{ t: n
       </svg>
     </figure>
   );
+}
+
+/** Street name, or road class plus id for unnamed ways. */
+function wayLabel(way: { tags: Record<string, string> } | undefined, id: string): string {
+  if (way?.tags.name) return way.tags.name;
+  const cls = ROAD_CLASSES.find((c) => (c.match as readonly string[]).includes(way?.tags.highway ?? ''));
+  return `${cls ? cls.label.split(',')[0] : 'Дорога'} · ${id}`;
 }
 
 const DEMAND_LABEL = { random: 'случайные поездки', od: 'матрица из макромодели' } as const;
@@ -58,7 +66,7 @@ function SelectedWay({ result, baseline }: { result: SimResult; baseline: SimRes
   const sel = useEditor((s) => currentSelection(s));
   if (sel?.type !== 'way') return <p className="hint">Кликните дорогу на карте, чтобы увидеть её задержку, скорость и уровень обслуживания.</p>;
   const st = statsByWay(result).get(sel.id);
-  const name = doc.ways[sel.id]?.tags.name || `way ${sel.id}`;
+  const name = wayLabel(doc.ways[sel.id], sel.id);
   if (!st) return <p className="hint">{name}: за прогон по этой дороге никто не проехал.</p>;
   const base = baseline ? statsByWay(baseline).get(sel.id) : undefined;
   const los = levelOfService(st.delay_s);
@@ -110,6 +118,9 @@ export function MicroPanel() {
               <p className="hint">По HCM, средняя задержка {result.mean_time_loss_s.toFixed(1)} с на поездку. Спрос: {DEMAND_LABEL[result.demand]}, {result.trips} поездок.</p>
             </div>
           </section>
+          {result.vehicles > 0 && result.finished < result.vehicles / 2 && (
+            <p className="cordon-hint">Доехали {result.finished} из {result.vehicles} машин: остальные ещё в пути, когда модель кончилась. Увеличьте длительность до 20 мин или проверьте разрывы сети во вкладке «Валидация».</p>
+          )}
           <div className="kpis">
             <Kpi value={result.vehicles} base={b?.vehicles} label="ТС выпущено" digits={0} better="up" />
             <Kpi value={result.mean_speed_kmh} base={b?.mean_speed_kmh} label="Скорость, км/ч" better="up" />
@@ -123,7 +134,7 @@ export function MicroPanel() {
             {!baseline && <p className="hint">Запомните этот прогон, поправьте граф и пересчитайте: здесь появится разница по сети и по каждой дороге.</p>}
             {b && (changes.length
               ? <ul className="changes">{changes.slice(0, 6).map(({ w, d }) => (
-                <li key={w.way}><button className="link" onClick={() => select({ type: 'way', id: w.way })}>{ways[w.way]?.tags.name || `way ${w.way}`}</button>
+                <li key={w.way}><button className="link" onClick={() => select({ type: 'way', id: w.way })}>{wayLabel(ways[w.way], w.way)}</button>
                   <span className={`mono ${d < 0 ? 'good' : 'bad'}`}>{d > 0 ? '+' : '−'}{Math.abs(d).toFixed(0)} с</span></li>))}</ul>
               : <p className="hint">Задержки на дорогах почти не изменились.</p>)}
             {baseline === result && <p className="hint">Это базовый прогон. Внесите правку и нажмите «Пересчитать».</p>}

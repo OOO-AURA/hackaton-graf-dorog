@@ -34,7 +34,7 @@ interface SimState {
 export const useSim = create<SimState>((set, get) => ({
   running: false, error: null, result: null, minutes: 10, demand: 'random', baseline: null, playing: false, speed: 10, time: 0,
   setMinutes: (minutes) => set({ minutes }),
-  setDemand: (demand) => set({ demand }),
+  setDemand: (demand) => set(demand === 'od' ? { demand, minutes: Math.max(get().minutes, 15) } : { demand }),
   keepBaseline: () => set(({ result }) => ({ baseline: result })),
   dropBaseline: () => set({ baseline: null }),
   setSpeed: (speed) => set({ speed }),

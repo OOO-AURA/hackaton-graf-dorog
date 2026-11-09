@@ -48,11 +48,43 @@ fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+const QUIT_ID: &str = "graf-quit";
+
+/// The stock Quit item terminates the process directly on macOS, past every guard.
+/// Swap it for our own item that asks the front end first.
+fn install_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem, MenuItemKind};
+    let menu = Menu::default(app)?;
+    for top in menu.items()? {
+        let MenuItemKind::Submenu(sub) = top else { continue };
+        for item in sub.items()? {
+            if let MenuItemKind::Predefined(p) = &item {
+                if p.text()?.starts_with("Quit") {
+                    sub.remove(p)?;
+                    let quit = MenuItem::with_id(app, QUIT_ID, p.text()?, true, Some("CmdOrCtrl+Q"))?;
+                    sub.append(&quit)?;
+                }
+            }
+        }
+    }
+    app.set_menu(menu)?;
+    Ok(())
+}
+
 pub fn run() {
     use tauri::{Emitter, Manager};
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![read_osm, write_osm, check_osm, simulate, export_sumo, quit_app])
+        .setup(|app| {
+            install_menu(app.handle())?;
+            Ok(())
+        })
+        .on_menu_event(|app, event| {
+            if event.id() == QUIT_ID {
+                let _ = app.emit("quit-requested", ());
+            }
+        })
         .build(tauri::generate_context!())
         .expect("error while building application")
         .run(|app, event| {
