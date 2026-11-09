@@ -68,4 +68,23 @@ mod tests {
     fn refuses_plain_http() {
         assert!(request("http://example.com", None).is_err());
     }
+
+    /// Real request to the public servers; run with `cargo test -- --ignored` when online.
+    #[test]
+    #[ignore]
+    fn downloads_from_overpass_and_nominatim() {
+        let query = "data=%5Bout%3Axml%5D%3Bnode%28286122970%29%3Bout%20meta%3B";
+        let mirrors = [
+            "https://overpass-api.de/api/interpreter",
+            "https://overpass.private.coffee/api/interpreter",
+            "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+        ];
+        let ok = mirrors.iter().find_map(|url| request(url, Some(query)).ok().filter(|r| r.status == 200));
+        let reply = ok.expect("no Overpass mirror answered 200");
+        assert!(reply.body.contains("286122970"), "unexpected body: {}", &reply.body[..reply.body.len().min(200)]);
+
+        let place = request("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=Shelekhov", None).unwrap();
+        assert_eq!(place.status, 200);
+        assert!(place.body.contains("boundingbox"));
+    }
 }
