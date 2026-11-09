@@ -72,6 +72,10 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   addSignImages(map);
 
   map.addLayer({ id: 'buildings', type: 'fill', source: 'buildings', paint: { 'fill-opacity': 0.55 } });
+  map.addLayer({
+    id: 'buildings-3d', type: 'fill-extrusion', source: 'buildings', layout: { visibility: 'none' },
+    paint: { 'fill-extrusion-height': ['get', 'height'], 'fill-extrusion-base': 0, 'fill-extrusion-opacity': 0.85, 'fill-extrusion-vertical-gradient': true },
+  });
   map.addLayer({ id: 'context', type: 'line', source: 'context', filter: ['!=', ['get', 'kind'], 'rail'], paint: { 'line-width': 1, 'line-dasharray': [2, 2] } });
   map.addLayer({ id: 'tram', type: 'line', source: 'context', filter: ['==', ['get', 'kind'], 'rail'], paint: { 'line-width': 2, 'line-dasharray': [3, 1.5] } });
   map.addLayer({ id: 'roads-casing', type: 'line', source: 'roads', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': laneWidth(['case', ['get', 'bridge'], 5, 2]) } });
@@ -112,6 +116,7 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
   setArrowImage(map, p.arrow);
   set('buildings', 'fill-color', p.building);
   set('buildings', 'fill-outline-color', p.buildingLine);
+  set('buildings-3d', 'fill-extrusion-color', p.building3d);
   set('context', 'line-color', p.path);
   set('tram', 'line-color', p.tram);
   set('roads-casing', 'line-color', ['case', ['get', 'bridge'], p.bridgeCasing, p.casing]);
@@ -144,6 +149,7 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   show('crossings', on.crossings);
   show('signs', on.signs);
   show('buildings', on.buildings);
+  map.setPaintProperty('buildings-3d', 'fill-extrusion-opacity', on.buildings ? 0.85 : 0);
   show('tram', on.tram);
   const structure: unknown[] = ['all'];
   if (!on.bridges) structure.push(['!', ['get', 'bridge']]);

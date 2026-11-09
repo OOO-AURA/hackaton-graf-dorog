@@ -46,3 +46,4 @@
 .l-bridges { --chip: var(--ink); } .l-tunnels { --chip: var(--ink-2); } .l-buildings { --chip: #C9B48A; } .l-tram { --chip: #7A4FA0; } .l-signs { --chip: var(--yellow); }
 
 @media (max-width: 1500px) { .float-layers { left: auto; right: 12px; transform: none; animation-name: float-in; bottom: 54px; max-width: calc(100% - 24px); } }
+.tool-3d { font-family: var(--font-display); font-weight: 900; font-size: 14px; letter-spacing: 0.02em; }

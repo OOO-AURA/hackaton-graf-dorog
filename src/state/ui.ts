@@ -36,6 +36,9 @@ interface UiState {
   /** Opacity of the basemap under the graph, 0..1 ("model / map" slider). */
   basemapOpacity: number;
   loading: string | null;
+  /** Tilted camera with extruded buildings. */
+  view3d: boolean;
+  toggle3d: () => void;
   /** Traffic-control object the T tool places (id from map/features.ts). */
   featureKind: string;
   setFeatureKind: (id: string) => void;
@@ -62,6 +65,8 @@ export const useUi = create<UiState>((set, get) => ({
   layers: Object.fromEntries(LAYER_IDS.map((id) => [id, true])) as Record<LayerId, boolean>,
   basemapOpacity: 0.7,
   loading: null,
+  view3d: false,
+  toggle3d: () => set({ view3d: !get().view3d }),
   featureKind: 'signal',
   setFeatureKind: (featureKind) => set({ featureKind }),
   fly: null,

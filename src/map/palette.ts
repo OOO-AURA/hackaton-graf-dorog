@@ -21,6 +21,7 @@ export interface MapPalette {
   arrow: string;
   building: string;
   buildingLine: string;
+  building3d: string;
   path: string;
   tram: string;
   nodeFill: string;
@@ -44,6 +45,7 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     arrow: '#3A2516',
     building: '#C9B48A',
     buildingLine: '#8C7350',
+    building3d: '#D9C69C',
     path: '#9C8763',
     tram: '#7A4FA0',
     nodeFill: '#FBF6EA',
@@ -65,6 +67,7 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     arrow: '#F1E6CB',
     building: '#34343A',
     buildingLine: '#4C4C54',
+    building3d: '#4A4A52',
     path: '#6A6A72',
     tram: '#B48ADB',
     nodeFill: '#28282D',

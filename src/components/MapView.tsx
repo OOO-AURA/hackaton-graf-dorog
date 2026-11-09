@@ -83,9 +83,17 @@ function useMapLook(map: MapLibreMap | null): void {
   const opacity = useUi((s) => s.basemapOpacity);
   const layers = useUi((s) => s.layers);
   const fly = useUi((s) => s.fly);
+  const view3d = useUi((s) => s.view3d);
   useEffect(() => { if (alive(map)) applyPalette(map, MAP_PALETTE[theme]); }, [map, theme]);
   useEffect(() => { if (alive(map)) applyBasemapTone(map, theme, opacity); }, [map, theme, opacity]);
   useEffect(() => { if (alive(map)) applyLayerVisibility(map, layers); }, [map, layers]);
+  useEffect(() => {
+    if (!alive(map)) return;
+    const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    map.setLayoutProperty('buildings-3d', 'visibility', view3d ? 'visible' : 'none');
+    map.setLayoutProperty('buildings', 'visibility', view3d || !layers.buildings ? 'none' : 'visible');
+    map.easeTo({ pitch: view3d ? 58 : 0, bearing: view3d ? -18 : 0, duration: instant ? 0 : 700 });
+  }, [map, view3d, layers.buildings]);
   useEffect(() => {
     if (alive(map) && fly) map.fitBounds(fly.bounds, { padding: 80, maxZoom: 17, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600 });
   }, [map, fly]);

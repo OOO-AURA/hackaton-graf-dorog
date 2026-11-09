@@ -35,6 +35,14 @@ export function roadsGeoJson(doc: OsmDoc) {
   return collection(Object.values(doc.ways).filter((w) => isDrivable(w.tags) && w.refs.length > 1).map((w) => roadFeature(doc, w)));
 }
 
+/** Building height in metres: `height`, else `building:levels` × 3 m, else 9 m (three floors). */
+export function buildingHeight(tags: Record<string, string>): number {
+  const h = Number.parseFloat(tags.height ?? '');
+  if (Number.isFinite(h) && h > 0) return h;
+  const levels = Number.parseFloat(tags['building:levels'] ?? '');
+  return Number.isFinite(levels) && levels > 0 ? levels * 3 : 9;
+}
+
 /** Context layers that are not part of the road graph but go into the file (Webots uses them for 3D). */
 export function contextGeoJson(doc: OsmDoc) {
   const lines: Feature<LineString, Props>[] = [];
@@ -43,7 +51,7 @@ export function contextGeoJson(doc: OsmDoc) {
     if (isDrivable(w.tags) || w.refs.length < 2) return;
     const c = coords(doc, w);
     if (w.tags.building && c.length >= 4) {
-      polygons.push({ type: 'Feature', properties: { id: w.id }, geometry: { type: 'Polygon', coordinates: [c] } });
+      polygons.push({ type: 'Feature', properties: { id: w.id, height: buildingHeight(w.tags) }, geometry: { type: 'Polygon', coordinates: [c] } });
     } else if (w.tags.railway || w.tags.highway) {
       lines.push({ type: 'Feature', properties: { id: w.id, kind: w.tags.railway ? 'rail' : 'path' }, geometry: { type: 'LineString', coordinates: c } });
     }

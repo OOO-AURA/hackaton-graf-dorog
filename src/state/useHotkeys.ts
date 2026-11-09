@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { useEditor, type Mode } from './store';
+import { useUi } from './ui';
 import { deleteSelection, openFile, saveOsm, finishDrawing, flipSelected, reverseSelected, splitAtSelected, toggleSignalSelected } from './actions';
 
 const MODE_KEYS: Readonly<Record<string, Mode>> = { v: 'select', d: 'draw', n: 'insert', t: 'signal' };
@@ -14,6 +15,7 @@ export const HOTKEYS: ReadonlyArray<[string, string]> = [
   ['F', 'Поменять направление одностороннего движения'],
   ['S', 'Светофор в выбранном узле'],
   ['X', 'Разрезать дороги в выбранном узле'],
+  ['P', 'Переключить 2D и 3D'],
   ['Delete / Backspace', 'Удалить выбранное'],
   ['⌘/Ctrl+Z, ⌘/Ctrl+Shift+Z', 'Отменить / Повторить'],
   ['⌘/Ctrl+O', 'Открыть файл'],
@@ -54,6 +56,7 @@ function handleKey(e: KeyboardEvent): void {
     f: flipSelected,
     s: toggleSignalSelected,
     x: splitAtSelected,
+    p: () => useUi.getState().toggle3d(),
   };
   const action = actions[key];
   if (action) { e.preventDefault(); action(); }
