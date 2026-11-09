@@ -14,9 +14,13 @@ import { STRIDE, type Scene3dMesh } from './mesh3d';
  */
 
 export const SCENE3D_LAYER = 'scene-3d';
-/** The cutaway fades in between these zooms and is off when the map is further out. */
-const CUT_ZOOM_FROM = 16.5;
-const CUT_ZOOM_FULL = 17.2;
+/**
+ * The cutaway switches on past this zoom and off a little below it, so it does not flicker at
+ * the threshold; either way it animates in or out over CUT_ANIM_MS, whatever the zoom does.
+ */
+const CUT_ZOOM_ON = 17;
+const CUT_ZOOM_OFF = 16.8;
+const CUT_ANIM_MS = 400;
 /** Roads hidden only in this share of the screen at each edge do not start a cut. */
 export const CUT_MARGIN = 0.1;
 /** The cut is worked out at the screen resolution divided by this. */
@@ -256,6 +260,10 @@ export class Scene3dLayer implements CustomLayerInterface {
   private showBuildings = true;
   private showStructures = true;
   private cutaway = true;
+  /** Whether the cutaway is wanted at the current zoom, and how far its animation has got. */
+  private cutOn = false;
+  private cutAnim = 0;
+  private cutTime = 0;
 
   setMesh(mesh: Scene3dMesh | null): void {
     this.mesh = mesh;
@@ -336,11 +344,25 @@ export class Scene3dLayer implements CustomLayerInterface {
     this.maskTarget = makeTarget(gl, w, h, false);
   }
 
-  /** 0 when zoomed out, 1 close in. */
+  /** Moves the cutaway animation on by the time since the last frame; called once per frame. */
+  private stepCut(): void {
+    const now = performance.now();
+    const dt = this.cutTime ? Math.min(100, now - this.cutTime) : 0;
+    this.cutTime = now;
+    const zoom = this.map?.getZoom() ?? 0;
+    if (zoom >= CUT_ZOOM_ON) this.cutOn = true;
+    else if (zoom < CUT_ZOOM_OFF) this.cutOn = false;
+    const target = this.cutaway && this.cutOn ? 1 : 0;
+    if (this.cutAnim === target) return;
+    const step = dt / CUT_ANIM_MS;
+    this.cutAnim = target > this.cutAnim ? Math.min(target, this.cutAnim + step) : Math.max(target, this.cutAnim - step);
+    this.map?.triggerRepaint();
+  }
+
+  /** 0 off, 1 fully on; eased. */
   private cutStrength(): number {
-    if (!this.cutaway || !this.map) return 0;
-    const k = (this.map.getZoom() - CUT_ZOOM_FROM) / (CUT_ZOOM_FULL - CUT_ZOOM_FROM);
-    return Math.min(1, Math.max(0, k));
+    const t = this.cutAnim;
+    return t * t * (3 - 2 * t);
   }
 
   private bindPos(gl: GL, program: WebGLProgram, buffer: WebGLBuffer, stride: number, withId: boolean): number[] {
@@ -375,9 +397,10 @@ export class Scene3dLayer implements CustomLayerInterface {
 
   prerender(gl: GL, matrix: ArrayLike<number>): void {
     this.upload(gl);
+    this.stepCut();
     const b = this.buffers;
     this.hasCuts = false;
-    if (!b || !this.mesh || !this.cutStrength() || !this.showBuildings || !b.solidCount) return;
+    if (!b || !this.mesh || !this.cutAnim || !this.showBuildings || !b.solidCount) return;
     this.ensureTargets(gl);
     const m = this.matrix(matrix);
     const { w, h } = this.depthTarget!;
