@@ -12,8 +12,8 @@ export type Rgb = readonly [number, number, number];
 export type Scene3dColors = { building: Rgb; deck: (highway: string) => Rgb; deckSide: Rgb; pier: Rgb; portal: Rgb };
 
 /**
- * Interleaved x, y, z, r, g, b, cut, nx, ny, nz, shade. `cut` is 1 for geometry that the road
- * cutaway may remove; the normal and `shade` (the wall gradient) feed the same lighting MapLibre
+ * Interleaved x, y, z, r, g, b, id, nx, ny, nz, shade. `id` numbers buildings from 1, so the
+ * road cutaway can cut each one as a whole; it is 0 for bridges and portals, which are never cut; the normal and `shade` (the wall gradient) feed the same lighting MapLibre
  * gives its extruded buildings.
  */
 export const STRIDE = 11;
@@ -21,6 +21,8 @@ export const STRIDE = 11;
 export type Scene3dMesh = {
   /** Mercator x, y of the origin and metres per Mercator unit there. */
   origin: { x: number; y: number; metersPerUnit: number };
+  /** How many buildings are numbered in `solid`. */
+  buildings: number;
   /** Building triangles, wound the same way as the roofs seen from outside. */
   solid: Float32Array;
   /** Bridge decks, piers and tunnel portals: opaque, never cut away. */
@@ -178,7 +180,7 @@ function signedArea(ring: readonly P2[]): number {
 
 const ccw = (ring: P2[]) => (signedArea(ring) < 0 ? ring.reverse() : ring);
 
-function addBuilding(solid: Buf, ring: P2[], base: number, height: number, colors: Scene3dColors) {
+function addBuilding(solid: Buf, id: number, ring: P2[], base: number, height: number, colors: Scene3dColors) {
   if (ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]) ring = ring.slice(0, -1);
   if (ring.length < 3 || height <= base) return;
   ring = ccw(ring);
@@ -188,7 +190,7 @@ function addBuilding(solid: Buf, ring: P2[], base: number, height: number, color
   for (let i = 0; i < n; i += 1) {
     const a = ring[i];
     const b = ring[(i + 1) % n];
-    quad(solid, c, 1, [a[0], a[1], base], [a[0], a[1], height], [b[0], b[1], height], [b[0], b[1], base], shade, OUTWARD);
+    quad(solid, c, id, [a[0], a[1], base], [a[0], a[1], height], [b[0], b[1], height], [b[0], b[1], base], shade, OUTWARD);
   }
   const flat = ring.flatMap((p) => p);
   const idx = earcut(flat);
@@ -196,7 +198,7 @@ function addBuilding(solid: Buf, ring: P2[], base: number, height: number, color
     const t = [ring[idx[i]], ring[idx[i + 1]], ring[idx[i + 2]]];
     // Wound clockwise seen from above, like the walls seen from outside: both face the camera.
     if (signedArea(t) > 0) t.reverse();
-    tri(solid, c, 1, [t[0][0], t[0][1], height], [t[1][0], t[1][1], height], [t[2][0], t[2][1], height], FLAT, -OUTWARD);
+    tri(solid, c, id, [t[0][0], t[0][1], height], [t[1][0], t[1][1], height], [t[2][0], t[2][1], height], FLAT, -OUTWARD);
   }
 }
 
@@ -297,13 +299,15 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     w.refs.forEach((r) => openAir.set(r, (openAir.get(r) ?? 0) + 1));
   });
 
+  let buildings = 0;
   Object.values(doc.ways).forEach((w) => {
     const pts = pointsOf(w);
     if (pts.length < 2) return;
     if (w.tags.building) {
       const height = buildingHeight(w.tags);
       const minH = Number.parseFloat(w.tags.min_height ?? '');
-      addBuilding(solid, pts, Number.isFinite(minH) && minH > 0 ? minH : 0, height, colors);
+      buildings += 1;
+      addBuilding(solid, buildings, pts, Number.isFinite(minH) && minH > 0 ? minH : 0, height, colors);
       return;
     }
     if (!isDrivable(w.tags)) return;
@@ -321,5 +325,5 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     for (let i = 0; i < pts.length - 1; i += 1) ribbon(mask, left[i], left[i + 1], right[i], right[i + 1], 0, 0);
   });
 
-  return { origin, solid: solid.array, structures: structures.array, roadMask: mask.array };
+  return { origin, buildings, solid: solid.array, structures: structures.array, roadMask: mask.array };
 }

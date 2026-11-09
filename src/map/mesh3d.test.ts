@@ -27,7 +27,8 @@ describe('3D scene geometry', () => {
     const z = zOf(mesh.solid, STRIDE);
     expect(Math.max(...z)).toBe(15);
     expect(Math.min(...z)).toBe(0);
-    // Every building vertex may be cut away.
+    // Every vertex carries the number of its building.
+    expect(mesh.buildings).toBe(1);
     for (let i = 0; i < mesh.solid.length / STRIDE; i += 1) expect(mesh.solid[i * STRIDE + 6]).toBe(1);
   });
 
