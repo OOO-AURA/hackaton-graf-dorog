@@ -59,3 +59,21 @@ summary { cursor: pointer; font-weight: 500; }
   main { flex-direction: column; }
   .sidebar { width: 100%; max-height: 45%; border-left: none; border-top: 1px solid var(--border); }
 }
+
+.check-panel { position: fixed; right: 356px; bottom: 16px; width: min(760px, calc(100vw - 400px)); max-height: 60vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); padding: 12px; z-index: 5; }
+.check-panel header { display: flex; justify-content: space-between; align-items: center; }
+.check-panel h3 { margin: 0; font-size: 15px; }
+.check-stages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
+.check-stages > .hint { grid-column: 1 / -1; word-break: break-all; }
+.check-stage { border-top: 3px solid var(--ok); padding-top: 6px; font-size: 12px; min-width: 0; }
+.check-stage.warn { border-color: var(--warn); }
+.check-stage.fail { border-color: var(--danger); }
+.check-stage.skipped { border-color: var(--border); opacity: 0.7; }
+.check-stage h4 { margin: 0 0 4px; font-size: 14px; display: flex; justify-content: space-between; gap: 6px; }
+.check-stage h4 span { font-weight: 400; color: var(--muted); font-size: 12px; }
+.check-stage table { width: 100%; border-collapse: collapse; }
+.check-stage td { padding: 1px 0; }
+.check-stage td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.check-stage ul { padding-left: 16px; margin: 4px 0; max-height: 160px; overflow-y: auto; word-break: break-word; }
+.check-stage pre { white-space: pre-wrap; font-size: 11px; background: var(--bg); padding: 6px; max-height: 160px; overflow: auto; }
+.check-error { color: var(--danger); }

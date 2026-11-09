@@ -4,6 +4,7 @@ import { Toolbar } from './components/Toolbar';
 import { WayInspector } from './components/WayInspector';
 import { NodeInspector } from './components/NodeInspector';
 import { IssuesPanel } from './components/IssuesPanel';
+import { CheckPanel } from './components/CheckPanel';
 import { currentSelection, useEditor } from './state/store';
 import { HOTKEYS, useHotkeys } from './state/useHotkeys';
 
@@ -56,6 +57,7 @@ export function App() {
         <MapView />
         <Sidebar />
       </main>
+      <CheckPanel />
       <Toast />
     </div>
   );
