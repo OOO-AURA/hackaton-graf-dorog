@@ -4,12 +4,11 @@
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use crate::check::{run, sumo_bin, sumo_home, tail};
+use crate::check::{command, run, sumo_bin, sumo_home, tail};
 
 /// Vehicle types of the micro level. Order matters: the index is sent to the front end.
 const VTYPES: &[(&str, &str, f64)] = &[
@@ -394,7 +393,7 @@ pub struct SumoStatus {
 }
 
 fn version_of(program: PathBuf) -> Option<String> {
-    let out = Command::new(program).arg("--version").output().ok()?;
+    let out = command(program).arg("--version").output().ok()?;
     let text = String::from_utf8_lossy(&out.stdout);
     out.status.success().then(|| text.lines().find(|l| !l.trim().is_empty()).unwrap_or("").trim().to_string())
 }
@@ -427,7 +426,7 @@ pub fn export_net(osm_text: &str, target: &Path) -> Result<(), String> {
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let osm = dir.join("map.osm");
     fs::write(&osm, osm_text).map_err(|e| e.to_string())?;
-    let result = run(Command::new(sumo_bin("netconvert")).arg("--osm-files").arg(&osm).arg("-o").arg(target).args(NETCONVERT_ARGS))
+    let result = run(command(sumo_bin("netconvert")).arg("--osm-files").arg(&osm).arg("-o").arg(target).args(NETCONVERT_ARGS))
         .map_err(|e| format!("{e}. Установите SUMO или задайте GRAF_SUMO_BIN."))
         .and_then(|(out, log)| if out.status.success() && target.exists() { Ok(()) } else { Err(format!("netconvert не собрал сеть:\n{}", tail(&log, 15))) });
     let _ = fs::remove_dir_all(&dir);
@@ -475,7 +474,7 @@ const PT_VTYPE: &str = r#"<vType id="ptbus" vClass="bus" length="12" accel="1.2"
 
 fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras: &Extras) -> Result<SimResult, String> {
     let net = dir.join("map.net.xml");
-    let mut netconvert = Command::new(sumo_bin("netconvert"));
+    let mut netconvert = command(sumo_bin("netconvert"));
     netconvert.arg("--osm-files").arg(osm).arg("-o").arg(&net).args(NETCONVERT_ARGS);
     if extras.pedestrians {
         netconvert.args(PEDESTRIAN_ARGS);
@@ -494,7 +493,7 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
     let script = dir.join("netinfo.py");
     fs::write(&script, include_str!("py/netinfo.py")).map_err(|e| e.to_string())?;
     let info_path = dir.join("netinfo.json");
-    let mut cmd = Command::new(&python);
+    let mut cmd = command(&python);
     cmd.env("SUMO_HOME", &sh).arg(&script).arg(&net);
     let stop_points: Vec<[f64; 2]> = extras.transit.iter().flat_map(|l| l.stops.iter().copied()).collect();
     let plans: Vec<[f64; 4]> = extras.signals.iter().map(|p| [p.lon, p.lat, p.cycle_s.clamp(20.0, 240.0), p.main_share.clamp(0.1, 0.9)]).collect();
@@ -538,7 +537,7 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
         trips = n;
         label = "od";
     } else {
-        let (_, tlog) = run(Command::new(&python).current_dir(&dir).env("SUMO_HOME", &sh)
+        let (_, tlog) = run(command(&python).current_dir(&dir).env("SUMO_HOME", &sh)
             .arg(sh.join("tools/randomTrips.py")).arg("-n").arg(&net).arg("-o").arg(dir.join("map.trips.xml"))
             .arg("-r").arg(&routes).arg("--additional-files").arg(&vtypes)
             .args(["-e", &insert_end.to_string(), "-p", "1.2", "--validate", "--fringe-factor", "5", "--seed", "42", "--trip-attributes", "type=\"mix\""]))?;
@@ -552,7 +551,7 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
     let mut route_files = vec![routes.display().to_string()];
     if extras.pedestrians {
         let peds = dir.join("ped.rou.xml");
-        let (_, plog) = run(Command::new(&python).current_dir(&dir).env("SUMO_HOME", &sh)
+        let (_, plog) = run(command(&python).current_dir(&dir).env("SUMO_HOME", &sh)
             .arg(sh.join("tools/randomTrips.py")).arg("-n").arg(&net).arg("-o").arg(&peds)
             .args(["--pedestrians", "--max-distance", "1500", "-e", &insert_end.to_string(), "-p", "1.5", "--seed", "7", "--prefix", "ped"]))?;
         if !peds.exists() {
@@ -564,7 +563,7 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
     let fcd = dir.join("fcd.xml");
     let tripinfo = dir.join("tripinfo.xml");
     let edgedata = dir.join("edges.xml");
-    let mut sumo = Command::new(sumo_bin("sumo"));
+    let mut sumo = command(sumo_bin("sumo"));
     sumo.current_dir(dir).env("SUMO_HOME", &sh).arg("-n").arg(&net).arg("-r").arg(route_files.join(","));
     // randomTrips copies the vehicle types into its route file; OD trips need them, signals need the events.
     let mut additional: Vec<PathBuf> = Vec::new();

@@ -46,7 +46,7 @@ npm run dev          # http://localhost:5173
 
 | Инструмент | Где ищем | Переменная |
 |---|---|---|
-| SUMO 1.28 | `~/tools/sumo-venv/bin`, затем `PATH` | `GRAF_SUMO_BIN`, `SUMO_HOME` |
+| SUMO 1.28 | `~/tools/sumo-venv/bin` (на Windows `Scripts`), `%SUMO_HOME%\bin`, затем `PATH` | `GRAF_SUMO_BIN`, `SUMO_HOME` |
 | MATSim 2026.0 | `~/tools/matsim/matsim-2026.0` | `GRAF_MATSIM_DIR` |
 | Java 25+ | `/opt/homebrew/opt/openjdk/bin/java`, затем `PATH` | `GRAF_JAVA` |
 | Импортёр Webots R2025a | `/Applications/Webots.app/...` или `C:\Program Files\Webots\...` | `GRAF_WEBOTS_IMPORTER` |
@@ -59,6 +59,15 @@ python3 -m venv ~/tools/sumo-venv && ~/tools/sumo-venv/bin/pip install eclipse-s
 python3 -m venv ~/tools/webots-venv && ~/tools/webots-venv/bin/pip install pyproj shapely webcolors numpy
 brew install openjdk   # MATSim 2026.0 требует Java 25 или новее
 ```
+
+На Windows то же самое в PowerShell:
+
+```powershell
+py -m venv $HOME\tools\sumo-venv
+& $HOME\tools\sumo-venv\Scripts\pip install eclipse-sumo==1.28.0
+```
+
+Если SUMO стоит из официального установщика, он сам задаёт `SUMO_HOME`, и приложение возьмёт программы из `%SUMO_HOME%\bin`. Для `randomTrips.py` тогда нужен Python в `PATH`. Без SUMO панель «Микро» покажет, чего не хватает, и эти же команды.
 
 MATSim 2026.0 берётся архивом с [matsim.org](https://matsim.org/downloads) и распаковывается в `~/tools/matsim/`. Webots R2025a ставится с [cyberbotics.com](https://cyberbotics.com/).
 

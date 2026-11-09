@@ -42,6 +42,16 @@
     ],
     "resources": {
       "../tools/matsim-check/OsmCheck.java": "matsim-check/OsmCheck.java"
+    },
+    "windows": {
+      "wix": {
+        "language": "ru-RU"
+      },
+      "nsis": {
+        "languages": [
+          "Russian"
+        ]
+      }
     }
   }
 }

@@ -74,6 +74,20 @@ impl Stage {
     }
 }
 
+/// A child process for the SUMO, MATSim and Webots tools. On Windows a GUI app would flash a
+/// console window for each of them, so they start without one.
+pub(crate) fn command(program: impl AsRef<std::ffi::OsStr>) -> Command {
+    #[allow(unused_mut)]
+    let mut cmd = Command::new(program);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    cmd
+}
+
 pub(crate) fn home() -> PathBuf {
     env::var_os("HOME").or_else(|| env::var_os("USERPROFILE")).map(PathBuf::from).unwrap_or_default()
 }
@@ -91,10 +105,16 @@ fn exe(name: &str) -> String {
 }
 
 /// Folder with the SUMO programs: GRAF_SUMO_BIN, else the pip venv the README suggests
-/// (bin on macOS and Linux, Scripts on Windows), else PATH.
+/// (bin on macOS and Linux, Scripts on Windows), else SUMO_HOME/bin that the Windows
+/// installer sets, else PATH.
 pub(crate) fn sumo_bin(name: &str) -> PathBuf {
     let venv = home().join("tools/sumo-venv");
-    let dir = locate("GRAF_SUMO_BIN", &[venv.join("bin"), venv.join("Scripts"), PathBuf::from("/tools/sumo-venv/bin")], "");
+    let mut candidates = vec![venv.join("bin"), venv.join("Scripts"), PathBuf::from("/tools/sumo-venv/bin")];
+    if let Some(h) = env::var_os("SUMO_HOME") {
+        candidates.push(PathBuf::from(h).join("bin"));
+    }
+    let candidates: Vec<PathBuf> = candidates.into_iter().filter(|d| d.join(exe(name)).exists()).collect();
+    let dir = locate("GRAF_SUMO_BIN", &candidates, "");
     if dir.as_os_str().is_empty() { PathBuf::from(exe(name)) } else { dir.join(exe(name)) }
 }
 
@@ -168,7 +188,7 @@ fn sumo_stage(dir: &Path, osm: &Path) -> Stage {
     let mut st = Stage::new("SUMO");
     let net = dir.join("map.net.xml");
     // Same switches as OSM WebWizard uses for its network.
-    let netconvert = run(Command::new(sumo_bin("netconvert"))
+    let netconvert = run(command(sumo_bin("netconvert"))
         .arg("--osm-files").arg(osm).arg("-o").arg(&net)
         .args(["--geometry.remove", "--ramps.guess", "--junctions.join", "--tls.guess-signals", "--tls.discard-simple",
             "--tls.join", "--tls.default-type", "actuated", "--roundabouts.guess", "--output.street-names"]));
@@ -198,7 +218,7 @@ fn sumo_stage(dir: &Path, osm: &Path) -> Stage {
     let python = sumo_bin("python");
     let python = if python.exists() { python } else { PathBuf::from(if cfg!(windows) { "python" } else { "python3" }) };
     let routes = dir.join("map.rou.xml");
-    let trips = run(Command::new(&python).env("SUMO_HOME", &sh)
+    let trips = run(command(&python).env("SUMO_HOME", &sh)
         .arg(sh.join("tools/randomTrips.py")).arg("-n").arg(&net).arg("-o").arg(dir.join("map.trips.xml"))
         .arg("-r").arg(&routes)
         .args(["-e", TRIPS_END_S, "-p", TRIPS_PERIOD_S, "--validate", "--fringe-factor", "5", "--seed", "42"]));
@@ -217,7 +237,7 @@ fn sumo_stage(dir: &Path, osm: &Path) -> Stage {
         return st.fail("randomTrips не построил маршруты");
     }
 
-    let sim = run(Command::new(sumo_bin("sumo")).env("SUMO_HOME", &sh)
+    let sim = run(command(sumo_bin("sumo")).env("SUMO_HOME", &sh)
         .arg("-n").arg(&net).arg("-r").arg(&routes)
         .args(["--end", SIM_END_S, "--no-step-log", "--duration-log.statistics", "--time-to-teleport", "300", "--collision.action", "warn"]));
     let (_, slog) = match sim {
@@ -255,7 +275,7 @@ fn matsim_stage(dir: &Path, osm: &Path, source: &Path) -> Stage {
     let java = locate("GRAF_JAVA", &[PathBuf::from("/opt/homebrew/opt/openjdk/bin/java")], "java");
     let sep = if cfg!(windows) { ";" } else { ":" };
     let cp = format!("{}{sep}{}", jar.display(), mdir.join("libs").join("*").display());
-    let res = run(Command::new(&java).arg("-cp").arg(cp).arg(source).arg(osm).arg(dir.join("matsim-network.xml")));
+    let res = run(command(&java).arg("-cp").arg(cp).arg(source).arg(osm).arg(dir.join("matsim-network.xml")));
     let (_, log) = match res {
         Ok(r) => r,
         Err(e) => return st.skip(format!("{e}. Нужна Java 25+, задайте GRAF_JAVA.")),
@@ -306,7 +326,7 @@ fn webots_stage(dir: &Path, osm: &Path) -> Stage {
     }
     let python = locate("GRAF_WEBOTS_PYTHON", &[home().join("tools/webots-venv/bin/python")], if cfg!(windows) { "python" } else { "python3" });
     let world = dir.join("map.wbt");
-    let res = run(Command::new(&python)
+    let res = run(command(&python)
         .current_dir(importer.parent().unwrap_or(Path::new(".")))
         .arg(&importer).arg("--input").arg(osm).arg("--output").arg(&world));
     let (out, log) = match res {
