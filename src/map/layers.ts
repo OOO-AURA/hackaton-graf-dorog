@@ -1,6 +1,7 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { LayerId } from '../state/ui';
 import { roadColorExpression, type MapPalette } from './palette';
+import { thematicExpression, type RoadColorMode } from './thematic';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
@@ -229,6 +230,13 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
   set('draw-line', 'line-color', p.draw);
   set('draw-points', 'circle-color', p.nodeFill);
   set('draw-points', 'circle-stroke-color', p.draw);
+}
+
+/** Road colour by class or by one attribute; bridges keep the same colour as the road they carry. */
+export function applyRoadColors(map: MapLibreMap, p: MapPalette, mode: RoadColorMode): void {
+  const color = mode === 'class' ? roadColorExpression(p) : thematicExpression(mode);
+  map.setPaintProperty('roads', 'line-color', color as never);
+  map.setPaintProperty('roads-bridge', 'line-color', color as never);
 }
 
 const ROAD_LAYERS = ['roads-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line'];

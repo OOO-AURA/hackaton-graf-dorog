@@ -2,6 +2,7 @@ import type { Feature, FeatureCollection, LineString, Point, Polygon } from 'geo
 import { buildingHeight as heightOf } from '../osm/building';
 import { direction, highwayColor, isDrivable } from '../osm/tags';
 import { nodeSymbol } from './features';
+import { thematicProps } from './thematic';
 import type { OsmDoc, OsmWay } from '../osm/types';
 
 const DEFAULT_BUILDING_HEIGHT_M = 9;
@@ -26,6 +27,7 @@ function roadFeature(doc: OsmDoc, w: OsmWay): Feature<LineString, Props> {
       bridge: Boolean(w.tags.bridge && w.tags.bridge !== 'no'),
       tunnel: Boolean(w.tags.tunnel && w.tags.tunnel !== 'no'),
       name: w.tags.name ?? '',
+      ...thematicProps(w.tags),
     },
     geometry: { type: 'LineString', coordinates: coords(doc, w) },
   };

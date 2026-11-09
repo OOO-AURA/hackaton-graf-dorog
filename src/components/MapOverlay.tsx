@@ -3,6 +3,7 @@ import { docBounds } from '../map/geojson';
 import { useEditor, type Basemap } from '../state/store';
 import { finishDrawing } from '../state/actions';
 import { LAYER_IDS, useUi, type LayerId } from '../state/ui';
+import { THEMATIC, type RoadColorMode } from '../map/thematic';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { Icon } from './icons';
 import { TOOLS } from './tools';
@@ -80,6 +81,25 @@ function BasemapSwitch() {
   );
 }
 
+const COLOR_MODES: ReadonlyArray<readonly [RoadColorMode, string]> = [
+  ['class', 'Цвет: класс дороги'], ['lanes', 'Цвет: полосы'], ['speed', 'Цвет: скорость'], ['capacity', 'Цвет: пропускная'], ['missing', 'Цвет: пропуски атрибутов'],
+];
+
+/** Road colour by one attribute, with its legend; makes lane jumps and gaps in the data visible. */
+function ColorModeSwitch() {
+  const mode = useUi((s) => s.roadColorMode);
+  const setMode = useUi((s) => s.setRoadColorMode);
+  const bands = mode === 'class' ? null : THEMATIC[mode].bands;
+  return (
+    <div className="float float-colormode">
+      <select value={mode} onChange={(e) => setMode(e.target.value as RoadColorMode)} aria-label="Чем красить дороги">
+        {COLOR_MODES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+      {bands && <ul className="thematic-legend">{bands.map((b) => <li key={b.label}><i style={{ background: b.color }} />{b.label}</li>)}</ul>}
+    </div>
+  );
+}
+
 function LayerBar() {
   const layers = useUi((s) => s.layers);
   const toggle = useUi((s) => s.toggleLayer);
@@ -103,6 +123,7 @@ export function MapOverlay({ map }: { map: MapLibreMap | null }) {
       {micro ? <SimBar /> : <FloatingTools />}
       <ZoomControls map={map} />
       <BasemapSwitch />
+      <ColorModeSwitch />
       <LayerBar />
     </>
   );

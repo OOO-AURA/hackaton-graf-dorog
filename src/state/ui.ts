@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { RoadColorMode } from '../map/thematic';
 
 export type Theme = 'light' | 'dark';
 export type ThemeChoice = Theme | 'system';
@@ -46,6 +47,9 @@ interface UiState {
   featureKind: string;
   setFeatureKind: (id: string) => void;
   fly: FlyRequest | null;
+  /** What the road colour shows: class (default) or one attribute, like a Visum classified display. */
+  roadColorMode: RoadColorMode;
+  setRoadColorMode: (mode: RoadColorMode) => void;
   setThemeChoice: (choice: ThemeChoice) => void;
   syncSystemTheme: () => void;
   setWorkspace: (w: Workspace) => void;
@@ -73,6 +77,8 @@ export const useUi = create<UiState>((set, get) => ({
   featureKind: 'signal',
   setFeatureKind: (featureKind) => set({ featureKind }),
   fly: null,
+  roadColorMode: 'class',
+  setRoadColorMode: (roadColorMode) => set({ roadColorMode }),
   setThemeChoice: (themeChoice) => {
     try {
       if (themeChoice === 'system') localStorage.removeItem(THEME_KEY);

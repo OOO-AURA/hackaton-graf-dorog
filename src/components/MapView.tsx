@@ -4,7 +4,7 @@ import { useTransit } from '../transit/store';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import maplibregl, { type GeoJSONSource, type Map as MapLibreMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { addEditorLayers, applyLayerVisibility, applyPalette, type SourceId } from '../map/layers';
+import { applyRoadColors, addEditorLayers, applyLayerVisibility, applyPalette, type SourceId } from '../map/layers';
 import { applyBasemapTone, BASE_STYLE } from '../map/style';
 import { MAP_PALETTE } from '../map/palette';
 import { useUi } from '../state/ui';
@@ -134,6 +134,8 @@ function useMapLook(map: MapLibreMap | null): void {
   const fly = useUi((s) => s.fly);
   const view3d = useUi((s) => s.view3d);
   useEffect(() => { if (alive(map)) applyPalette(map, MAP_PALETTE[theme]); }, [map, theme]);
+  const colorMode = useUi((s) => s.roadColorMode);
+  useEffect(() => { if (alive(map)) applyRoadColors(map, MAP_PALETTE[theme], colorMode); }, [map, theme, colorMode]);
   useEffect(() => { if (alive(map)) applyBasemapTone(map, theme, opacity); }, [map, theme, opacity]);
   useEffect(() => { if (alive(map)) applyLayerVisibility(map, layers); }, [map, layers]);
   const simResult = useSim((s) => s.result);
