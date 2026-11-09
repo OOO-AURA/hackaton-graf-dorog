@@ -3,7 +3,7 @@ import { create } from 'zustand';
 export type Theme = 'light' | 'dark';
 export type ThemeChoice = Theme | 'system';
 export type Workspace = 'macro' | 'micro';
-export type BottomTab = 'issues' | 'check' | 'journal';
+export type BottomTab = 'issues' | 'check' | 'flows' | 'journal';
 export type LayerId = 'roads' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs';
 
 export const LAYER_IDS: readonly LayerId[] = ['roads', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'tram', 'signs'];

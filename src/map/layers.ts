@@ -4,7 +4,7 @@ import { roadColorExpression, type MapPalette } from './palette';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
 export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'] } as const;
@@ -104,6 +104,17 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     'circle-radius': ['case', ['get', 'focused'], 15, ['==', ['get', 'kind'], 'cordon'], 5, 9], 'circle-color': 'rgba(0,0,0,0)',
     'circle-stroke-width': ['case', ['get', 'focused'], 3, ['==', ['get', 'kind'], 'cordon'], 1.5, 2],
   } });
+  map.addLayer({
+    id: 'macro-flow', type: 'line', source: 'macro', filter: ['==', ['get', 'kind'], 'flow'],
+    layout: { 'line-cap': 'round' },
+    paint: {
+      'line-color': ['get', 'color'], 'line-opacity': 0.9,
+      'line-width': ['interpolate', ['linear'], ['get', 'v'], 0, 1.5, 500, 4, 2000, 9],
+      'line-offset': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 18, 6],
+    },
+  });
+  map.addLayer({ id: 'macro-iso', type: 'circle', source: 'macro', filter: ['==', ['get', 'kind'], 'iso'], paint: { 'circle-color': ['get', 'color'], 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 3, 18, 8], 'circle-opacity': 0.85 } });
+  map.addLayer({ id: 'macro-zone', type: 'circle', source: 'macro', filter: ['==', ['get', 'kind'], 'zone'], paint: { 'circle-color': '#E54489', 'circle-radius': 9, 'circle-stroke-width': 3, 'circle-stroke-color': '#FBF6EA' } });
   map.addLayer({
     id: 'vehicles', type: 'circle', source: 'vehicles',
     paint: {

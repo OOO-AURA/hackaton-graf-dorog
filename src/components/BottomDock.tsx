@@ -4,6 +4,7 @@ import { useUi, type BottomTab } from '../state/ui';
 import { CheckPanel, useCheck } from './CheckPanel';
 import { IssuesPanel } from './IssuesPanel';
 import { Journal } from './Journal';
+import { FlowsPanel } from './FlowsPanel';
 import { Icon } from './icons';
 
 function Badge({ tab }: { tab: BottomTab }) {
@@ -24,7 +25,7 @@ function Badge({ tab }: { tab: BottomTab }) {
   return null;
 }
 
-const TABS: ReadonlyArray<[BottomTab, string]> = [['issues', 'Валидация'], ['check', 'Проверка как на сервере'], ['journal', 'Журнал']];
+const TABS: ReadonlyArray<[BottomTab, string]> = [['issues', 'Валидация'], ['check', 'Проверка как на сервере'], ['flows', 'Потоки'], ['journal', 'Журнал']];
 
 export function BottomDock() {
   const tab = useUi((s) => s.bottomTab);
@@ -53,6 +54,7 @@ export function BottomDock() {
         <div className="dock-body" role="tabpanel">
           {tab === 'issues' && <IssuesPanel />}
           {tab === 'check' && <CheckPanel />}
+          {tab === 'flows' && <FlowsPanel />}
           {tab === 'journal' && <Journal />}
         </div>
       )}

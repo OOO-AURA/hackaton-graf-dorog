@@ -7,6 +7,7 @@ import { MAP_PALETTE } from '../map/palette';
 import { useUi } from '../state/ui';
 import { MapOverlay } from './MapOverlay';
 import { useSim, vehiclesAt } from '../sim/store';
+import { useMacro } from '../macro/store';
 import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson } from '../map/geojson';
 import { useMapInteractions } from '../map/useMapInteractions';
 import { currentSelection, useEditor } from '../state/store';
@@ -96,6 +97,13 @@ function useMapLook(map: MapLibreMap | null): void {
     const empty = { type: 'FeatureCollection', features: [] };
     setData(map, 'vehicles', workspace === 'micro' && simResult ? vehiclesAt(simResult, simTime) : empty);
   }, [map, simResult, simTime, workspace]);
+  const flows = useMacro((s) => s.result?.flows);
+  const iso = useMacro((s) => s.iso);
+  useEffect(() => {
+    if (!alive(map)) return;
+    const features = workspace === 'macro' ? [...(flows?.features ?? []), ...(iso?.features ?? [])] : [];
+    setData(map, 'macro', { type: 'FeatureCollection', features });
+  }, [map, flows, iso, workspace]);
   useEffect(() => {
     if (!alive(map)) return;
     const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
