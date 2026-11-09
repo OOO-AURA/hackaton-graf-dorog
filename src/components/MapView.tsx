@@ -20,6 +20,7 @@ import { streetWays } from '../osm/street';
 import { bridgeFeatures } from '../map/bridges3d';
 import { useBundle } from '../macro/bundleStore';
 import { diffFeatures, docDiff } from '../osm/diff';
+import { useRoute } from '../state/route';
 import type { OsmDoc } from '../osm/types';
 
 const IRKUTSK_CENTER: [number, number] = [104.262, 52.26];
@@ -74,6 +75,11 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
       .map((r) => r.members.find((m) => m.role === 'via' && m.type === 'node')?.ref).filter((id): id is string => Boolean(id && doc.nodes[id])));
     setData(map, 'turns', { type: 'FeatureCollection', features: [...via].map((id) => ({ type: 'Feature', properties: { id }, geometry: { type: 'Point', coordinates: [doc.nodes[id].lon, doc.nodes[id].lat] } })) });
   }, [map, doc]);
+
+  const route = useRoute((s) => s.result);
+  useEffect(() => {
+    if (map) setData(map, 'route', { type: 'FeatureCollection', features: route?.found ? [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route.coords } }] : [] });
+  }, [map, route]);
 
   const baseDoc = useEditor((s) => s.baseDoc);
   const changesOn = useUi((s) => s.layers.changes);

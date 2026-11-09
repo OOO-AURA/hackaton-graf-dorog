@@ -10,6 +10,7 @@ import { NODE_FEATURES, nodeSymbol } from '../map/features';
 import { Icon } from './icons';
 import { SignalPlanSection } from './SignalPlanSection';
 import { TurnsSection } from './TurnsSection';
+import { RouteSection } from './RouteSection';
 import { isJunction } from '../osm/turns';
 
 const NODE_KIND_OPTIONS = [
@@ -53,6 +54,7 @@ export function NodeInspector({ node }: { node: OsmNode }) {
       </Section>
       {isSignal && <SignalPlanSection node={node} ways={ways} />}
       {isJunction(doc, node.id) && <TurnsSection nodeId={node.id} />}
+      <RouteSection nodeId={node.id} />
       {ways.length > 0 && (
         <Section title="Дороги через узел" aside={<span className="mono count">{ways.length}</span>}>
           <ul className="link-list">
