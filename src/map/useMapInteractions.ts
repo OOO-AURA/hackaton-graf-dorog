@@ -5,7 +5,8 @@ import { useUi } from '../state/ui';
 import { featureById, toggleNodeFeature } from './features';
 import { useEditor } from '../state/store';
 import { finishDrawing } from '../state/actions';
-import { hitNode, hitWay } from './hit';
+import { hitBuilding, hitNode, hitWay } from './hit';
+import { useBoxSelect } from './useBoxSelect';
 import { zoneEditingActive } from '../macro/useZoneEditing';
 
 const DRAG_THRESHOLD_PX = 3;
@@ -18,7 +19,9 @@ function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
 
   switch (s.mode) {
     case 'select':
-      s.select(nodeId ? { type: 'node', id: nodeId } : way ? { type: 'way', id: way.wayId } : null);
+      if (nodeId || way) { s.select(nodeId ? { type: 'node', id: nodeId } : { type: 'way', id: way!.wayId }); return; }
+      // Nodes and roads come first: they are small and lie under the buildings in 3D.
+      void hitBuilding(map, e.point).then((id) => useEditor.getState().select(id ? { type: 'way', id } : null));
       return;
     case 'signal': {
       const feature = featureById(useUi.getState().featureKind);
@@ -116,6 +119,7 @@ function useNodeDrag(map: MapLibreMap | null): void {
 
 export function useMapInteractions(map: MapLibreMap | null, onPointer: (lon: number, lat: number) => void): void {
   useNodeDrag(map);
+  useBoxSelect(map);
   useEffect(() => {
     if (!map) return undefined;
     const onClick = (e: MapMouseEvent) => handleClick(map, e);

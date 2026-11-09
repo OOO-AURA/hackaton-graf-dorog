@@ -1,5 +1,5 @@
 import type { CustomLayerInterface, Map as MapLibreMap } from 'maplibre-gl';
-import { STRIDE, type Scene3dMesh } from './mesh3d';
+import { mercatorX, mercatorY, STRIDE, type Rgb, type Scene3dMesh } from './mesh3d';
 
 /**
  * 3D buildings, bridges and tunnel portals drawn with our own WebGL, so that a building standing
@@ -102,6 +102,23 @@ void main() {
 }
 `;
 
+const VS_PICK = `
+attribute vec3 a_pos;
+attribute float a_pick;
+uniform mat4 u_matrix;
+varying float v_pick;
+void main() { gl_Position = u_matrix * vec4(a_pos, 1.0); v_pick = a_pick; }
+`;
+
+const FS_PICK = `
+precision highp float;
+varying float v_pick;
+void main() {
+  float id = floor(v_pick + 0.5);
+  gl_FragColor = vec4(mod(id, 256.0), mod(floor(id / 256.0), 256.0), floor(id / 65536.0), 255.0) / 255.0;
+}
+`;
+
 const FS_MASK = `
 precision highp float;
 ${PACK}
@@ -127,8 +144,12 @@ attribute vec3 a_color;
 attribute float a_id;
 attribute vec3 a_normal;
 attribute float a_shade;
+attribute float a_pick;
 uniform mat4 u_matrix;
 uniform vec3 u_lightpos;
+uniform sampler2D u_selected;
+uniform float u_selRows;
+uniform vec3 u_selColor;
 varying vec3 v_color;
 varying float v_id;
 void main() {
@@ -142,6 +163,11 @@ void main() {
   float directional = mix(0.5, max(1.5 - colorvalue, 1.0), clamp(d, 0.0, 1.0));
   if (abs(a_normal.z) < 0.5) directional *= a_shade;
   v_color = clamp(color * directional, 0.0, 1.0);
+  if (a_pick > 0.5) {
+    float id = floor(a_pick + 0.5);
+    vec2 uv = vec2((mod(id, ${CUT_TEX_WIDTH}.0) + 0.5) / ${CUT_TEX_WIDTH}.0, (floor(id / ${CUT_TEX_WIDTH}.0) + 0.5) / u_selRows);
+    if (texture2D(u_selected, uv).a > 0.5) v_color = mix(v_color, u_selColor, 0.55);
+  }
 }
 `;
 
@@ -251,6 +277,15 @@ export class Scene3dLayer implements CustomLayerInterface {
   private progId: WebGLProgram | null = null;
   private progMask: WebGLProgram | null = null;
   private progColor: WebGLProgram | null = null;
+  private progPick: WebGLProgram | null = null;
+  private pickTarget: Target | null = null;
+  private pending: Array<{ x: number; y: number; resolve: (id: string | null) => void }> = [];
+  private lastMatrix: Float32Array | null = null;
+  private selected = new Set<string>();
+  private selColor: Rgb = [0.93, 0.36, 0.61];
+  private selTex: WebGLTexture | null = null;
+  private selRows = 1;
+  private selDirty = true;
   private depthTarget: Target | null = null;
   private idTarget: Target | null = null;
   private maskTarget: Target | null = null;
@@ -268,6 +303,7 @@ export class Scene3dLayer implements CustomLayerInterface {
   setMesh(mesh: Scene3dMesh | null): void {
     this.mesh = mesh;
     this.dirty = true;
+    this.selDirty = true;
     this.map?.triggerRepaint();
   }
 
@@ -275,6 +311,36 @@ export class Scene3dLayer implements CustomLayerInterface {
     this.showBuildings = buildings;
     this.showStructures = structures;
     this.map?.triggerRepaint();
+  }
+
+  /** Buildings to highlight, by OSM way id, and the highlight colour. */
+  setSelected(ids: Iterable<string>, color: Rgb): void {
+    this.selected = new Set(ids);
+    this.selColor = color;
+    this.selDirty = true;
+    this.map?.triggerRepaint();
+  }
+
+  /** OSM way of the building under a point in CSS pixels, worked out on the next frame. */
+  pick(x: number, y: number): Promise<string | null> {
+    if (!this.map || !this.mesh) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      this.pending.push({ x, y, resolve });
+      this.map!.triggerRepaint();
+    });
+  }
+
+  /** CSS pixel position of a point given in lon, lat and metres above ground, or null if behind the camera. */
+  project(lon: number, lat: number, metres: number): { x: number; y: number } | null {
+    const m = this.lastMatrix;
+    const o = this.mesh?.origin;
+    if (!m || !o || !this.map) return null;
+    const x = (mercatorX(lon) - o.x) * o.metersPerUnit;
+    const y = (mercatorY(lat) - o.y) * o.metersPerUnit;
+    const clip = [0, 1, 2, 3].map((r) => m[r] * x + m[4 + r] * y + m[8 + r] * metres + m[12 + r]);
+    if (clip[3] <= 0) return null;
+    const canvas = this.map.getCanvas();
+    return { x: ((clip[0] / clip[3] + 1) / 2) * canvas.clientWidth, y: ((1 - clip[1] / clip[3]) / 2) * canvas.clientHeight };
   }
 
   setCutaway(on: boolean): void {
@@ -288,6 +354,8 @@ export class Scene3dLayer implements CustomLayerInterface {
     this.progId = compile(gl, VS_POS, FS_ID);
     this.progMask = compile(gl, VS_POS, FS_MASK);
     this.progColor = compile(gl, VS_COLOR, FS_COLOR);
+    this.progPick = compile(gl, VS_PICK, FS_PICK);
+    this.pickTarget = makeTarget(gl, 1, 1, true);
   }
 
   onRemove(_map: MapLibreMap, gl: GL): void {
@@ -296,7 +364,13 @@ export class Scene3dLayer implements CustomLayerInterface {
     this.depthTarget = this.idTarget = this.maskTarget = null;
     if (this.cutTex) gl.deleteTexture(this.cutTex);
     this.cutTex = null;
-    [this.progDepth, this.progId, this.progMask, this.progColor].forEach((p) => p && gl.deleteProgram(p));
+    [this.progDepth, this.progId, this.progMask, this.progColor, this.progPick].forEach((p) => p && gl.deleteProgram(p));
+    dropTarget(gl, this.pickTarget);
+    this.pickTarget = null;
+    if (this.selTex) gl.deleteTexture(this.selTex);
+    this.selTex = null;
+    this.pending.forEach((p) => p.resolve(null));
+    this.pending = [];
     this.map = null;
   }
 
@@ -395,9 +469,84 @@ export class Scene3dLayer implements CustomLayerInterface {
     locs.forEach((l) => gl.disableVertexAttribArray(l));
   }
 
+  /** Renders the building numbers of one pixel per pending click and resolves them. */
+  private runPicks(gl: GL, m: Float32Array) {
+    const jobs = this.pending;
+    this.pending = [];
+    if (!jobs.length) return;
+    const b = this.buffers;
+    const canvas = this.map!.getCanvas();
+    const W = gl.drawingBufferWidth;
+    const H = gl.drawingBufferHeight;
+    for (const job of jobs) {
+      if (!b || !b.solidCount || !this.showBuildings) { job.resolve(null); continue; }
+      // Clip space shifted and scaled so that the clicked pixel fills the 1×1 target.
+      const nx = ((job.x / canvas.clientWidth) * 2 - 1);
+      const ny = (1 - (job.y / canvas.clientHeight) * 2);
+      const pickM = new Float32Array(16);
+      for (let c = 0; c < 4; c += 1) {
+        pickM[c * 4] = W * (m[c * 4] - nx * m[c * 4 + 3]);
+        pickM[c * 4 + 1] = H * (m[c * 4 + 1] - ny * m[c * 4 + 3]);
+        pickM[c * 4 + 2] = m[c * 4 + 2];
+        pickM[c * 4 + 3] = m[c * 4 + 3];
+      }
+      const t = this.pickTarget!;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb);
+      gl.viewport(0, 0, 1, 1);
+      gl.disable(gl.BLEND);
+      gl.disable(gl.STENCIL_TEST);
+      gl.disable(gl.CULL_FACE);
+      gl.colorMask(true, true, true, true);
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthFunc(gl.LESS);
+      gl.depthMask(true);
+      gl.depthRange(0, 1);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clearDepth(1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      const p = this.progPick!;
+      gl.useProgram(p);
+      gl.uniformMatrix4fv(gl.getUniformLocation(p, 'u_matrix'), false, pickM);
+      gl.bindBuffer(gl.ARRAY_BUFFER, b.solid);
+      const pos = gl.getAttribLocation(p, 'a_pos');
+      const pick = gl.getAttribLocation(p, 'a_pick');
+      gl.enableVertexAttribArray(pos);
+      gl.vertexAttribPointer(pos, 3, gl.FLOAT, false, STRIDE * 4, 0);
+      gl.enableVertexAttribArray(pick);
+      gl.vertexAttribPointer(pick, 1, gl.FLOAT, false, STRIDE * 4, 11 * 4);
+      gl.drawArrays(gl.TRIANGLES, 0, b.solidCount);
+      gl.disableVertexAttribArray(pos);
+      gl.disableVertexAttribArray(pick);
+      const px = new Uint8Array(4);
+      gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      const id = px[0] + px[1] * 256 + px[2] * 65536;
+      job.resolve(px[3] > 128 && id > 0 ? this.mesh!.buildingIds[id - 1] ?? null : null);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+  }
+
+  private uploadSelection(gl: GL) {
+    if (!this.selDirty || !this.mesh) return;
+    this.selDirty = false;
+    const n = this.mesh.buildingIds.length;
+    const rows = Math.max(1, Math.ceil((n + 1) / CUT_TEX_WIDTH));
+    const data = new Uint8Array(CUT_TEX_WIDTH * rows * 4);
+    this.mesh.buildingIds.forEach((id, i) => { if (this.selected.has(id)) data[(i + 1) * 4 + 3] = 255; });
+    if (this.selTex) gl.deleteTexture(this.selTex);
+    this.selTex = makeTexture(gl, CUT_TEX_WIDTH, rows, data);
+    this.selRows = rows;
+  }
+
   prerender(gl: GL, matrix: ArrayLike<number>): void {
     this.upload(gl);
     this.stepCut();
+    if (this.mesh) {
+      const pm = this.matrix(matrix);
+      this.lastMatrix = pm;
+      this.runPicks(gl, pm);
+      this.uploadSelection(gl);
+    }
     const b = this.buffers;
     this.hasCuts = false;
     if (!b || !this.mesh || !this.cutAnim || !this.showBuildings || !b.solidCount) return;
@@ -485,6 +634,14 @@ export class Scene3dLayer implements CustomLayerInterface {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.hasCuts ? this.cutTex : null);
     gl.uniform1i(gl.getUniformLocation(p, 'u_cuts'), 0);
+    this.uploadSelection(gl);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.selTex);
+    gl.uniform1i(gl.getUniformLocation(p, 'u_selected'), 1);
+    gl.uniform1f(gl.getUniformLocation(p, 'u_selRows'), this.selRows);
+    gl.uniform3fv(gl.getUniformLocation(p, 'u_selColor'), [...this.selColor]);
+    gl.activeTexture(gl.TEXTURE0);
+    this.lastMatrix = m;
 
     // Same depth range as the offscreen passes; our own depth, so clear it first.
     gl.depthRange(0, 1);
@@ -505,7 +662,7 @@ export class Scene3dLayer implements CustomLayerInterface {
         return loc;
       };
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-      const locs = [attr('a_pos', 3, 0), attr('a_color', 3, 3), attr('a_id', 1, 6), attr('a_normal', 3, 7), attr('a_shade', 1, 10)];
+      const locs = [attr('a_pos', 3, 0), attr('a_color', 3, 3), attr('a_id', 1, 6), attr('a_normal', 3, 7), attr('a_shade', 1, 10), attr('a_pick', 1, 11)];
       gl.drawArrays(gl.TRIANGLES, 0, count);
       locs.forEach((l) => gl.disableVertexAttribArray(l));
     };

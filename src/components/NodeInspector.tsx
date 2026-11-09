@@ -3,7 +3,8 @@ import { withTag } from '../osm/tags';
 import type { OsmNode } from '../osm/types';
 import { useEditor } from '../state/store';
 import { deleteSelection, splitAtSelected, toggleSignalSelected } from '../state/actions';
-import { SelectField } from './fields';
+import { SelectField, TextField } from './fields';
+import { formatMetres, nodeElevation, withElevation } from '../osm/height';
 import { TagTable } from './TagTable';
 import { Section } from './Section';
 import { NODE_FEATURES, nodeSymbol } from '../map/features';
@@ -50,6 +51,14 @@ export function NodeInspector({ node }: { node: OsmNode }) {
         </div>
       </Section>
       {isSignal && <SignalPlanSection node={node} ways={ways} />}
+      <Section title="Высота" open={false}>
+        <TextField
+          label="Отметка над уровнем моря, м" type="number" placeholder="—"
+          value={nodeElevation(node.tags) === null ? '' : formatMetres(nodeElevation(node.tags)!)}
+          onCommit={(v) => apply((d) => setNodeTags(d, node.id, withElevation(node.tags, v ? Number.parseFloat(v.replace(',', '.')) : null)))}
+        />
+        <p className="hint">Пишется в тег ele. На карте редактора отметка не показывается: рельефа в ней нет.</p>
+      </Section>
       {ways.length > 0 && (
         <Section title="Дороги через узел" aside={<span className="mono count">{ways.length}</span>}>
           <ul className="link-list">

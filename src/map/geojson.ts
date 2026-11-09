@@ -1,6 +1,7 @@
 import type { Feature, FeatureCollection, LineString, Point, Polygon } from 'geojson';
 import { direction, highwayColor, isDrivable } from '../osm/tags';
 import { nodeSymbol } from './features';
+import { buildingHeight as heightOf } from '../osm/height';
 import type { OsmDoc, OsmWay } from '../osm/types';
 
 type Props = Record<string, string | number | boolean>;
@@ -36,12 +37,7 @@ export function roadsGeoJson(doc: OsmDoc) {
 }
 
 /** Building height in metres: `height`, else `building:levels` × 3 m, else 9 m (three floors). */
-export function buildingHeight(tags: Record<string, string>): number {
-  const h = Number.parseFloat(tags.height ?? '');
-  if (Number.isFinite(h) && h > 0) return h;
-  const levels = Number.parseFloat(tags['building:levels'] ?? '');
-  return Number.isFinite(levels) && levels > 0 ? levels * 3 : 9;
-}
+export const buildingHeight = (tags: Record<string, string>): number => heightOf(tags).height;
 
 /** Context layers that are not part of the road graph but go into the file (Webots uses them for 3D). */
 export function contextGeoJson(doc: OsmDoc) {

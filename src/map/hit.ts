@@ -1,7 +1,8 @@
 import type { Map as MapLibreMap, PointLike } from 'maplibre-gl';
 import { projectOnSegment } from '../osm/geo';
 import type { OsmDoc } from '../osm/types';
-import { HIT_LAYERS } from './layers';
+import { HIT_LAYERS, sceneOf } from './layers';
+import { SCENE3D_LAYER } from './scene3d';
 
 const HIT_TOLERANCE_PX = 7;
 
@@ -41,4 +42,14 @@ export function hitWay(map: MapLibreMap, doc: OsmDoc, point: { x: number; y: num
     }
   }
   return best && { wayId: best.wayId, index: best.index, lon: best.lon, lat: best.lat };
+}
+
+/**
+ * Building under a point: in 3D the scene layer renders what is under the cursor, in 2D the flat
+ * building layer is queried. Resolves to the OSM way id or null.
+ */
+export async function hitBuilding(map: MapLibreMap, point: { x: number; y: number }): Promise<string | null> {
+  if (map.getLayoutProperty(SCENE3D_LAYER, 'visibility') === 'visible') return (await sceneOf(map)?.pick(point.x, point.y)) ?? null;
+  const features = map.queryRenderedFeatures([point.x, point.y], { layers: ['buildings'] });
+  return features.length ? String(features[0].properties?.id) : null;
 }

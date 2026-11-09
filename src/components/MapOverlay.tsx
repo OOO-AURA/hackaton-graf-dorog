@@ -9,6 +9,7 @@ import { Icon } from './icons';
 import { TOOLS } from './tools';
 import { EmptyState } from './EmptyState';
 import { SimBar } from './sim/SimBar';
+import { HeightHandle } from './HeightHandle';
 
 const BASEMAPS: ReadonlyArray<[Basemap, string]> = [['osm', 'Схема'], ['satellite', 'Спутник'], ['none', 'Нет']];
 
@@ -111,6 +112,7 @@ export function MapOverlay({ map }: { map: MapLibreMap | null }) {
   return (
     <>
       {micro ? <SimBar /> : <FloatingTools />}
+      {!micro && <HeightHandle map={map} />}
       <ZoomControls map={map} />
       <BasemapSwitch />
       <LayerBar />

@@ -110,13 +110,13 @@ export const sceneOf = (map: MapLibreMap) => scenes.get(map) ?? null;
 const rgb = (hex: string): Rgb => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16) / 255) as unknown as Rgb;
 
 /** Colours of the 3D scene: one flat tone for buildings, bridge decks in their road class colour. */
-export function sceneColors(p: MapPalette): Scene3dColors {
+export function sceneColors(p: MapPalette): Scene3dColors & { selection: Rgb } {
   const byHighway = new Map<string, Rgb>();
   ROAD_CLASSES.forEach((c) => c.match.forEach((h) => byHighway.set(h, rgb(p.roads[c.id]))));
   const service = rgb(p.roads.service);
   return {
     building: rgb(p.building3d), deck: (h) => byHighway.get(h) ?? service,
-    deckSide: rgb(p.bridgeSide), pier: rgb(p.bridgeSide), portal: rgb(p.bridgeSide),
+    deckSide: rgb(p.bridgeSide), pier: rgb(p.bridgeSide), portal: rgb(p.bridgeSide), selection: rgb(p.selection),
   };
 }
 

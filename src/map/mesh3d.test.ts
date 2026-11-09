@@ -112,6 +112,16 @@ describe('3D scene geometry', () => {
     expect(tunnel.roadMask.length).toBe(0);
   });
 
+  test('a bridge of two points still rises to its level, and the level changes its height', () => {
+    const nodes = `<node id="1" lat="52.0" lon="104.000"/><node id="2" lat="52.0" lon="104.003"/>`;
+    const top = (layer: string) => {
+      const m = buildScene3d(osm(`${nodes}<way id="10"><nd ref="1"/><nd ref="2"/><tag k="highway" v="primary"/><tag k="bridge" v="yes"/><tag k="layer" v="${layer}"/></way>`), COLORS)!;
+      return Math.max(...zOf(m.structures, STRIDE));
+    };
+    expect(top('1')).toBeGreaterThanOrEqual(LAYER_HEIGHT);
+    expect(top('3')).toBeGreaterThanOrEqual(3 * LAYER_HEIGHT);
+  });
+
   test('a tunnel gets a portal only where it meets an open road', () => {
     const nodes = `
       <node id="1" lat="52.0" lon="104.000"/><node id="2" lat="52.0" lon="104.002"/><node id="3" lat="52.0" lon="104.004"/>`;

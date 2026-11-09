@@ -28,12 +28,16 @@ const setData = (map: MapLibreMap, id: SourceId, data: unknown) => {
   if (alive(map)) (map.getSource(id) as GeoJSONSource | undefined)?.setData(data as never);
 };
 
-function selectionGeoJson(doc: OsmDoc, sel: ReturnType<typeof currentSelection>) {
+function selectionGeoJson(doc: OsmDoc, sel: ReturnType<typeof currentSelection>, multi: readonly string[]) {
+  const line = (id: string) => ({
+    type: 'Feature', properties: {},
+    geometry: { type: 'LineString', coordinates: doc.ways[id].refs.filter((r) => doc.nodes[r]).map((r) => [doc.nodes[r].lon, doc.nodes[r].lat]) },
+  });
+  if (multi.length) return { type: 'FeatureCollection', features: multi.filter((id) => doc.ways[id]).map(line) };
   if (!sel) return { type: 'FeatureCollection', features: [] };
-  const geometry = sel.type === 'node'
-    ? { type: 'Point', coordinates: [doc.nodes[sel.id].lon, doc.nodes[sel.id].lat] }
-    : { type: 'LineString', coordinates: doc.ways[sel.id].refs.map((r) => [doc.nodes[r].lon, doc.nodes[r].lat]) };
-  return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry }] };
+  if (sel.type === 'way') return { type: 'FeatureCollection', features: [line(sel.id)] };
+  const n = doc.nodes[sel.id];
+  return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [n.lon, n.lat] } }] };
 }
 
 /** While zones are being placed, the centroids come from the editor state, not from the last result. */
@@ -70,9 +74,17 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     if (map) setData(map, 'nodes', nodesGeoJson(doc, selectedWay));
   }, [map, doc, selectedWay]);
 
+  const multi = useEditor((s) => s.multi);
   useEffect(() => {
-    if (map) setData(map, 'selection', selectionGeoJson(doc, selection));
-  }, [map, doc, selection]);
+    if (map) setData(map, 'selection', selectionGeoJson(doc, selection, multi));
+  }, [map, doc, selection, multi]);
+  // Selected buildings are tinted in 3D too.
+  const theme = useUi((s) => s.theme);
+  useEffect(() => {
+    if (!alive(map)) return;
+    const ids = multi.length ? multi : selection?.type === 'way' ? [selection.id] : [];
+    sceneOf(map)?.setSelected(ids.filter((id) => doc.ways[id]?.tags.building), sceneColors(MAP_PALETTE[theme]).selection);
+  }, [map, doc, selection, multi, theme]);
 
   useEffect(() => {
     if (!map) return;

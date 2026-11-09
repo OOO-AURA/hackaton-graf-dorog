@@ -1,7 +1,7 @@
 import earcut from 'earcut';
 import { isDrivable } from '../osm/tags';
 import type { OsmDoc, OsmWay } from '../osm/types';
-import { buildingHeight } from './geojson';
+import { buildingHeight, LAYER_STEP } from '../osm/height';
 
 /**
  * Geometry of the 3D view in local metres around an origin: x east, y south (the way Web
@@ -12,17 +12,21 @@ export type Rgb = readonly [number, number, number];
 export type Scene3dColors = { building: Rgb; deck: (highway: string) => Rgb; deckSide: Rgb; pier: Rgb; portal: Rgb };
 
 /**
- * Interleaved x, y, z, r, g, b, id, nx, ny, nz, shade. `id` numbers buildings from 1, so the
- * road cutaway can cut each one as a whole; it is 0 for bridges and portals, which are never cut; the normal and `shade` (the wall gradient) feed the same lighting MapLibre
- * gives its extruded buildings.
+ * Interleaved x, y, z, r, g, b, id, nx, ny, nz, shade, pick. `id` numbers blocks of touching
+ * buildings from 1, so the road cutaway cuts each block as a whole; it is 0 for bridges and
+ * portals, which are never cut. The normal and `shade` (the wall gradient) feed the same
+ * lighting MapLibre gives its extruded buildings. `pick` numbers single buildings from 1 for
+ * clicks and highlighting: `buildingIds[pick - 1]` is the OSM way.
  */
-export const STRIDE = 11;
+export const STRIDE = 12;
 
 export type Scene3dMesh = {
   /** Mercator x, y of the origin and metres per Mercator unit there. */
   origin: { x: number; y: number; metersPerUnit: number };
-  /** How many buildings are numbered in `solid`; touching sections share a number. */
+  /** How many blocks are numbered in `solid`; touching sections share a number. */
   buildings: number;
+  /** OSM way of every building, by its `pick` number minus one. */
+  buildingIds: string[];
   /** Building triangles, wound the same way as the roofs seen from outside. */
   solid: Float32Array;
   /** Bridge decks, piers and tunnel portals: opaque, never cut away. */
@@ -33,7 +37,7 @@ export type Scene3dMesh = {
 
 export const LANE_WIDTH = 3.5;
 /** Height of one OSM `layer` step for bridges. */
-export const LAYER_HEIGHT = 5;
+export const LAYER_HEIGHT = LAYER_STEP;
 const DECK_THICKNESS = 1.2;
 const PARAPET = 1.0;
 const PIER_SPACING = 30;
@@ -71,6 +75,11 @@ type P2 = [number, number];
 class Buf {
   private data: number[] = [];
   push(...v: number[]) { for (const x of v) this.data.push(x); }
+  get length() { return this.data.length; }
+  /** Writes `value` into field `field` of every vertex from `start` (a length) on. */
+  fill(start: number, field: number, value: number) {
+    for (let i = start + field; i < this.data.length; i += STRIDE) this.data[i] = value;
+  }
   get array() { return new Float32Array(this.data); }
 }
 
@@ -145,7 +154,7 @@ function tri(buf: Buf, c: Rgb, cut: number, a: V3, b: V3, d: V3, shade: Shade = 
   let nx = uy * vz - uz * vy; let ny = uz * vx - ux * vz; let nz = ux * vy - uy * vx;
   const l = Math.hypot(nx, ny, nz) || 1;
   nx = (nx / l) * sign; ny = (ny / l) * sign; nz = (nz / l) * sign;
-  for (const v of [a, b, d]) buf.push(v[0], v[1], v[2], c[0], c[1], c[2], cut, nx, ny, nz, shade(v));
+  for (const v of [a, b, d]) buf.push(v[0], v[1], v[2], c[0], c[1], c[2], cut, nx, ny, nz, shade(v), 0);
 }
 
 /** Quad a-b-c-d, wound the same way as given. */
@@ -202,7 +211,21 @@ function addBuilding(solid: Buf, id: number, ring: P2[], base: number, height: n
   }
 }
 
-function addBridge(solid: Buf, mask: Buf, pts: P2[], tags: Record<string, string>, colors: Scene3dColors) {
+/** Adds points so that no piece is longer than `step` metres: ramps need them to bend. */
+export function densify(pts: readonly P2[], step: number): P2[] {
+  const out: P2[] = [pts[0]];
+  for (let i = 1; i < pts.length; i += 1) {
+    const [a, b] = [pts[i - 1], pts[i]];
+    const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / step));
+    for (let k = 1; k <= n; k += 1) out.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
+  }
+  return out;
+}
+
+const RAMP_STEP = 3;
+
+function addBridge(solid: Buf, mask: Buf, raw: P2[], tags: Record<string, string>, colors: Scene3dColors) {
+  const pts = densify(raw, RAMP_STEP);
   const half = roadWidth(tags) / 2;
   const z = deckProfile(cumulative(pts), bridgeHeight(tags));
   const { left, right } = offsets(pts, half);
@@ -361,8 +384,10 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
   const groups = buildingGroups(rings);
   rings.forEach((r, i) => {
     const w = buildingWays[i];
-    const minH = Number.parseFloat(w.tags.min_height ?? '');
-    addBuilding(solid, groups[i], [...r.pts], Number.isFinite(minH) && minH > 0 ? minH : 0, buildingHeight(w.tags), colors);
+    const { height, minHeight } = buildingHeight(w.tags);
+    const start = solid.length;
+    addBuilding(solid, groups[i], [...r.pts], minHeight, height, colors);
+    solid.fill(start, 11, i + 1);
   });
   const buildings = groups.reduce((a, b) => Math.max(a, b), 0);
 
@@ -384,5 +409,5 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     for (let i = 0; i < pts.length - 1; i += 1) ribbon(mask, left[i], left[i + 1], right[i], right[i + 1], 0, 0);
   });
 
-  return { origin, buildings, solid: solid.array, structures: structures.array, roadMask: mask.array };
+  return { origin, buildings, buildingIds: buildingWays.map((w) => w.id), solid: solid.array, structures: structures.array, roadMask: mask.array };
 }
