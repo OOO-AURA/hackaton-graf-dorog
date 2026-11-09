@@ -1,37 +1,10 @@
 import { useEffect } from 'react';
-import type { Issue } from '../osm/validate';
 import { useEditor } from '../state/store';
 import { useUi, type BottomTab } from '../state/ui';
 import { CheckPanel, useCheck } from './CheckPanel';
-import { IssuesPanel, KIND_LABELS } from './IssuesPanel';
+import { IssuesPanel } from './IssuesPanel';
 import { Journal } from './Journal';
 import { Icon } from './icons';
-
-function Connectivity() {
-  const report = useEditor((s) => s.report);
-  if (!report) return <p className="hint dock-empty">Считаю…</p>;
-  const { stats } = report;
-  const count = (kind: Issue['kind']) => report.issues.filter((i) => i.kind === kind).length;
-  const tiles: ReadonlyArray<[string, string, string?]> = [
-    ['Дорог', String(stats.ways)], ['Узлов', String(stats.nodes)], ['Длина, км', stats.lengthKm.toFixed(1)],
-    ['Светофоров', String(stats.signals)], ['Компонент связности', String(stats.components), stats.components > 1 ? 'warn' : 'ok'],
-  ];
-  return (
-    <div className="graph-tab">
-      <div className="tiles">
-        {tiles.map(([label, value, tone]) => (
-          <div key={label} className={`tile ${tone ?? ''}`}><span className="tile-value">{value}</span><span className="micro">{label}</span></div>
-        ))}
-      </div>
-      <ul className="graph-breakdown">
-        {(Object.keys(KIND_LABELS) as Issue['kind'][]).map((k) => (
-          <li key={k} className={count(k) ? 'has' : ''}><span>{KIND_LABELS[k]}</span><span className="mono">{count(k)}</span></li>
-        ))}
-      </ul>
-      <p className="hint">Одна компонента значит, что из любой точки сети можно доехать в любую другую. Лишние компоненты и тупики по направлению MATSim выкидывает из сети, агенты по ним не поедут.</p>
-    </div>
-  );
-}
 
 function Badge({ tab }: { tab: BottomTab }) {
   const report = useEditor((s) => s.report);
@@ -51,7 +24,7 @@ function Badge({ tab }: { tab: BottomTab }) {
   return null;
 }
 
-const TABS: ReadonlyArray<[BottomTab, string]> = [['issues', 'Валидация'], ['check', 'Проверка как на сервере'], ['journal', 'Журнал'], ['graph', 'Связность']];
+const TABS: ReadonlyArray<[BottomTab, string]> = [['issues', 'Валидация'], ['check', 'Проверка как на сервере'], ['journal', 'Журнал']];
 
 export function BottomDock() {
   const tab = useUi((s) => s.bottomTab);
@@ -81,7 +54,6 @@ export function BottomDock() {
           {tab === 'issues' && <IssuesPanel />}
           {tab === 'check' && <CheckPanel />}
           {tab === 'journal' && <Journal />}
-          {tab === 'graph' && <Connectivity />}
         </div>
       )}
     </section>

@@ -135,16 +135,3 @@
 .journal li.on button { background: var(--yellow); color: #3A2516; font-weight: 600; }
 .journal li.on .step, .journal li.on .detail { color: #3A2516; }
 .journal li.undone button { opacity: 0.5; text-decoration: line-through; text-decoration-color: var(--line-strong); }
-
-/* Connectivity tab */
-.graph-tab { display: grid; grid-template-columns: auto minmax(220px, 320px) minmax(0, 1fr); gap: var(--sp-5); align-items: start; }
-.tiles { display: grid; grid-template-columns: repeat(5, auto); gap: 0; border: 1.5px solid var(--ink); border-radius: var(--r-md); overflow: hidden; }
-.tile { display: grid; gap: 4px; padding: 8px 14px 10px; min-width: 92px; }
-.tile + .tile { border-left: 1px solid var(--line-strong); }
-.tile-value { font-family: var(--font-display); font-weight: 900; font-size: 34px; line-height: 0.9; }
-.tile.ok .tile-value { color: var(--green-text); }
-.tile.warn .tile-value { color: var(--orange-text); }
-.graph-breakdown { display: grid; gap: 2px; font-size: 12px; }
-.graph-breakdown li { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px dotted var(--line); color: var(--ink-2); }
-.graph-breakdown li.has { color: var(--ink); font-weight: 600; }
-.graph-tab > .hint { max-width: 52ch; }
