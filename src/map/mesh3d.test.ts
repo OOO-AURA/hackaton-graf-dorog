@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseOsm } from '../osm/parse';
-import { bridgeHeight, buildScene3d, deckProfile, LANE_WIDTH, LAYER_HEIGHT, roadWidth, STRIDE, type Scene3dColors } from './mesh3d';
+import { bridgeHeight, buildingGroups, buildScene3d, deckProfile, LANE_WIDTH, LAYER_HEIGHT, roadWidth, STRIDE, type Scene3dColors } from './mesh3d';
 
 const COLORS: Scene3dColors = {
   building: [0.8, 0.7, 0.6], deck: () => [1, 0.8, 0], deckSide: [0.5, 0.4, 0.3], pier: [0.5, 0.4, 0.3], portal: [0.5, 0.4, 0.3],
@@ -48,6 +48,21 @@ describe('3D scene geometry', () => {
         expect(n[0] * mx + n[1] * my).toBeLessThan(0);
       }
     }
+  });
+
+  test('touching sections of a block share one number, a building apart gets its own', () => {
+    const sq = (x: number, y: number, s = 10): Array<[number, number]> => [[x, y], [x + s, y], [x + s, y + s], [x, y + s], [x, y]];
+    const groups = buildingGroups([
+      { refs: ['a1', 'a2', 'a3', 'a4', 'a1'], pts: sq(0, 0) },
+      // Shares no node, but its corner lies on the first one's wall.
+      { refs: ['b1', 'b2', 'b3', 'b4', 'b1'], pts: sq(10.2, 3) },
+      // Shares a node with the second.
+      { refs: ['b2', 'c2', 'c3', 'c4', 'b2'], pts: sq(20, 3) },
+      { refs: ['d1', 'd2', 'd3', 'd4', 'd1'], pts: sq(100, 100) },
+    ]);
+    expect(groups[0]).toBe(groups[1]);
+    expect(groups[1]).toBe(groups[2]);
+    expect(groups[3]).not.toBe(groups[0]);
   });
 
   test('min_height lifts the base of a building', () => {

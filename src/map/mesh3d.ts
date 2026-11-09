@@ -21,7 +21,7 @@ export const STRIDE = 11;
 export type Scene3dMesh = {
   /** Mercator x, y of the origin and metres per Mercator unit there. */
   origin: { x: number; y: number; metersPerUnit: number };
-  /** How many buildings are numbered in `solid`. */
+  /** How many buildings are numbered in `solid`; touching sections share a number. */
   buildings: number;
   /** Building triangles, wound the same way as the roofs seen from outside. */
   solid: Float32Array;
@@ -270,6 +270,63 @@ function addPortal(solid: Buf, at: P2, toward: P2, half: number, colors: Scene3d
   prism(solid, colors.portal, 0, lintel, PORTAL_CLEARANCE, PORTAL_HEIGHT);
 }
 
+/** Gap up to which two building outlines count as one wall. */
+const TOUCH = 0.5;
+const CELL = 8;
+
+/**
+ * Groups buildings that touch: a shared node, or a corner of one on a wall of another within
+ * half a metre. Sections of one block are separate ways in OSM, and the cutaway must cut them
+ * along one line. Returns a group number from 1 for every building, in the order given.
+ */
+export function buildingGroups(rings: ReadonlyArray<{ refs: readonly string[]; pts: readonly P2[] }>): number[] {
+  const parent = rings.map((_, i) => i);
+  const find = (i: number): number => {
+    while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; }
+    return i;
+  };
+  const join = (a: number, b: number) => { const ra = find(a); const rb = find(b); if (ra !== rb) parent[ra] = rb; };
+
+  const byNode = new Map<string, number>();
+  rings.forEach((r, i) => r.refs.forEach((ref) => {
+    const other = byNode.get(ref);
+    if (other === undefined) byNode.set(ref, i); else join(i, other);
+  }));
+
+  const grid = new Map<string, Array<[number, P2, P2]>>();
+  const key = (x: number, y: number) => `${Math.floor(x / CELL)},${Math.floor(y / CELL)}`;
+  rings.forEach((r, i) => {
+    for (let k = 0; k + 1 < r.pts.length; k += 1) {
+      const a = r.pts[k];
+      const b = r.pts[k + 1];
+      const [x0, x1] = [Math.min(a[0], b[0]) - TOUCH, Math.max(a[0], b[0]) + TOUCH];
+      const [y0, y1] = [Math.min(a[1], b[1]) - TOUCH, Math.max(a[1], b[1]) + TOUCH];
+      for (let cx = Math.floor(x0 / CELL); cx <= Math.floor(x1 / CELL); cx += 1) {
+        for (let cy = Math.floor(y0 / CELL); cy <= Math.floor(y1 / CELL); cy += 1) {
+          const c = `${cx},${cy}`;
+          const list = grid.get(c);
+          if (list) list.push([i, a, b]); else grid.set(c, [[i, a, b]]);
+        }
+      }
+    }
+  });
+  const near = (p: P2, a: P2, b: P2) => {
+    const dx = b[0] - a[0]; const dy = b[1] - a[1];
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)));
+    return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy) <= TOUCH;
+  };
+  rings.forEach((r, i) => r.pts.forEach((p) => {
+    for (const [j, a, b] of grid.get(key(p[0], p[1])) ?? []) if (j !== i && find(j) !== find(i) && near(p, a, b)) join(i, j);
+  }));
+
+  const numbers = new Map<number, number>();
+  return rings.map((_, i) => {
+    const root = find(i);
+    if (!numbers.has(root)) numbers.set(root, numbers.size + 1);
+    return numbers.get(root)!;
+  });
+}
+
 export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | null {
   const nodes = Object.values(doc.nodes);
   if (!nodes.length) return null;
@@ -299,17 +356,19 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     w.refs.forEach((r) => openAir.set(r, (openAir.get(r) ?? 0) + 1));
   });
 
-  let buildings = 0;
+  const buildingWays = Object.values(doc.ways).filter((w) => w.tags.building && w.refs.length >= 4);
+  const rings = buildingWays.map((w) => ({ refs: w.refs, pts: pointsOf(w) }));
+  const groups = buildingGroups(rings);
+  rings.forEach((r, i) => {
+    const w = buildingWays[i];
+    const minH = Number.parseFloat(w.tags.min_height ?? '');
+    addBuilding(solid, groups[i], [...r.pts], Number.isFinite(minH) && minH > 0 ? minH : 0, buildingHeight(w.tags), colors);
+  });
+  const buildings = groups.reduce((a, b) => Math.max(a, b), 0);
+
   Object.values(doc.ways).forEach((w) => {
     const pts = pointsOf(w);
-    if (pts.length < 2) return;
-    if (w.tags.building) {
-      const height = buildingHeight(w.tags);
-      const minH = Number.parseFloat(w.tags.min_height ?? '');
-      buildings += 1;
-      addBuilding(solid, buildings, pts, Number.isFinite(minH) && minH > 0 ? minH : 0, height, colors);
-      return;
-    }
+    if (pts.length < 2 || w.tags.building) return;
     if (!isDrivable(w.tags)) return;
     if (isBridge(w)) { addBridge(structures, mask, pts, w.tags, colors); return; }
     if (isTunnel(w)) {
