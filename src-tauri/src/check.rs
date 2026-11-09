@@ -263,13 +263,16 @@ fn matsim_stage(dir: &Path, osm: &Path, source: &Path) -> Stage {
     st.metric("Узлов", &v["nodes"]);
     st.metric("Линков", &v["links"]);
     st.metric("Длина сети, км", v["lengthKm"].as_f64().unwrap_or(0.0));
-    let removed = v["removedByCleaner"].as_array().map(Vec::len).unwrap_or(0);
+    let removed = v["removedLinks"].as_u64().unwrap_or(0);
     st.metric("Отрезано NetworkCleaner", removed);
     if removed > 0 {
         st.warn();
         st.problem(format!(
             "{removed} линков не входят в сильно связную часть сети: агенты MATSim по ним не поедут. Обычно это тупик или неверный oneway."
         ));
+        for way in v["removedWays"].as_array().into_iter().flatten().filter_map(|w| w.as_str()) {
+            st.problem(format!("Путь OSM {way} выпадает из сети MATSim"));
+        }
     }
     for key in ["zeroCapacity", "zeroSpeed"] {
         if v[key].as_u64().unwrap_or(0) > 0 {
@@ -334,15 +337,16 @@ mod tests {
         assert_eq!(count_messages(trips, "has no valid route"), 134.0);
     }
 
-    /// Runs the real tools on the task example; skipped when they are not installed.
+    /// Runs the real tools on the task example (or on GRAF_CHECK_FILE); needs SUMO, MATSim and Webots installed.
     #[test]
     #[ignore]
     fn example_passes_pipeline() {
-        let osm = fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../src/test/example.osm")).unwrap();
+        let path = env::var("GRAF_CHECK_FILE").unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/../src/test/example.osm").into());
+        let osm = fs::read_to_string(path).unwrap();
         let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tools/matsim-check/OsmCheck.java");
         let report = run_all(&osm, src).unwrap();
         for s in &report.stages {
-            println!("{} {:?} {:?} {:?}", s.name, s.seconds, s.metrics, s.problems.first());
+            println!("{} {:?} {:?}", s.name, s.seconds, s.metrics);
             assert!(s.status != Status::Fail, "{} failed: {:?}\n{}", s.name, s.problems, s.log_tail);
         }
     }

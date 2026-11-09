@@ -27,10 +27,20 @@ public class OsmCheck {
             if (l.getCapacity() <= 0) zeroCap++;
             if (l.getFreespeed() <= 0) zeroSpeed++;
         }
-        Set<Id<Link>> before = new HashSet<>(network.getLinks().keySet());
+        Map<Id<Link>, String> origin = new HashMap<>();
+        for (Link l : network.getLinks().values()) {
+            Object way = l.getAttributes().getAttribute("origid");
+            origin.put(l.getId(), way == null ? "" : way.toString());
+        }
         new NetworkCleaner().run(network);
-        List<String> removed = new ArrayList<>();
-        for (Id<Link> id : before) if (!network.getLinks().containsKey(id)) removed.add(id.toString());
+        // OSM way ids whose links the cleaner dropped: agents can never use them.
+        SortedSet<String> removed = new TreeSet<>();
+        int removedLinks = 0;
+        for (Map.Entry<Id<Link>, String> e : origin.entrySet()) {
+            if (network.getLinks().containsKey(e.getKey())) continue;
+            removedLinks++;
+            if (!e.getValue().isEmpty()) removed.add(e.getValue());
+        }
         if (args.length > 1) NetworkUtils.writeNetwork(network, args[1]);
         StringBuilder sb = new StringBuilder();
         sb.append("{\"nodes\":").append(nodes)
@@ -39,8 +49,10 @@ public class OsmCheck {
           .append(",\"zeroCapacity\":").append(zeroCap)
           .append(",\"zeroSpeed\":").append(zeroSpeed)
           .append(",\"linksAfterCleaning\":").append(network.getLinks().size())
-          .append(",\"removedByCleaner\":[");
-        for (int i = 0; i < removed.size(); i++) { if (i > 0) sb.append(','); sb.append('"').append(removed.get(i)).append('"'); }
+          .append(",\"removedLinks\":").append(removedLinks)
+          .append(",\"removedWays\":[");
+        int i = 0;
+        for (String way : removed) { if (i++ > 0) sb.append(','); sb.append('"').append(way).append('"'); }
         sb.append("]}");
         System.out.println("RESULT " + sb);
     }
