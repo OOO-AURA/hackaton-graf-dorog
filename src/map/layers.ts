@@ -92,11 +92,16 @@ function setArrowImage(map: MapLibreMap, color: string): void {
   else map.addImage('arrow', image, { pixelRatio: 2 });
 }
 
-/** Road width grows with zoom and lane count; `extra` px is added for casings and highlights. */
+/**
+ * Road width grows with zoom and lane count; from zoom 16 on it is the real width of the
+ * carriageway (`w17` px at zoom 17, doubling per step), so the lane lines fall inside it.
+ * `extra` px is added for casings and highlights.
+ */
 const laneWidth = (extra: unknown = 0) => [
   'interpolate', ['exponential', 2], ['zoom'],
   13, ['+', ['*', 0.5, ['get', 'lanes']], extra],
-  18, ['+', ['*', 4, ['get', 'lanes']], extra],
+  16, ['+', ['max', ['*', 2, ['get', 'lanes']], ['/', ['get', 'w17'], 2]], extra],
+  22, ['+', ['*', 32, ['get', 'w17']], extra],
 ] as never;
 
 const GRAPH_NODE_KINDS = ['junction', 'end', 'vertex'];
@@ -263,4 +268,6 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   map.setFilter('roads-casing', structure as never);
   map.setFilter('roads', ['all', ['!', ['get', 'bridge']], structure] as never);
   map.setFilter('roads-arrows', ['all', ['!=', ['get', 'dir'], 'both'], structure] as never);
+  // In 3D bridge and tunnel lanes would lie on the ground under their deck or tube.
+  map.setFilter('lanes', (view3d ? ['!', ['get', 'raised']] : null) as never);
 }

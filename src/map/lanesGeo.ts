@@ -56,10 +56,13 @@ export function laneOffset(tags: Tags, travel: 'forward' | 'backward', index: nu
   return travel === 'forward' ? fromLeft : -fromLeft;
 }
 
-const halfWidth = (tags: Tags) => {
+/** Carriageway width in metres: its lanes side by side. */
+export function roadWidthMetres(tags: Tags): number {
   const { forward, backward } = travelLanes(tags);
-  return ((forward + backward) * laneWidth(tags)) / 2;
-};
+  return (forward + backward) * laneWidth(tags);
+}
+
+const halfWidth = (tags: Tags) => roadWidthMetres(tags) / 2;
 
 /** How far from the centre of a junction its lanes end. */
 function junctionRadius(doc: OsmDoc, nodeId: string): number {
@@ -143,7 +146,7 @@ export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<Line
         for (let i = 0; i < n; i += 1) {
           features.push({
             type: 'Feature',
-            properties: { way: w.id, color: style.color(vc) },
+            properties: { way: w.id, color: style.color(vc), raised: Boolean((w.tags.bridge && w.tags.bridge !== 'no') || (w.tags.tunnel && w.tags.tunnel !== 'no')) },
             geometry: { type: 'LineString', coordinates: offsetLine(line, laneOffset(w.tags, travel, i)).map(f.back) },
           });
         }

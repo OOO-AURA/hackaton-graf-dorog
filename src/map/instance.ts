@@ -3,7 +3,11 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 let current: MapLibreMap | null = null;
 
 /** The live map, for features outside the map component such as the report snapshot. */
-export const setMapInstance = (map: MapLibreMap | null) => { current = map; };
+export const setMapInstance = (map: MapLibreMap | null) => {
+  current = map;
+  // In development the map is reachable from the console and from browser checks.
+  if (import.meta.env.DEV) (window as unknown as { __map: unknown }).__map = map;
+};
 
 /** JPEG of the map as it is on screen; null when there is no map or the canvas cannot be read. */
 export function mapSnapshot(): Promise<string | null> {
