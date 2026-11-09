@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import maplibregl, { type GeoJSONSource, type Map as MapLibreMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { addEditorLayers, type SourceId } from '../map/layers';
-import { BASE_STYLE } from '../map/style';
+import { addEditorLayers, applyLayerVisibility, applyPalette, type SourceId } from '../map/layers';
+import { applyBasemapTone, BASE_STYLE } from '../map/style';
+import { MAP_PALETTE } from '../map/palette';
+import { useUi } from '../state/ui';
+import { MapOverlay } from './MapOverlay';
 import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson } from '../map/geojson';
 import { useMapInteractions } from '../map/useMapInteractions';
 import { currentSelection, useEditor } from '../state/store';
@@ -49,7 +52,7 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
   useEffect(() => {
     if (!map) return;
     const features = (report?.issues ?? []).map((i) => ({
-      type: 'Feature', properties: { id: i.id, severity: i.severity, focused: i.id === focusIssue }, geometry: { type: 'Point', coordinates: i.at },
+      type: 'Feature', properties: { id: i.id, kind: i.kind, severity: i.severity, focused: i.id === focusIssue }, geometry: { type: 'Point', coordinates: i.at },
     }));
     setData(map, 'issues', { type: 'FeatureCollection', features });
   }, [map, report, focusIssue]);
@@ -69,6 +72,19 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     map.setLayoutProperty('osm', 'visibility', basemap === 'osm' ? 'visible' : 'none');
     map.setLayoutProperty('satellite', 'visibility', basemap === 'satellite' ? 'visible' : 'none');
   }, [map, basemap]);
+}
+
+function useMapLook(map: MapLibreMap | null): void {
+  const theme = useUi((s) => s.theme);
+  const opacity = useUi((s) => s.basemapOpacity);
+  const layers = useUi((s) => s.layers);
+  const fly = useUi((s) => s.fly);
+  useEffect(() => { if (map) applyPalette(map, MAP_PALETTE[theme]); }, [map, theme]);
+  useEffect(() => { if (map) applyBasemapTone(map, theme, opacity); }, [map, theme, opacity]);
+  useEffect(() => { if (map) applyLayerVisibility(map, layers); }, [map, layers]);
+  useEffect(() => {
+    if (map && fly) map.fitBounds(fly.bounds, { padding: 80, maxZoom: 18, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600 });
+  }, [map, fly]);
 }
 
 function useFitOnLoad(map: MapLibreMap | null): void {
@@ -91,10 +107,9 @@ export function MapView() {
   useEffect(() => {
     if (!container.current) return undefined;
     const instance = new maplibregl.Map({ container: container.current, style: BASE_STYLE, center: IRKUTSK_CENTER, zoom: 15, doubleClickZoom: false });
-    instance.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right');
-    instance.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+    instance.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right');
     instance.on('load', () => {
-      addEditorLayers(instance);
+      addEditorLayers(instance, MAP_PALETTE[useUi.getState().theme]);
       setMap(instance);
     });
     const observer = new ResizeObserver(() => instance.resize());
@@ -113,11 +128,17 @@ export function MapView() {
   useMapInteractions(map, onPointer);
   useSyncedSources(map, drawingActive ? pointer : null);
   useFitOnLoad(map);
+  useMapLook(map);
 
   useEffect(() => {
     const issue = useEditor.getState().report?.issues.find((i) => i.id === focusIssue);
     if (map && issue) map.flyTo({ center: [issue.at[0], issue.at[1]], zoom: Math.max(map.getZoom(), 18) });
   }, [map, focusIssue]);
 
-  return <div ref={container} className="map" />;
+  return (
+    <div className="map-wrap">
+      <div ref={container} className="map" />
+      <MapOverlay map={map} />
+    </div>
+  );
 }

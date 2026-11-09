@@ -21,8 +21,7 @@ export function TagTable({ tags, onChange }: Props) {
     setValue('');
   };
   return (
-    <details className="tags">
-      <summary>Все теги OSM ({Object.keys(tags).length})</summary>
+    <div className="tags">
       <table>
         <tbody>
           {Object.entries(tags).map(([k, v]) => (
@@ -41,6 +40,6 @@ export function TagTable({ tags, onChange }: Props) {
           </tr>
         </tbody>
       </table>
-    </details>
+    </div>
   );
 }

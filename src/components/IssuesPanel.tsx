@@ -16,9 +16,10 @@ function applyFix(issue: Issue): void {
   runValidation();
 }
 
+export { KIND_LABELS };
+
 export function IssuesPanel() {
   const report = useEditor((s) => s.report);
-  const runValidation = useEditor((s) => s.runValidation);
   const focus = useEditor((s) => s.focusIssue);
   const setFocus = useEditor((s) => s.setFocusIssue);
   const select = useEditor((s) => s.select);
@@ -31,29 +32,22 @@ export function IssuesPanel() {
 
   return (
     <div className="issues">
-      <div className="issues-head">
-        <h3>Проверка графа</h3>
-        <button onClick={() => runValidation()}>{report ? 'Обновить' : 'Проверить'}</button>
-      </div>
-      {!report && <p className="hint">Связность, направления, разорванные и склеенные перекрёстки. Запускается и перед сохранением.</p>}
+      {!report && <p className="hint">Проверяю связность, направления, разорванные и склеенные перекрёстки…</p>}
       {report && (
         <>
-          <p className="stats">
-            {report.stats.ways} дорог · {report.stats.lengthKm.toFixed(1)} км · {report.stats.signals} светофоров · компонент связности: {report.stats.components}
-          </p>
-          {report.issues.length === 0 && <p className="ok">Ошибок не найдено ✓</p>}
+          {report.issues.length === 0 && <p className="ok">Ошибок не найдено</p>}
           <CordonHint />
           {(Object.keys(KIND_LABELS) as Issue['kind'][]).map((kind) => {
             const items = report.issues.filter((i) => i.kind === kind);
             if (!items.length) return null;
             return (
               <details key={kind} open={items.length <= 8}>
-                <summary>{KIND_LABELS[kind]} — {items.length}</summary>
+                <summary><span>{KIND_LABELS[kind]}</span><span className="mono count">{items.length}</span></summary>
                 <ul>
                   {items.map((issue) => (
                     <li key={issue.id} className={`${issue.severity}${issue.id === focus ? ' focused' : ''}`}>
-                      <button className="link" onClick={() => open(issue)}>{issue.message}</button>
-                      {issue.fix && <button className="fix" onClick={() => applyFix(issue)}>Исправить</button>}
+                      <button className="issue-link" onClick={() => open(issue)}>{issue.message}</button>
+                      {issue.fix && <button className="btn btn-sm fix" onClick={() => applyFix(issue)}>Исправить</button>}
                     </li>
                   ))}
                 </ul>
@@ -77,7 +71,7 @@ function CordonHint() {
     <p className="hint cordon-hint">
       Найдено разрезанных границей двусторонних дорог: {pairs}. Кордонный разворот соединяет их проезжие части за краем фрагмента,
       и MATSim перестаёт выкидывать эти дороги из сети.{' '}
-      <button className="fix" onClick={closeCordon}>Замкнуть кордон</button>
+      <button className="btn btn-sm fix" onClick={closeCordon}>Замкнуть кордон</button>
     </p>
   );
 }

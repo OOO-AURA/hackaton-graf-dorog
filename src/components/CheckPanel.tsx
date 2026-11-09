@@ -12,7 +12,7 @@ interface CheckState {
   setOpen: (open: boolean) => void;
 }
 
-const useCheck = create<CheckState>((set) => ({
+export const useCheck = create<CheckState>((set) => ({
   running: false, open: false, report: null, error: null,
   setOpen: (open) => set({ open }),
 }));
@@ -38,22 +38,19 @@ export function CheckButton() {
   const empty = useEditor((s) => !Object.keys(s.doc.nodes).length);
   if (!isDesktop) return null;
   return (
-    <button onClick={() => void runCheck()} disabled={running || empty} title="Прогнать граф через SUMO, MATSim и Webots локально">
+    <button className="btn" onClick={() => void runCheck()} disabled={running || empty} title="Прогнать граф через SUMO, MATSim и Webots локально">
       {running ? 'Проверяю…' : 'Проверить как на сервере'}
     </button>
   );
 }
 
 export function CheckPanel() {
-  const { open, running, report, error, setOpen } = useCheck();
-  if (!open) return null;
+  const { running, report, error } = useCheck();
   return (
     <section className="check-panel" aria-live="polite">
-      <header>
-        <h3>Проверка как на сервере</h3>
-        <button className="icon" onClick={() => setOpen(false)} aria-label="Закрыть">×</button>
-      </header>
-      {running && <p className="hint">netconvert и sumo, MATSim OsmNetworkReader, импортёр Webots. Обычно 10–20 секунд.</p>}
+      {!isDesktop && <p className="hint">Проверка на SUMO, MATSim и Webots работает в настольном приложении: в браузере нет доступа к этим программам.</p>}
+      {isDesktop && !report && !running && !error && <p className="hint">Кнопка «Проверить как на сервере» в шапке прогонит граф через те же адаптеры, что и сервер организаторов.</p>}
+      {running && <p className="hint running">netconvert и sumo, MATSim OsmNetworkReader, импортёр Webots. Обычно 10–20 секунд.</p>}
       {error && <p className="check-error">{error}</p>}
       {report && !running && (
         <div className="check-stages">

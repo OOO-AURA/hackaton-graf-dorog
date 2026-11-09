@@ -5,6 +5,8 @@ import { useEditor } from '../state/store';
 import { deleteSelection, splitAtSelected, toggleSignalSelected } from '../state/actions';
 import { SelectField } from './fields';
 import { TagTable } from './TagTable';
+import { Section } from './Section';
+import { Icon } from './icons';
 
 const NODE_KIND_OPTIONS = [
   ['', 'Обычный узел'], ['traffic_signals', 'Светофор'], ['crossing', 'Пешеходный переход'],
@@ -22,28 +24,37 @@ export function NodeInspector({ node }: { node: OsmNode }) {
   const isSignal = node.tags.highway === 'traffic_signals';
   const inner = ways.some((w) => w.refs.indexOf(node.id) > 0 && w.refs.indexOf(node.id) < w.refs.length - 1);
 
+  const kind = NODE_KIND_OPTIONS.find(([v]) => v === (node.tags.highway ?? ''))?.[1] ?? node.tags.highway;
   return (
     <div className="inspector">
-      <h3>Узел <code>#{node.id}</code></h3>
-      <SelectField label="Тип" value={node.tags.highway ?? ''} options={NODE_KIND_OPTIONS} onChange={setTag('highway')} />
-      {isSignal && <SelectField label="Светофор действует" value={node.tags['traffic_signals:direction'] ?? ''} options={SIGNAL_DIRECTION_OPTIONS} onChange={setTag('traffic_signals:direction')} />}
-      <div className="buttons">
-        <button onClick={toggleSignalSelected} title="S">{isSignal ? 'Убрать светофор' : '🚦 Светофор'}</button>
-        <button onClick={splitAtSelected} disabled={!inner} title="X">✂ Разрезать здесь</button>
-        <button className="danger" onClick={deleteSelection} title="Delete">Удалить</button>
-      </div>
-      <p className="hint">{node.lat.toFixed(6)}, {node.lon.toFixed(6)}</p>
-      {ways.length > 0 && (
-        <div className="way-list">
-          <span>Дороги через узел:</span>
-          {ways.map((w) => (
-            <button key={w.id} className="link" onClick={() => select({ type: 'way', id: w.id })}>
-              {w.tags.name || w.tags.highway || 'линия'} #{w.id}
-            </button>
-          ))}
+      <header className="insp-head">
+        <span className="micro">Узел</span>
+        <h2 className="insp-title">{ways.length > 1 ? 'Перекрёсток' : kind}</h2>
+        <span className="mono insp-id">node {node.id} · {node.lat.toFixed(6)}, {node.lon.toFixed(6)}</span>
+      </header>
+      <Section title="Организация движения">
+        <SelectField label="Тип" value={node.tags.highway ?? ''} options={NODE_KIND_OPTIONS} onChange={setTag('highway')} />
+        {isSignal && <SelectField label="Светофор действует" value={node.tags['traffic_signals:direction'] ?? ''} options={SIGNAL_DIRECTION_OPTIONS} onChange={setTag('traffic_signals:direction')} />}
+        <div className="buttons">
+          <button className="btn" onClick={toggleSignalSelected} title="S"><Icon name="signal" /> {isSignal ? 'Убрать светофор' : 'Светофор'} <kbd>S</kbd></button>
+          <button className="btn" onClick={splitAtSelected} disabled={!inner} title="X"><Icon name="scissors" /> Разрезать здесь <kbd>X</kbd></button>
         </div>
+      </Section>
+      {ways.length > 0 && (
+        <Section title="Дороги через узел" aside={<span className="mono count">{ways.length}</span>}>
+          <ul className="link-list">
+            {ways.map((w) => (
+              <li key={w.id}><button onClick={() => select({ type: 'way', id: w.id })}><span>{w.tags.name || w.tags.highway || 'линия'}</span><span className="mono">{w.id}</span></button></li>
+            ))}
+          </ul>
+        </Section>
       )}
-      <TagTable tags={node.tags} onChange={(tags) => apply((d) => setNodeTags(d, node.id, tags))} />
+      <Section title="Все теги OSM" open={false} aside={<span className="mono count">{Object.keys(node.tags).length}</span>}>
+        <TagTable tags={node.tags} onChange={(tags) => apply((d) => setNodeTags(d, node.id, tags))} />
+      </Section>
+      <div className="insp-foot">
+        <button className="btn btn-danger" onClick={deleteSelection} title="Delete"><Icon name="trash" /> Удалить узел</button>
+      </div>
     </div>
   );
 }

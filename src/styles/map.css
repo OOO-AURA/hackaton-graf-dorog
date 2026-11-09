@@ -1,0 +1,48 @@
+.map-wrap, .map { position: absolute; inset: 0; }
+.map-wrap { overflow: hidden; }
+.maplibregl-ctrl-bottom-right { margin-bottom: 46px; }
+.maplibregl-ctrl-scale { background: color-mix(in srgb, var(--paper) 85%, transparent) !important; border-color: var(--ink) !important; color: var(--ink) !important; font-family: var(--font-mono); font-size: 10px !important; }
+.maplibregl-ctrl-attrib { background: color-mix(in srgb, var(--paper) 80%, transparent) !important; color: var(--ink-2); font-size: 10px; }
+.maplibregl-ctrl-attrib a { color: var(--ink-2) !important; }
+.maplibregl-ctrl-attrib-button { filter: var(--attrib-filter, none); }
+
+.float {
+  position: absolute; z-index: 2; display: flex; align-items: center; gap: 2px; padding: 3px;
+  background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--shadow-float);
+  animation: float-in 220ms var(--ease-out) both;
+}
+@keyframes float-in { from { opacity: 0; transform: translateY(-4px); } }
+.tool {
+  display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: var(--r-md); background: transparent; color: var(--ink);
+  transition: background-color var(--dur) ease, color var(--dur) ease, transform 100ms var(--ease-out);
+}
+.tool:hover { background: var(--hover); }
+.tool:active { transform: scale(0.93); }
+.tool.on { background: var(--ink); color: var(--on-ink); }
+
+.float-tools { top: 12px; left: 12px; }
+.float-draw { display: flex; align-items: center; gap: 6px; padding: 0 3px 0 8px; margin-left: 4px; border-left: 1px solid var(--line); animation: rise 180ms var(--ease-out); }
+.float-draw select { height: 28px; font-size: 12px; }
+.float-zoom { top: 12px; right: 12px; flex-direction: column; }
+.float-basemap { bottom: 12px; left: 12px; gap: 10px; padding: 3px 10px 3px 3px; }
+.seg { display: flex; gap: 2px; }
+.seg button { height: 26px; padding: 0 10px; border: 0; border-radius: var(--r-md); background: none; font-size: 12px; font-weight: 600; color: var(--ink-2); transition: background-color var(--dur) ease, color var(--dur) ease; }
+.seg button:hover { color: var(--ink); background: var(--hover); }
+.seg button.on { background: var(--ink); color: var(--on-ink); }
+.blend { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); }
+.blend input { width: 90px; }
+
+.float-layers { bottom: 12px; left: 50%; transform: translateX(-50%); animation-name: float-in-center; gap: 1px; max-width: calc(100% - 420px); overflow-x: auto; scrollbar-width: none; }
+@keyframes float-in-center { from { opacity: 0; transform: translate(-50%, 4px); } }
+.layer-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border: 0; border-radius: var(--r-md); background: none;
+  font-size: 11.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; transition: background-color var(--dur) ease, color var(--dur) ease;
+}
+.layer-chip:hover { background: var(--hover); color: var(--ink); }
+.layer-chip i { width: 10px; height: 10px; border-radius: 2px; border: 1.5px solid var(--ink-2); transition: background-color var(--dur) ease, border-color var(--dur) ease; }
+.layer-chip.on { color: var(--ink); }
+.layer-chip.on i { border-color: var(--ink); background: var(--chip, var(--ink)); }
+.l-roads { --chip: var(--orange); } .l-junctions { --chip: var(--paper); } .l-signals { --chip: var(--red); } .l-crossings { --chip: var(--field); }
+.l-bridges { --chip: var(--ink); } .l-tunnels { --chip: var(--ink-2); } .l-buildings { --chip: #C9B48A; } .l-tram { --chip: #7A4FA0; }
+
+@media (max-width: 1500px) { .float-layers { left: auto; right: 12px; transform: none; animation-name: float-in; bottom: 54px; max-width: calc(100% - 24px); } }
