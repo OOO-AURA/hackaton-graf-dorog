@@ -6,6 +6,7 @@ import { Inspector } from './components/Inspector';
 import { BottomDock } from './components/BottomDock';
 import { MicroPanel } from './components/sim/MicroPanel';
 import { useEditor } from './state/store';
+import { refreshReport } from './state/validation';
 import { useUi } from './state/ui';
 import { useHotkeys } from './state/useHotkeys';
 import { useCloseGuard } from './state/useCloseGuard';
@@ -42,7 +43,7 @@ function useLiveValidation(): void {
   const hasReport = useEditor((s) => s.report !== null);
   useEffect(() => {
     if (hasReport || !Object.keys(doc.nodes).length) return undefined;
-    const timer = window.setTimeout(() => useEditor.getState().runValidation(), VALIDATE_DELAY_MS);
+    const timer = window.setTimeout(() => void refreshReport(), VALIDATE_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [doc, hasReport]);
 }

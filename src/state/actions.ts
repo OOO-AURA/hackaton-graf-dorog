@@ -5,6 +5,7 @@ import { deleteNode, deleteWay, flipDirection, reverseWay, splitWay, toggleSigna
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { addAllCordonConnectors } from '../osm/cordon';
 import { currentSelection, useEditor } from './store';
+import { refreshReport } from './validation';
 import { baseName, downloadText, isDesktop, openOsmFile, saveOsmFile } from '../platform';
 
 export function loadXml(xml: string, fileName: string, filePath: string | null = null): void {
@@ -49,7 +50,7 @@ export async function saveOsm(saveAs = false): Promise<void> {
   const s = useEditor.getState();
   if (!Object.keys(s.doc.nodes).length) return;
   const fileName = s.saveName.trim() || 'graph.osm';
-  const report = s.runValidation();
+  const report = await refreshReport();
   const errors = report.issues.filter((i) => i.severity === 'error').length;
   if (errors > 0 && !window.confirm(`Проверка нашла ошибок: ${errors}. Они видны на панели «Проверка». Сохранить всё равно?`)) return;
   const name = fileName.endsWith('.osm') ? fileName : `${fileName}.osm`;
@@ -130,6 +131,6 @@ export function closeCordon(): void {
     added = r.added;
     return r.doc;
   });
-  s.runValidation();
+  void refreshReport();
   s.notify(added ? `Добавлено кордонных разворотов: ${added}` : 'Разрезанных границей пар не найдено');
 }

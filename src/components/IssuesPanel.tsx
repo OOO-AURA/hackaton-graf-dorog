@@ -3,20 +3,34 @@ import type { Issue } from '../osm/validate';
 import { useEditor } from '../state/store';
 import { closeCordon } from '../state/actions';
 import { cordonPairs } from '../osm/cordon';
+import { refreshReport } from '../state/validation';
+import { VirtualList } from './VirtualList';
 
 const KIND_LABELS: Readonly<Record<Issue['kind'], string>> = {
   isolated: 'Изолированные участки', trap: 'Тупики по направлению', cordon: 'Обрезано границей фрагмента', crossing: 'Пересечения без узла', 'near-nodes': 'Разорванные перекрёстки',
 };
 
 function applyFix(issue: Issue): void {
-  const { apply, runValidation } = useEditor.getState();
+  const { apply } = useEditor.getState();
   const fix = issue.fix;
   if (!fix) return;
   apply((d) => (fix.type === 'merge' ? mergeNodes(d, fix.keep, fix.remove) : connectCrossing(d, fix.a, fix.b, fix.at[0], fix.at[1])));
-  runValidation();
+  void refreshReport();
 }
 
 export { KIND_LABELS };
+
+/** Groups longer than this scroll and mount only the rows in view. */
+const VIRTUAL_FROM = 40;
+
+function IssueRow({ issue, focused, onOpen }: { issue: Issue; focused: boolean; onOpen: (i: Issue) => void }) {
+  return (
+    <div className={`issue ${issue.severity}${focused ? ' focused' : ''}`}>
+      <button className="issue-link" onClick={() => onOpen(issue)} title={issue.message}>{issue.message}</button>
+      {issue.fix && <button className="btn btn-sm fix" onClick={() => applyFix(issue)}>Исправить</button>}
+    </div>
+  );
+}
 
 export function IssuesPanel() {
   const report = useEditor((s) => s.report);
@@ -43,14 +57,10 @@ export function IssuesPanel() {
             return (
               <details key={kind} open={items.length <= 8}>
                 <summary><span>{KIND_LABELS[kind]}</span><span className="mono count">{items.length}</span></summary>
-                <ul>
-                  {items.map((issue) => (
-                    <li key={issue.id} className={`${issue.severity}${issue.id === focus ? ' focused' : ''}`}>
-                      <button className="issue-link" onClick={() => open(issue)}>{issue.message}</button>
-                      {issue.fix && <button className="btn btn-sm fix" onClick={() => applyFix(issue)}>Исправить</button>}
-                    </li>
-                  ))}
-                </ul>
+                {items.length > VIRTUAL_FROM
+                  ? <VirtualList className="issue-rows" items={items} rowHeight={30} keyOf={(i) => i.id} render={(issue) => <IssueRow issue={issue} focused={issue.id === focus} onOpen={open} />} />
+                  : <ul>{items.map((issue) => <li key={issue.id}><IssueRow issue={issue} focused={issue.id === focus} onOpen={open} /></li>)}</ul>}
+
               </details>
             );
           })}

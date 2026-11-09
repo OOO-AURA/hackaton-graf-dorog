@@ -52,6 +52,12 @@ function connectivityIssues(doc: OsmDoc, ways: OsmWay[], nodes: string[]): { iss
   const ends = cordonEnds(doc, ways);
   const toExit = reachable(ways, ends.filter((e) => e.flow !== 'in').map((e) => e.nodeId), true);
   const fromEntry = reachable(ways, ends.filter((e) => e.flow !== 'out').map((e) => e.nodeId));
+  const waysByGroup = new Map<string, string[]>();
+  ways.forEach((w) => {
+    const g = weak.get(w.refs[0])!;
+    const list = waysByGroup.get(g);
+    if (list) list.push(w.id); else waysByGroup.set(g, [w.id]);
+  });
   const cutByEdge = (n: string) => (!toMain.has(n) && toExit.has(n)) || (!fromMain.has(n) && fromEntry.has(n));
 
   ways.forEach((w) => {
@@ -62,7 +68,7 @@ function connectivityIssues(doc: OsmDoc, ways: OsmWay[], nodes: string[]): { iss
     const key = isolated ? `isolated:${weak.get(w.refs[0])}` : `${cordon ? 'cordon' : 'trap'}:${w.id}`;
     if (reported.has(key)) return;
     reported.add(key);
-    const groupWays = isolated ? ways.filter((o) => weak.get(o.refs[0]) === weak.get(w.refs[0])).map((o) => o.id) : [w.id];
+    const groupWays = isolated ? waysByGroup.get(weak.get(w.refs[0])!)! : [w.id];
     issues.push({
       id: key,
       kind: isolated ? 'isolated' : cordon ? 'cordon' : 'trap',
@@ -91,7 +97,10 @@ function buildSegments(doc: OsmDoc, ways: OsmWay[], project: (p: LonLat) => [num
 
 function gridBuckets<T>(items: T[], cells: (item: T) => string[]): Map<string, T[]> {
   const grid = new Map<string, T[]>();
-  items.forEach((it) => cells(it).forEach((c) => grid.set(c, [...(grid.get(c) ?? []), it])));
+  items.forEach((it) => cells(it).forEach((c) => {
+    const bucket = grid.get(c);
+    if (bucket) bucket.push(it); else grid.set(c, [it]);
+  }));
   return grid;
 }
 

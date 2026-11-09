@@ -5,6 +5,7 @@ import { useEditor } from '../state/store';
 import { useUi } from '../state/ui';
 import { MAP_PALETTE, ROAD_CLASSES } from '../map/palette';
 import { Icon } from './icons';
+import { VirtualList } from './VirtualList';
 import { TOOLS } from './tools';
 import { NODE_FEATURES } from '../map/features';
 
@@ -102,12 +103,10 @@ function Objects() {
         <Icon name="search" />
         <input type="search" placeholder="Поиск по названию" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Поиск улицы" />
       </label>
-      <ul className="street-list">
-        {found.map((s) => (
-          <li key={s.name}><button onClick={() => open(s)}><span>{s.name}</span><span className="mono count">{s.wayIds.length}</span></button></li>
-        ))}
-        {!found.length && <li className="hint">Ничего не нашлось</li>}
-      </ul>
+      {found.length
+        ? <VirtualList className="street-list" items={found} rowHeight={25} keyOf={(s) => s.name}
+            render={(s) => <button onClick={() => open(s)}><span>{s.name}</span><span className="mono count">{s.wayIds.length}</span></button>} />
+        : <p className="hint">Ничего не нашлось</p>}
     </section>
   );
 }
