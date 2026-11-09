@@ -5,8 +5,6 @@ import { nodeSymbol } from './features';
 import { thematicProps } from './thematic';
 import type { OsmDoc, OsmWay } from '../osm/types';
 
-const DEFAULT_BUILDING_HEIGHT_M = 9;
-
 type Props = Record<string, string | number | boolean>;
 
 const coords = (doc: OsmDoc, w: OsmWay) =>
@@ -40,9 +38,9 @@ export function roadsGeoJson(doc: OsmDoc) {
   return collection(Object.values(doc.ways).filter((w) => isDrivable(w.tags) && w.refs.length > 1).map((w) => roadFeature(doc, w)));
 }
 
-/** Building height in metres as Webots will build it (see osm/building.ts), else 9 m (three floors). */
+/** Building height in metres as Webots will build it, including its defaults per building type (see osm/building.ts). */
 export function buildingHeight(tags: Record<string, string>): number {
-  return heightOf(tags).metres ?? DEFAULT_BUILDING_HEIGHT_M;
+  return heightOf(tags).metres;
 }
 
 /** Context layers that are not part of the road graph but go into the file (Webots uses them for 3D). */
