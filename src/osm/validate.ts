@@ -2,13 +2,15 @@ import { cordonEnds, reachable } from './cordon';
 import { largestGroup, strongComponents, weakComponents } from './components';
 import { haversine, projector, segmentIntersection, type LonLat } from './geo';
 import { directedArcs, drivableWays } from './roads';
+import { falseTunnels } from './structures';
 import type { OsmDoc, OsmWay } from './types';
 
-export type IssueKind = 'isolated' | 'trap' | 'cordon' | 'crossing' | 'near-nodes';
+export type IssueKind = 'isolated' | 'trap' | 'cordon' | 'crossing' | 'near-nodes' | 'false-tunnel';
 
 export type IssueFix =
   | { type: 'connect'; a: { wayId: string; index: number }; b: { wayId: string; index: number }; at: LonLat }
-  | { type: 'merge'; keep: string; remove: string };
+  | { type: 'merge'; keep: string; remove: string }
+  | { type: 'ground'; wayId: string };
 
 export interface Issue {
   readonly id: string;
@@ -179,6 +181,11 @@ export function validate(doc: OsmDoc): ValidationReport {
     ...connectivity.issues,
     ...crossingIssues(doc, buildSegments(doc, ways, project)),
     ...nearNodeIssues(doc, ways, project),
+    ...falseTunnels(doc).map((t): Issue => ({
+      id: `tunnel:${t.wayId}`, kind: 'false-tunnel', severity: 'warning',
+      message: `Дорога под мостом отмечена тоннелем (${Math.round(t.lengthM)} м): Webots не построит её, под мостом будет дыра`,
+      at: t.at, wayIds: [t.wayId, t.bridgeId], nodeIds: [], fix: { type: 'ground', wayId: t.wayId },
+    })),
   ];
   const lengthM = ways.reduce((sum, w) => sum + w.refs.slice(1).reduce((s, r, i) => s + haversine(lonLat(doc, w.refs[i]), lonLat(doc, r)), 0), 0);
   return {

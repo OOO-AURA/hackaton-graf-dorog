@@ -18,6 +18,9 @@ export interface MapPalette {
   roads: Record<RoadClassId, string>;
   casing: string;
   bridgeCasing: string;
+  /** Soft shadow under bridges in 2D; piers in 3D. */
+  bridgeShadow: string;
+  pier: string;
   arrow: string;
   building: string;
   buildingLine: string;
@@ -42,6 +45,8 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     roads: { trunk: '#E5392A', primary: '#F09131', secondary: '#F0BC2A', tertiary: '#3D9F47', residential: '#3F8BC4', living: '#E54489', service: '#B8A27E' },
     casing: '#3A2516',
     bridgeCasing: '#1B110A',
+    bridgeShadow: 'rgba(58, 37, 22, 0.45)',
+    pier: '#A9998A',
     arrow: '#3A2516',
     building: '#C9B48A',
     buildingLine: '#8C7350',
@@ -64,6 +69,8 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     roads: { trunk: '#F0503F', primary: '#F5A04A', secondary: '#F3C640', tertiary: '#55B45F', residential: '#5FA3D6', living: '#EE5C9C', service: '#7E7B76' },
     casing: '#08080A',
     bridgeCasing: '#F1E6CB',
+    bridgeShadow: 'rgba(0, 0, 0, 0.7)',
+    pier: '#6E6A66',
     arrow: '#F1E6CB',
     building: '#34343A',
     buildingLine: '#4C4C54',

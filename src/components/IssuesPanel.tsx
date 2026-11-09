@@ -1,4 +1,5 @@
-import { connectCrossing, mergeNodes } from '../osm/edit';
+import { connectCrossing, mergeNodes, setWayTags } from '../osm/edit';
+import { groundTags } from '../osm/structures';
 import type { Issue } from '../osm/validate';
 import { useEditor } from '../state/store';
 import { closeCordon } from '../state/actions';
@@ -7,14 +8,18 @@ import { refreshReport } from '../state/validation';
 import { VirtualList } from './VirtualList';
 
 const KIND_LABELS: Readonly<Record<Issue['kind'], string>> = {
-  isolated: 'Изолированные участки', trap: 'Тупики по направлению', cordon: 'Обрезано границей фрагмента', crossing: 'Пересечения без узла', 'near-nodes': 'Разорванные перекрёстки',
+  isolated: 'Изолированные участки', trap: 'Тупики по направлению', cordon: 'Обрезано границей фрагмента', crossing: 'Пересечения без узла', 'near-nodes': 'Разорванные перекрёстки', 'false-tunnel': 'Ложные тоннели под мостами',
 };
 
 function applyFix(issue: Issue): void {
   const { apply } = useEditor.getState();
   const fix = issue.fix;
   if (!fix) return;
-  apply((d) => (fix.type === 'merge' ? mergeNodes(d, fix.keep, fix.remove) : connectCrossing(d, fix.a, fix.b, fix.at[0], fix.at[1])));
+  apply((d) => {
+    if (fix.type === 'merge') return mergeNodes(d, fix.keep, fix.remove);
+    if (fix.type === 'ground') return d.ways[fix.wayId] ? setWayTags(d, fix.wayId, groundTags(d.ways[fix.wayId].tags)) : d;
+    return connectCrossing(d, fix.a, fix.b, fix.at[0], fix.at[1]);
+  });
   void refreshReport();
 }
 

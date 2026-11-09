@@ -18966,14 +18966,12 @@
    <nd ref="1498787262"/>
    <tag k="highway" v="primary"/>
    <tag k="lanes" v="2"/>
-   <tag k="layer" v="-1"/>
    <tag k="lit" v="yes"/>
    <tag k="maxheight" v="default"/>
    <tag k="maxspeed" v="RU:urban"/>
    <tag k="name" v="Объездная дорога Первомайский-Университетский"/>
    <tag k="oneway" v="yes"/>
    <tag k="surface" v="asphalt"/>
-   <tag k="tunnel" v="yes"/>
  </way>
  <way id="1199781530" visible="true" version="2" changeset="166311652" timestamp="2025-05-15T15:48:06Z" user="Mateusz Konieczny - bot account" uid="3199858">
    <nd ref="1498865586"/>
@@ -18998,7 +18996,6 @@
    <tag k="foot" v="no"/>
    <tag k="highway" v="primary"/>
    <tag k="lanes" v="2"/>
-   <tag k="layer" v="-1"/>
    <tag k="lit" v="yes"/>
    <tag k="maxheight" v="default"/>
    <tag k="maxspeed" v="40"/>
@@ -19006,7 +19003,6 @@
    <tag k="oneway" v="yes"/>
    <tag k="sidewalk" v="no"/>
    <tag k="surface" v="asphalt"/>
-   <tag k="tunnel" v="yes"/>
  </way>
  <way id="1199781532" visible="true" version="3" changeset="181679843" timestamp="2026-04-22T15:42:46Z" user="ылоаритйтЗЩВ" uid="24031307">
    <nd ref="286122970"/>
@@ -19030,11 +19026,9 @@
    <nd ref="11127517891"/>
    <tag k="highway" v="secondary_link"/>
    <tag k="lanes" v="1"/>
-   <tag k="layer" v="-1"/>
    <tag k="maxspeed" v="40"/>
    <tag k="oneway" v="yes"/>
    <tag k="surface" v="asphalt"/>
-   <tag k="tunnel" v="yes"/>
  </way>
  <way id="1199781535" visible="true" version="1" changeset="140094081" timestamp="2023-08-19T13:02:04Z" user="egorWSX" uid="20027187">
    <nd ref="11127517899"/>

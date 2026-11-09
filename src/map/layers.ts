@@ -4,7 +4,7 @@ import { roadColorExpression, type MapPalette } from './palette';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'bridges3d'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
 export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'], buildings: ['buildings', 'buildings-3d'] } as const;
@@ -118,7 +118,16 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     id: 'roads', type: 'line', source: 'roads', filter: ['!', ['get', 'bridge']], layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: { 'line-width': laneWidth(), 'line-opacity': ['case', ['get', 'tunnel'], 0.45, 1] },
   });
+  // A blurred copy shifted down-right reads as the deck standing above the ground.
+  map.addLayer({
+    id: 'bridge-shadow', type: 'line', source: 'roads', filter: ['get', 'bridge'], layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: { 'line-width': laneWidth(4), 'line-blur': ['interpolate', ['linear'], ['zoom'], 14, 2, 18, 8], 'line-translate': [4, 5], 'line-translate-anchor': 'viewport' },
+  }, 'roads-casing');
   map.addLayer({ id: 'roads-bridge', type: 'line', source: 'roads', filter: ['get', 'bridge'], layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-width': laneWidth() } });
+  map.addLayer({
+    id: 'bridges-3d', type: 'fill-extrusion', source: 'bridges3d', layout: { visibility: 'none' },
+    paint: { 'fill-extrusion-height': ['get', 'height'], 'fill-extrusion-base': ['get', 'base'], 'fill-extrusion-opacity': 0.95, 'fill-extrusion-vertical-gradient': true },
+  });
   map.addLayer({ id: 'selection-line', type: 'line', source: 'selection', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': ['interpolate', ['exponential', 2], ['zoom'], 13, 6, 18, 26], 'line-opacity': 0.55 } }, 'roads-casing');
   map.addLayer({
     id: 'roads-arrows', type: 'symbol', source: 'roads', filter: ['!=', ['get', 'dir'], 'both'], minzoom: 15,
@@ -171,6 +180,9 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   });
   map.addLayer({ id: 'draw-line', type: 'line', source: 'draw', paint: { 'line-width': 3, 'line-dasharray': [2, 1] } });
   map.addLayer({ id: 'draw-points', type: 'circle', source: 'draw', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-stroke-width': 2 } });
+  // Extrusions are composited at their layer position: keep the raised deck above the flat road
+  // lines it passes over, but under the moving vehicles of the micro run.
+  map.moveLayer('bridges-3d', 'vehicles');
   applyPalette(map, p);
 }
 
@@ -187,6 +199,8 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
   set('roads-casing', 'line-color', ['case', ['get', 'bridge'], p.bridgeCasing, p.casing]);
   set('roads', 'line-color', roadColorExpression(p));
   set('roads-bridge', 'line-color', roadColorExpression(p));
+  set('bridge-shadow', 'line-color', p.bridgeShadow);
+  set('bridges-3d', 'fill-extrusion-color', ['case', ['==', ['get', 'part'], 'pier'], p.pier, roadColorExpression(p)]);
   set('selection-line', 'line-color', p.selection);
   set('nodes', 'circle-color', ['match', ['get', 'kind'], 'end', p.roads.secondary, 'vertex', p.vertex, p.nodeFill]);
   set('nodes', 'circle-stroke-color', p.nodeStroke);
@@ -207,6 +221,7 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   const show = (layer: string, visible: boolean) => map.setLayoutProperty(layer, 'visibility', visible ? 'visible' : 'none');
   ROAD_LAYERS.forEach((l) => show(l, on.roads));
   show('roads-bridge', on.roads && on.bridges);
+  show('bridge-shadow', on.roads && on.bridges);
   // Vertices of the selected way stay visible and draggable even with junctions hidden.
   show('nodes', true);
   map.setFilter('nodes', (on.junctions ? NODES_FILTER : ['==', ['get', 'kind'], 'vertex']) as never);

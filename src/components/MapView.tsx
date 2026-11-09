@@ -17,6 +17,7 @@ import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson } from '../map/ge
 import { useMapInteractions } from '../map/useMapInteractions';
 import { currentSelection, useEditor } from '../state/store';
 import { streetWays } from '../osm/street';
+import { bridgeFeatures } from '../map/bridges3d';
 import type { OsmDoc } from '../osm/types';
 
 const IRKUTSK_CENTER: [number, number] = [104.262, 52.26];
@@ -64,6 +65,12 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     setData(map, 'context', context.lines);
     setData(map, 'roads', roadsGeoJson(doc));
   }, [map, doc]);
+
+  const view3d = useUi((s) => s.view3d);
+  useEffect(() => {
+    // Decks and ramps are only drawn in 3D, so they are not rebuilt on every edit in 2D.
+    if (map) setData(map, 'bridges3d', view3d ? bridgeFeatures(doc) : { type: 'FeatureCollection', features: [] });
+  }, [map, doc, view3d]);
 
   const routes = useMemo(() => transitRoutes(doc), [doc]);
   const transitSel = useTransit((s) => s.selected);
@@ -144,9 +151,13 @@ function useMapLook(map: MapLibreMap | null): void {
     if (!alive(map)) return;
     const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     map.setLayoutProperty('buildings-3d', 'visibility', view3d ? 'visible' : 'none');
+    // In 3D the bridge is drawn as a raised deck, so its flat line and shadow on the ground go away.
+    map.setLayoutProperty('bridges-3d', 'visibility', view3d && layers.bridges ? 'visible' : 'none');
+    map.setLayoutProperty('roads-bridge', 'visibility', !view3d && layers.roads && layers.bridges ? 'visible' : 'none');
+    map.setLayoutProperty('bridge-shadow', 'visibility', !view3d && layers.roads && layers.bridges ? 'visible' : 'none');
     map.setLayoutProperty('buildings', 'visibility', view3d || !layers.buildings ? 'none' : 'visible');
     map.easeTo({ pitch: view3d ? 58 : 0, bearing: view3d ? -18 : 0, duration: instant ? 0 : 700 });
-  }, [map, view3d, layers.buildings]);
+  }, [map, view3d, layers.buildings, layers.bridges, layers.roads]);
   useEffect(() => {
     if (alive(map) && fly) map.fitBounds(fly.bounds, { padding: 80, maxZoom: 17, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600 });
   }, [map, fly]);

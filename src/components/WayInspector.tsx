@@ -10,6 +10,7 @@ import { Icon } from './icons';
 import { LaneStrip } from './LaneStrip';
 import { capacity, normTags, roadProfile } from '../osm/profile';
 import { streetWays } from '../osm/street';
+import { webotsElevation } from '../osm/structures';
 
 export const HIGHWAY_LABELS: Readonly<Record<string, string>> = {
   motorway: 'Автомагистраль', trunk: 'Скоростная', primary: 'Магистральная', secondary: 'Районная', tertiary: 'Улица местного значения',
@@ -30,6 +31,14 @@ function structureTags(tags: Tags, kind: string): Tags {
   if (kind === 'bridge') return { ...cleared, bridge: 'yes', layer: '1' };
   if (kind === 'tunnel') return { ...cleared, tunnel: 'yes', layer: '-1' };
   return cleared;
+}
+
+/** Where the Webots importer will put this road: it lifts or sinks a whole way by layer × 5 m. */
+function elevationHint(t: Tags): string {
+  const z = webotsElevation(t);
+  if (z === null) return 'Webots не строит дороги с отрицательным layer: в 3D её не будет. Если это дорога под мостом, а не настоящий тоннель, оставьте её на уровне 0.';
+  if (z > 0) return `В 3D и в Webots дорога пройдёт на ${z} м над землёй (layer × 5 м). Подъезды в редакторе показаны насыпью с плавным подъёмом.`;
+  return 'Дорога на уровне земли.';
 }
 
 export function WayInspector({ way }: { way: OsmWay }) {
@@ -102,6 +111,7 @@ export function WayInspector({ way }: { way: OsmWay }) {
           <SelectField label="Тип" value={structure} options={STRUCTURE_OPTIONS} onChange={(k) => apply((d) => setWayTags(d, way.id, structureTags(t, k)))} />
           <TextField label="Уровень, layer" type="number" value={t.layer ?? ''} onCommit={set('layer')} placeholder="0" />
         </div>
+        <p className={`hint${webotsElevation(t) === null ? ' warn' : ''}`}>{elevationHint(t)}</p>
       </Section>
       <Section title="Все теги OSM" open={false} aside={<span className="mono count">{Object.keys(t).length}</span>}>
         <TagTable tags={t} onChange={(tags) => apply((d) => setWayTags(d, way.id, tags))} />
