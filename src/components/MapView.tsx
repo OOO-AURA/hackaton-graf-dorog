@@ -4,7 +4,8 @@ import { useTransit } from '../transit/store';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import maplibregl, { type GeoJSONSource, type Map as MapLibreMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { addEditorLayers, applyLayerVisibility, applyPalette, type SourceId } from '../map/layers';
+import { addEditorLayers, applyLayerVisibility, applyPalette, sceneColors, sceneOf, type SourceId } from '../map/layers';
+import { buildScene3d } from '../map/mesh3d';
 import { applyBasemapTone, BASE_STYLE } from '../map/style';
 import { MAP_PALETTE } from '../map/palette';
 import { useUi } from '../state/ui';
@@ -106,7 +107,14 @@ function useMapLook(map: MapLibreMap | null): void {
   const view3d = useUi((s) => s.view3d);
   useEffect(() => { if (alive(map)) applyPalette(map, MAP_PALETTE[theme]); }, [map, theme]);
   useEffect(() => { if (alive(map)) applyBasemapTone(map, theme, opacity); }, [map, theme, opacity]);
-  useEffect(() => { if (alive(map)) applyLayerVisibility(map, layers); }, [map, layers]);
+  const view3dOn = useUi((s) => s.view3d);
+  useEffect(() => { if (alive(map)) applyLayerVisibility(map, layers, view3dOn); }, [map, layers, view3dOn]);
+  // The 3D mesh is built only while 3D is on, and again on every edit or theme change.
+  const doc3d = useEditor((s) => s.doc);
+  useEffect(() => {
+    if (!alive(map)) return;
+    sceneOf(map)?.setMesh(view3dOn ? buildScene3d(doc3d, sceneColors(MAP_PALETTE[theme])) : null);
+  }, [map, doc3d, theme, view3dOn]);
   const simResult = useSim((s) => s.result);
   const simTime = useSim((s) => s.time);
   const workspace = useUi((s) => s.workspace);
@@ -137,10 +145,8 @@ function useMapLook(map: MapLibreMap | null): void {
   useEffect(() => {
     if (!alive(map)) return;
     const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    map.setLayoutProperty('buildings-3d', 'visibility', view3d ? 'visible' : 'none');
-    map.setLayoutProperty('buildings', 'visibility', view3d || !layers.buildings ? 'none' : 'visible');
     map.easeTo({ pitch: view3d ? 58 : 0, bearing: view3d ? -18 : 0, duration: instant ? 0 : 700 });
-  }, [map, view3d, layers.buildings]);
+  }, [map, view3d]);
   useEffect(() => {
     if (alive(map) && fly) map.fitBounds(fly.bounds, { padding: 80, maxZoom: 17, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600 });
   }, [map, fly]);
@@ -165,7 +171,7 @@ export function MapView() {
 
   useEffect(() => {
     if (!container.current) return undefined;
-    const instance = new maplibregl.Map({ container: container.current, style: BASE_STYLE, center: IRKUTSK_CENTER, zoom: 15, doubleClickZoom: false });
+    const instance = new maplibregl.Map({ container: container.current, style: BASE_STYLE, center: IRKUTSK_CENTER, zoom: 15, maxPitch: 70, doubleClickZoom: false });
     instance.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right');
     instance.on('load', () => {
       addEditorLayers(instance, MAP_PALETTE[useUi.getState().theme]);

@@ -63,3 +63,4 @@
   .sim-group { flex-wrap: wrap; row-gap: 4px; }
   .sim-group + .sim-group { padding-left: 0; border-left: 0; }
 }
+.compass { display: inline-flex; transition: transform 0.12s linear; }

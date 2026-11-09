@@ -1,4 +1,5 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
+import { useEffect, useState } from 'react';
 import { docBounds } from '../map/geojson';
 import { useEditor, type Basemap } from '../state/store';
 import { finishDrawing } from '../state/actions';
@@ -44,6 +45,15 @@ function FloatingTools() {
 function ZoomControls({ map }: { map: MapLibreMap | null }) {
   const view3d = useUi((s) => s.view3d);
   const toggle3d = useUi((s) => s.toggle3d);
+  // The north arrow turns with the map, so it doubles as a compass.
+  const [bearing, setBearing] = useState(0);
+  useEffect(() => {
+    if (!map) return undefined;
+    const sync = () => setBearing(map.getBearing());
+    sync();
+    map.on('rotate', sync);
+    return () => { map.off('rotate', sync); };
+  }, [map]);
   const fit = () => {
     const b = docBounds(useEditor.getState().doc);
     if (b) useUi.getState().flyTo(b);
@@ -53,7 +63,7 @@ function ZoomControls({ map }: { map: MapLibreMap | null }) {
       <button className="tool" onClick={() => map?.zoomIn()} title="Приблизить"><Icon name="plus" /></button>
       <button className="tool" onClick={() => map?.zoomOut()} title="Отдалить"><Icon name="minus" /></button>
       <button className="tool" onClick={fit} title="Весь граф"><Icon name="fit" /></button>
-      <button className="tool" onClick={() => map?.resetNorth()} title="На север"><Icon name="north" /></button>
+      <button className="tool" onClick={() => map?.resetNorth()} title="На север"><span className="compass" style={{ transform: `rotate(${-bearing}deg)` }}><Icon name="north" /></span></button>
       <button className={`tool tool-3d${view3d ? ' on' : ''}`} onClick={toggle3d} title="2D / 3D (P)" aria-pressed={view3d}>{view3d ? '3D' : '2D'}</button>
     </div>
   );

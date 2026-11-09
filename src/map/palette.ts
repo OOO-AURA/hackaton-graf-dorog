@@ -22,6 +22,8 @@ export interface MapPalette {
   building: string;
   buildingLine: string;
   building3d: string;
+  /** Sides of bridge decks, piers and tunnel portals in 3D. */
+  bridgeSide: string;
   path: string;
   tram: string;
   nodeFill: string;
@@ -46,6 +48,7 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     building: '#C9B48A',
     buildingLine: '#8C7350',
     building3d: '#D9C69C',
+    bridgeSide: '#8C7350',
     path: '#9C8763',
     tram: '#7A4FA0',
     nodeFill: '#FBF6EA',
@@ -68,6 +71,7 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     building: '#34343A',
     buildingLine: '#4C4C54',
     building3d: '#4A4A52',
+    bridgeSide: '#5C5C66',
     path: '#6A6A72',
     tram: '#B48ADB',
     nodeFill: '#28282D',

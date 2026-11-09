@@ -1,6 +1,8 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { LayerId } from '../state/ui';
-import { roadColorExpression, type MapPalette } from './palette';
+import { ROAD_CLASSES, roadColorExpression, type MapPalette } from './palette';
+import { Scene3dLayer, SCENE3D_LAYER } from './scene3d';
+import type { Rgb, Scene3dColors } from './mesh3d';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
@@ -100,6 +102,24 @@ const laneWidth = (extra: unknown = 0) => [
 const GRAPH_NODE_KINDS = ['junction', 'end', 'vertex'];
 const NODES_FILTER = ['all', ['!=', ['get', 'kind'], 'signal'], ['any', ['in', ['get', 'kind'], ['literal', GRAPH_NODE_KINDS]], ['>=', ['zoom'], 17]]];
 
+const scenes = new WeakMap<MapLibreMap, Scene3dLayer>();
+
+/** The 3D scene layer of a map, once the editor layers are added. */
+export const sceneOf = (map: MapLibreMap) => scenes.get(map) ?? null;
+
+const rgb = (hex: string): Rgb => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16) / 255) as unknown as Rgb;
+
+/** Colours of the 3D scene: one flat tone for buildings, bridge decks in their road class colour. */
+export function sceneColors(p: MapPalette): Scene3dColors {
+  const byHighway = new Map<string, Rgb>();
+  ROAD_CLASSES.forEach((c) => c.match.forEach((h) => byHighway.set(h, rgb(p.roads[c.id]))));
+  const service = rgb(p.roads.service);
+  return {
+    building: rgb(p.building3d), edge: rgb(p.buildingLine), deck: (h) => byHighway.get(h) ?? service,
+    deckSide: rgb(p.bridgeSide), pier: rgb(p.bridgeSide), portal: rgb(p.bridgeSide),
+  };
+}
+
 export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   SOURCES.forEach((id) => map.addSource(id, { type: 'geojson', data: EMPTY as never }));
   setArrowImage(map, p.arrow);
@@ -107,10 +127,6 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   addZoneBadges(map);
 
   map.addLayer({ id: 'buildings', type: 'fill', source: 'buildings', paint: { 'fill-opacity': 0.55 } });
-  map.addLayer({
-    id: 'buildings-3d', type: 'fill-extrusion', source: 'buildings', layout: { visibility: 'none' },
-    paint: { 'fill-extrusion-height': ['get', 'height'], 'fill-extrusion-base': 0, 'fill-extrusion-opacity': 0.85, 'fill-extrusion-vertical-gradient': true },
-  });
   map.addLayer({ id: 'context', type: 'line', source: 'context', filter: ['!=', ['get', 'kind'], 'rail'], paint: { 'line-width': 1, 'line-dasharray': [2, 2] } });
   map.addLayer({ id: 'tram', type: 'line', source: 'context', filter: ['==', ['get', 'kind'], 'rail'], paint: { 'line-width': 2, 'line-dasharray': [3, 1.5] } });
   map.addLayer({ id: 'roads-casing', type: 'line', source: 'roads', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': laneWidth(['case', ['get', 'bridge'], 5, 2]) } });
@@ -124,6 +140,10 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     id: 'roads-arrows', type: 'symbol', source: 'roads', filter: ['!=', ['get', 'dir'], 'both'], minzoom: 15,
     layout: { 'symbol-placement': 'line', 'symbol-spacing': 60, 'icon-image': 'arrow', 'icon-allow-overlap': true, 'icon-rotate': ['case', ['==', ['get', 'dir'], 'backward'], 180, 0] },
   });
+  const scene = new Scene3dLayer();
+  scenes.set(map, scene);
+  map.addLayer(scene);
+  map.setLayoutProperty(SCENE3D_LAYER, 'visibility', 'none');
   map.addLayer({
     id: 'nodes', type: 'circle', source: 'nodes', minzoom: 14,
     filter: NODES_FILTER as never,
@@ -181,7 +201,6 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
   setArrowImage(map, p.arrow);
   set('buildings', 'fill-color', p.building);
   set('buildings', 'fill-outline-color', p.buildingLine);
-  set('buildings-3d', 'fill-extrusion-color', p.building3d);
   set('context', 'line-color', p.path);
   set('tram', 'line-color', p.tram);
   set('roads-casing', 'line-color', ['case', ['get', 'bridge'], p.bridgeCasing, p.casing]);
@@ -203,23 +222,26 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
 const ROAD_LAYERS = ['roads-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line'];
 
 /** Applies the layer toggles from the bottom bar. Bridges and tunnels are filters on the road layers. */
-export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boolean>): void {
+export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boolean>, view3d = false): void {
   const show = (layer: string, visible: boolean) => map.setLayoutProperty(layer, 'visibility', visible ? 'visible' : 'none');
   ROAD_LAYERS.forEach((l) => show(l, on.roads));
+  // In 3D the bridges are decks of the scene layer; the flat line stays only for clicks.
   show('roads-bridge', on.roads && on.bridges);
+  map.setPaintProperty('roads-bridge', 'line-opacity', view3d ? 0 : 1);
+  map.setLayoutProperty(SCENE3D_LAYER, 'visibility', view3d ? 'visible' : 'none');
+  sceneOf(map)?.setVisible(on.buildings, on.bridges || on.tunnels);
   // Vertices of the selected way stay visible and draggable even with junctions hidden.
   show('nodes', true);
   map.setFilter('nodes', (on.junctions ? NODES_FILTER : ['==', ['get', 'kind'], 'vertex']) as never);
   show('signals', on.signals);
   show('crossings', on.crossings);
   show('signs', on.signs);
-  show('buildings', on.buildings);
-  map.setPaintProperty('buildings-3d', 'fill-extrusion-opacity', on.buildings ? 0.85 : 0);
+  show('buildings', on.buildings && !view3d);
   show('tram', on.tram);
   show('transit-line', on.transit);
   show('transit-stop', on.transit);
   const structure: unknown[] = ['all'];
-  if (!on.bridges) structure.push(['!', ['get', 'bridge']]);
+  if (!on.bridges || view3d) structure.push(['!', ['get', 'bridge']]);
   if (!on.tunnels) structure.push(['!', ['get', 'tunnel']]);
   map.setFilter('roads-casing', structure as never);
   map.setFilter('roads', ['all', ['!', ['get', 'bridge']], structure] as never);
