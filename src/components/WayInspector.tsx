@@ -13,6 +13,7 @@ import { streetWays } from '../osm/street';
 import { webotsElevation } from '../osm/structures';
 import { simulatorSpeeds } from '../osm/speeds';
 import { safeInput } from '../osm/pipelineSafety';
+import { SimulatorsSection } from './SimulatorsSection';
 
 export const HIGHWAY_LABELS: Readonly<Record<string, string>> = {
   motorway: 'Автомагистраль', trunk: 'Скоростная', primary: 'Магистральная', secondary: 'Районная', tertiary: 'Улица местного значения',
@@ -113,6 +114,7 @@ export function WayInspector({ way }: { way: OsmWay }) {
           </div>
         </Section>
       )}
+      <SimulatorsSection tags={t} />
       <Section title="Ограничения" open={false}>
         <div className="row">
           <TextField label="Масса, т" type="number" value={t.maxweight ?? ''} onCommit={set('maxweight')} placeholder="—" />

@@ -44,6 +44,8 @@ describe('new panels render on real data', () => {
     expect(r.text()).toContain('5 м над землёй');
     expect(r.text()).toContain('MATSim 30 км/ч, SUMO 100 км/ч');
     expect(r.text()).toContain('Вся улица: 2 участков');
+    expect(r.text()).toContain('Как прочитают симуляторы');
+    expect(r.text()).toContain('на 5 м над землёй');
     r.done();
     const t = render(<WayInspector way={doc().ways['11']} />);
     expect(t.text()).toContain('Webots не строит дороги с отрицательным layer');
