@@ -1,12 +1,14 @@
 import { create } from 'zustand';
 import type { DrawPoint } from '../osm/draw';
 import { EMPTY_DOC, type OsmDoc } from '../osm/types';
+import { streetWays } from '../osm/street';
 
 export type { DrawPoint };
 import { validate, type ValidationReport } from '../osm/validate';
 
 export type Mode = 'select' | 'draw' | 'insert' | 'signal';
-export type Selection = { type: 'node' | 'way'; id: string } | null;
+/** `street` selects every drivable way named `id` (see osm/street.ts). */
+export type Selection = { type: 'node' | 'way' | 'street'; id: string } | null;
 export type Basemap = 'osm' | 'satellite' | 'none';
 
 
@@ -118,6 +120,7 @@ export const useEditor = create<EditorState>((set, get) => ({
 export function currentSelection(state: Pick<EditorState, 'doc' | 'selection'>): Selection {
   const { doc, selection } = state;
   if (!selection) return null;
+  if (selection.type === 'street') return streetWays(doc, selection.id).length ? selection : null;
   const exists = selection.type === 'node' ? doc.nodes[selection.id] : doc.ways[selection.id];
   return exists ? selection : null;
 }

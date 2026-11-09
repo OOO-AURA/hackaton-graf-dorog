@@ -9,7 +9,7 @@ const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
-export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'], laneEnds: ['lane-ends'], laneLinks: ['lane-links'] } as const;
+export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'], buildings: ['buildings'], laneEnds: ['lane-ends'], laneLinks: ['lane-links'] } as const;
 
 function arrowImage(color: string): ImageData | null {
   const size = 24;

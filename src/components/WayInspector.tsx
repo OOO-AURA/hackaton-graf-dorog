@@ -10,8 +10,9 @@ import { Icon } from './icons';
 import { LaneStrip } from './LaneStrip';
 import { capacity, normTags, roadProfile } from '../osm/profile';
 import { RoadLevelFields } from './HeightFields';
+import { streetWays } from '../osm/street';
 
-const HIGHWAY_LABELS: Readonly<Record<string, string>> = {
+export const HIGHWAY_LABELS: Readonly<Record<string, string>> = {
   motorway: 'Автомагистраль', trunk: 'Скоростная', primary: 'Магистральная', secondary: 'Районная', tertiary: 'Улица местного значения',
   unclassified: 'Без класса', residential: 'Жилая', living_street: 'Жилая зона', service: 'Проезд', road: 'Неизвестная',
   motorway_link: 'Съезд (автомагистраль)', trunk_link: 'Съезд (скоростная)', primary_link: 'Съезд (магистральная)',
@@ -27,7 +28,10 @@ const BUS_OPTIONS = [['', 'Нет'], ['yes', 'Одна полоса']] as const;
 
 export function WayInspector({ way }: { way: OsmWay }) {
   const apply = useEditor((s) => s.apply);
+  const select = useEditor((s) => s.select);
+  const doc = useEditor((s) => s.doc);
   const t = way.tags;
+  const streetParts = t.name ? streetWays(doc, t.name).length : 0;
   const set = (key: string) => (value: string) => apply((d) => setWayTag(d, way.id, key, value || null));
   const dir = direction(t);
   const profile = roadProfile(t);
@@ -38,6 +42,7 @@ export function WayInspector({ way }: { way: OsmWay }) {
         <span className="micro">Дорога</span>
         <h2 className="insp-title">{t.name || HIGHWAY_LABELS[t.highway ?? ''] || 'Без названия'}</h2>
         <span className="mono insp-id">way {way.id} · {way.refs.length} узл.</span>
+        {streetParts > 1 && <button className="link" onClick={() => select({ type: 'street', id: t.name })}>Вся улица: {streetParts} участков, править разом</button>}
       </header>
       <Section title="Свойства">
         <SelectField label="Класс" value={t.highway ?? ''} options={DRIVABLE_HIGHWAYS.map((h) => [h, HIGHWAY_LABELS[h] ?? h] as const)} onChange={set('highway')} />

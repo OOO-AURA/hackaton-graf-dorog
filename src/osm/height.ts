@@ -33,29 +33,33 @@ export interface BuildingHeight {
   known: boolean;
 }
 
-/** Height as the 3D view draws it: `height`, else levels × 3 m, else 9 m. */
+const roofOf = (tags: Tags) => Math.max(0, num(tags['roof:height']) ?? 0);
+
+/**
+ * Height as Webots and the 3D view build it (see osm/building.ts): `height`, else levels × 3 m
+ * plus the roof, else 9 m.
+ */
 export function buildingHeight(tags: Tags): BuildingHeight {
   const h = num(tags.height);
   const levels = num(tags['building:levels']);
   const minHeight = Math.max(0, num(tags.min_height) ?? 0);
-  if (h !== null && h > 0) return { height: h, levels: levels ?? Math.max(1, Math.round((h - minHeight) / LEVEL_HEIGHT)), minHeight, known: true };
-  if (levels !== null && levels > 0) return { height: minHeight + levels * LEVEL_HEIGHT, levels, minHeight, known: true };
+  if (h !== null && h > 0) return { height: h, levels: levels ?? Math.max(1, Math.floor((h - roofOf(tags)) / LEVEL_HEIGHT)), minHeight, known: true };
+  if (levels !== null && levels > 0) return { height: levels * LEVEL_HEIGHT + roofOf(tags), levels, minHeight, known: true };
   return { height: 9, levels: 3, minHeight, known: false };
 }
 
-/** Sets the top of a building in metres; levels follow so both tags agree. */
+/** Sets the top of a building in metres; levels follow, rounded down as Webots does. */
 export function withBuildingHeight(tags: Tags, metres: number): Tags {
   const { minHeight } = buildingHeight(tags);
   const h = Math.min(MAX_BUILDING_HEIGHT, Math.max(minHeight + 1, metres));
-  const levels = Math.max(1, Math.round((h - minHeight) / LEVEL_HEIGHT));
+  const levels = Math.max(1, Math.floor((h - roofOf(tags)) / LEVEL_HEIGHT));
   return withTag(withTag(tags, 'height', formatMetres(h)), 'building:levels', String(levels));
 }
 
-/** Sets the number of storeys; the height follows. */
+/** Sets the number of storeys; the height follows (levels × 3 m plus the roof). */
 export function withBuildingLevels(tags: Tags, levels: number): Tags {
-  const { minHeight } = buildingHeight(tags);
   const n = Math.max(1, Math.round(levels));
-  return withTag(withTag(tags, 'building:levels', String(n)), 'height', formatMetres(Math.min(MAX_BUILDING_HEIGHT, minHeight + n * LEVEL_HEIGHT)));
+  return withTag(withTag(tags, 'building:levels', String(n)), 'height', formatMetres(Math.min(MAX_BUILDING_HEIGHT, n * LEVEL_HEIGHT + roofOf(tags))));
 }
 
 /** Sets the bottom of a building (an arch, a canopy); 0 removes the tag. The top stays put. */

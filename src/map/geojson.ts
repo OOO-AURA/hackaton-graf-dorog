@@ -1,12 +1,14 @@
 import type { Feature, FeatureCollection, LineString, Point, Polygon } from 'geojson';
+import { buildingHeight as heightOf } from '../osm/building';
 import { direction, highwayColor, isDrivable } from '../osm/tags';
 import { nodeSymbol } from './features';
-import { buildingHeight as heightOf } from '../osm/height';
 import { roadWidthMetres } from './lanesGeo';
 
 /** Screen pixels per metre at zoom 17 on MapLibre's 512 px tiles. */
 const pxPerMetreZ17 = (lat: number) => 2 ** 17 / (78271.517 * Math.cos((lat * Math.PI) / 180));
 import type { OsmDoc, OsmWay } from '../osm/types';
+
+const DEFAULT_BUILDING_HEIGHT_M = 9;
 
 type Props = Record<string, string | number | boolean>;
 
@@ -43,8 +45,10 @@ export function roadsGeoJson(doc: OsmDoc) {
   return collection(Object.values(doc.ways).filter((w) => isDrivable(w.tags) && w.refs.length > 1).map((w) => roadFeature(doc, w)));
 }
 
-/** Building height in metres: `height`, else `building:levels` × 3 m, else 9 m (three floors). */
-export const buildingHeight = (tags: Record<string, string>): number => heightOf(tags).height;
+/** Building height in metres as Webots will build it (see osm/building.ts), else 9 m (three floors). */
+export function buildingHeight(tags: Record<string, string>): number {
+  return heightOf(tags).metres ?? DEFAULT_BUILDING_HEIGHT_M;
+}
 
 /** Context layers that are not part of the road graph but go into the file (Webots uses them for 3D). */
 export function contextGeoJson(doc: OsmDoc) {

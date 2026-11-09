@@ -6,6 +6,7 @@ import { featureById, toggleNodeFeature } from './features';
 import { useEditor } from '../state/store';
 import { finishDrawing } from '../state/actions';
 import { hitBuilding, hitNode, hitWay } from './hit';
+import { isBuilding } from '../osm/building';
 import { useBoxSelect } from './useBoxSelect';
 import { laneLinkAt, useLaneEditing } from './useLaneEditing';
 import { zoneEditingActive } from '../macro/useZoneEditing';
@@ -27,7 +28,7 @@ function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
   const way = nodeId ? null : hitWay(map, s.doc, e.point);
 
   switch (s.mode) {
-    case 'select':
+    case 'select': {
       if (nodeId) { s.select({ type: 'node', id: nodeId }); return; }
       // In 3D a bridge deck is picked where it is drawn, above the ground; it wins over a road
       // line under the cursor. Otherwise roads come before buildings: they are thin and lie
@@ -35,11 +36,12 @@ function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
       void hitBuilding(map, e.point).then((id) => {
         const st = useEditor.getState();
         const picked = id ? st.doc.ways[id] : null;
-        if (picked && !picked.tags.building) st.select({ type: 'way', id: picked.id });
+        if (picked && !isBuilding(picked.tags)) st.select({ type: 'way', id: picked.id });
         else if (way) st.select({ type: 'way', id: way.wayId });
         else st.select(picked ? { type: 'way', id: picked.id } : null);
       });
       return;
+    }
     case 'signal': {
       const feature = featureById(useUi.getState().featureKind);
       if (nodeId) { s.apply((d) => toggleNodeFeature(d, nodeId, feature)); s.select({ type: 'node', id: nodeId }); return; }

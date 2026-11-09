@@ -70,3 +70,14 @@ export function downloadText(text: string, fileName: string): void {
 }
 
 export const runServerCheck = (text: string) => invoke<CheckReport>('check_osm', { text });
+
+/**
+ * fetch-compatible function for map data downloads. In the desktop app it goes through Rust and the
+ * system curl (no CORS, own User-Agent); in the browser it is plain fetch.
+ */
+export const mapDataFetch = async (url: string, init?: RequestInit): Promise<Response> => {
+  if (!isDesktop) return fetch(url, init);
+  const form = typeof init?.body === 'string' ? init.body : null;
+  const reply = await invoke<{ status: number; body: string }>('http_request', { url, form });
+  return new Response(reply.body, { status: reply.status });
+};

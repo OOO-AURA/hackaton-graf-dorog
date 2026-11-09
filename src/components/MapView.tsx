@@ -21,6 +21,7 @@ import { useZoneEditing } from '../macro/useZoneEditing';
 import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson } from '../map/geojson';
 import { useMapInteractions } from '../map/useMapInteractions';
 import { currentSelection, useEditor } from '../state/store';
+import { streetWays } from '../osm/street';
 import type { OsmDoc } from '../osm/types';
 
 const IRKUTSK_CENTER: [number, number] = [104.262, 52.26];
@@ -32,14 +33,16 @@ const setData = (map: MapLibreMap, id: SourceId, data: unknown) => {
   if (alive(map)) (map.getSource(id) as GeoJSONSource | undefined)?.setData(data as never);
 };
 
+const wayLine = (doc: OsmDoc, id: string) => ({
+  type: 'Feature', properties: {},
+  geometry: { type: 'LineString', coordinates: doc.ways[id].refs.filter((r) => doc.nodes[r]).map((r) => [doc.nodes[r].lon, doc.nodes[r].lat]) },
+});
+
 function selectionGeoJson(doc: OsmDoc, sel: ReturnType<typeof currentSelection>, multi: readonly string[]) {
-  const line = (id: string) => ({
-    type: 'Feature', properties: {},
-    geometry: { type: 'LineString', coordinates: doc.ways[id].refs.filter((r) => doc.nodes[r]).map((r) => [doc.nodes[r].lon, doc.nodes[r].lat]) },
-  });
-  if (multi.length) return { type: 'FeatureCollection', features: multi.filter((id) => doc.ways[id]).map(line) };
+  if (multi.length) return { type: 'FeatureCollection', features: multi.filter((id) => doc.ways[id]).map((id) => wayLine(doc, id)) };
   if (!sel) return { type: 'FeatureCollection', features: [] };
-  if (sel.type === 'way') return { type: 'FeatureCollection', features: [line(sel.id)] };
+  if (sel.type === 'street') return { type: 'FeatureCollection', features: streetWays(doc, sel.id).map((w) => wayLine(doc, w.id)) };
+  if (sel.type === 'way') return { type: 'FeatureCollection', features: [wayLine(doc, sel.id)] };
   const n = doc.nodes[sel.id];
   return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [n.lon, n.lat] } }] };
 }
