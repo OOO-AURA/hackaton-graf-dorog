@@ -1,9 +1,9 @@
 import { useEditor, type Basemap } from '../state/store';
-import { useUi, type LayerId, type RoadLook } from '../state/ui';
+import { useUi, type LayerId } from '../state/ui';
 import { usePanels } from '../state/panels';
 import { useMacro } from '../macro/store';
 import { LENSES, type Lens } from '../map/lens';
-import { THEMATIC, type RoadColorMode } from '../map/thematic';
+import { TOOLS_IN } from '../map/editScope';
 
 /**
  * Everything about how the map looks, in one place (navigator tab «Вид карты»): road look, lens,
@@ -24,30 +24,23 @@ const LAYER_GROUPS: ReadonlyArray<readonly [string, readonly LayerId[]]> = [
 ];
 
 export const LENS_HINT: Record<Lens, string> = {
-  all: 'Вся сеть без выделения',
-  car: 'Проезжая часть, полосы, светофоры и знаки',
+  all: 'Всё на карте, всё можно править',
+  car: 'Дороги, полосы и перекрёстки. Знаки, светофоры, рельсы и тротуары не выделяются и не правятся',
+  signs: 'Светофоры, знаки и переходы. Дороги видны фоном и не выбираются',
   walk: 'Тротуары, пешеходные улицы, переходы и зебры',
-  transit: 'Маршруты, остановки и трамвайные пути',
+  transit: 'Остановки, маршруты и трамвайные пути',
   rail: 'Железная дорога, станции и платформы',
   metro: 'Линии и станции метро',
-  load: 'Загрузка дорог V/C после распределения потоков',
+  load: 'Загрузка дорог V/C после распределения потоков, только смотреть',
 };
-
-export const LOOKS: ReadonlyArray<readonly [RoadLook, string, string]> = [
-  ['engineering', 'Инженерия', 'Асфальт, полосы, разметка и стрелки, как на плане'],
-  ['scheme', 'Схема', 'Главные дороги жёлтые и толстые, как на карте города'],
-  ['graph', 'Граф', 'Только линии и узлы, цвет по классу дороги'],
-];
-
-export const COLOR_MODES: ReadonlyArray<readonly [RoadColorMode, string]> = [
-  ['class', 'Класс дороги'], ['lanes', 'Число полос'], ['speed', 'Скорость'], ['capacity', 'Пропускная способность'], ['missing', 'Пропуски атрибутов'],
-];
 
 const BASEMAPS: ReadonlyArray<readonly [Basemap, string]> = [['osm', 'Схема OSM'], ['satellite', 'Спутник'], ['none', 'Нет']];
 
-/** Lens pick; the load lens works out the flows first if there are none yet. */
+/** View mode pick; a tool the mode has no use for gives way to selecting, the load mode works out the flows first. */
 export function pickLens(v: Lens): void {
   useUi.getState().setLens(v);
+  const editor = useEditor.getState();
+  if (!TOOLS_IN[v].has(editor.mode)) editor.setMode(TOOLS_IN[v].has('select') ? 'select' : 'view');
   const macro = useMacro.getState();
   if (v === 'load' && !macro.result && !macro.busy) void macro.run();
 }
@@ -68,31 +61,11 @@ function Seg<T extends string>({ items, value, onPick, label }: { items: Readonl
   );
 }
 
-function RoadsBlock() {
-  const look = useUi((s) => s.roadLook);
-  const setLook = useUi((s) => s.setRoadLook);
-  const mode = useUi((s) => s.roadColorMode);
-  const setMode = useUi((s) => s.setRoadColorMode);
-  const bands = mode === 'class' ? null : THEMATIC[mode].bands;
-  return (
-    <>
-      <h3 className="tpl-group-title">Как рисовать дороги</h3>
-      <Seg items={LOOKS} value={look} onPick={setLook} label="Вид дорог" />
-      <p className="lens-hint">{LOOKS.find(([v]) => v === look)?.[2]}</p>
-      <h3 className="tpl-group-title">Чем красить дороги</h3>
-      <select className="view-select" value={mode} onChange={(e) => setMode(e.target.value as RoadColorMode)} aria-label="Чем красить дороги">
-        {COLOR_MODES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-      </select>
-      {bands && <ul className="thematic-legend">{bands.map((b) => <li key={b.label}><i style={{ background: b.color }} />{b.label}</li>)}</ul>}
-    </>
-  );
-}
-
-function LensBlock() {
+export function LensBlock() {
   const lens = useUi((s) => s.lens);
   return (
     <>
-      <h3 className="tpl-group-title">Для кого смотреть</h3>
+      <h3 className="tpl-group-title">Режим вида</h3>
       <div className="lens-grid">
         {LENSES.map(([v, label]) => <button key={v} className={lens === v ? 'on' : ''} aria-pressed={lens === v} onClick={() => pickLens(v)} title={LENS_HINT[v]}>{label}</button>)}
       </div>
@@ -101,7 +74,7 @@ function LensBlock() {
   );
 }
 
-function BasemapBlock() {
+export function BasemapBlock() {
   const basemap = useEditor((s) => s.basemap);
   const setBasemap = useEditor((s) => s.setBasemap);
   const opacity = useUi((s) => s.basemapOpacity);
@@ -152,10 +125,8 @@ function LayersBlock() {
 }
 
 export function ViewSettings() {
-  const micro = useUi((s) => s.workspace === 'micro');
   return (
     <div className="nav-layers">
-      {!micro && <RoadsBlock />}
       <LensBlock />
       <BasemapBlock />
       <LayersBlock />

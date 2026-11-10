@@ -1,12 +1,15 @@
 import type { BottomTab, Workspace } from './ui';
 
 /**
- * The work goes in five steps, shown in the header in order: edit the graph, check it, look at
- * the flows, run the simulation, hand the file in. Each step brings its own tabs into the bottom
- * panel, so only what the step needs is on screen.
+ * The work in three steps, shown in the header: edit the graph, look at the flows (macro), run
+ * the simulation (micro). Checking and handing in are not steps: their tabs are always at the
+ * bottom (ALWAYS_TABS); each step adds its own tabs after them.
  */
 
-export type Step = 'edit' | 'check' | 'flows' | 'sim' | 'submit';
+export type Step = 'edit' | 'flows' | 'sim';
+
+/** Tabs of the bottom panel in every step: errors of the graph, the error log, the server check, hand-in, the journal. */
+export const ALWAYS_TABS: readonly BottomTab[] = ['issues', 'errors', 'check', 'submit', 'journal'];
 
 export interface StepInfo {
   readonly id: Step;
@@ -20,12 +23,12 @@ export interface StepInfo {
   readonly opens: BottomTab | null;
 }
 
+const withAlways = (own: readonly BottomTab[]): readonly BottomTab[] => [...own, ...ALWAYS_TABS.filter((t) => !own.includes(t))];
+
 export const STEPS: readonly StepInfo[] = [
-  { id: 'edit', label: 'Правка', hint: 'Рисуйте и правьте дороги, перекрёстки, знаки и здания', workspace: 'macro', tabs: ['issues', 'journal'], opens: null },
-  { id: 'check', label: 'Проверка', hint: 'Ошибки графа и потоков, многие исправляются одной кнопкой', workspace: 'macro', tabs: ['issues', 'errors', 'journal'], opens: 'issues' },
-  { id: 'flows', label: 'Макро', hint: 'Макроуровень: зоны, матрица поездок и загрузка дорог в час пик', workspace: 'macro', tabs: ['flows', 'transit', 'scenarios'], opens: 'flows' },
-  { id: 'sim', label: 'Микро', hint: 'Микроуровень, SUMO: машины по полосам, светофоры, задержки', workspace: 'micro', tabs: ['scenarios', 'errors'], opens: null },
-  { id: 'submit', label: 'Сдача', hint: 'Проверка как на сервере, сохранение и экспорт', workspace: 'macro', tabs: ['submit', 'check', 'journal'], opens: 'submit' },
+  { id: 'edit', label: 'Редактирование', hint: 'Рисуйте и правьте дороги, перекрёстки, знаки и здания', workspace: 'macro', tabs: withAlways([]), opens: null },
+  { id: 'flows', label: 'Макро', hint: 'Макроуровень: зоны, матрица поездок и загрузка дорог в час пик', workspace: 'macro', tabs: withAlways(['flows', 'transit', 'scenarios']), opens: 'flows' },
+  { id: 'sim', label: 'Микро', hint: 'Микроуровень, SUMO: машины по полосам, светофоры, задержки', workspace: 'micro', tabs: withAlways(['scenarios']), opens: null },
 ];
 
 export const stepInfo = (id: Step): StepInfo => STEPS.find((s) => s.id === id) ?? STEPS[0];

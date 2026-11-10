@@ -18,11 +18,13 @@ describe('steps of the work', () => {
     expect(useUi.getState()).toMatchObject({ workspace: 'macro', bottomOpen: false });
   });
 
-  test('opening a tab of another step moves to that step', () => {
+  test('checks and hand-in are tabs of every step, opening one keeps the step', () => {
+    for (const s of STEPS) for (const t of ['issues', 'errors', 'check', 'submit', 'journal']) expect(s.tabs).toContain(t);
+    useUi.getState().setStep('flows');
     useUi.getState().openBottom('check');
-    expect(useUi.getState().step).toBe('submit');
-    useUi.getState().openBottom('journal');
-    expect(useUi.getState().step).toBe('submit');
+    expect(useUi.getState().step).toBe('flows');
+    useUi.getState().openBottom('transit');
+    expect(useUi.getState().step).toBe('flows');
   });
 
   test('switching to Micro from elsewhere moves to the simulation, and back to editing', () => {
@@ -33,8 +35,8 @@ describe('steps of the work', () => {
   });
 
   test('a tab of the current step keeps the step', () => {
-    expect(stepForTab('issues', 'check')).toBe('check');
-    expect(stepForTab('issues', 'flows')).toBe('check');
+    expect(stepForTab('issues', 'sim')).toBe('sim');
+    expect(stepForTab('flows', 'edit')).toBe('flows');
     expect(stepForWorkspace('macro', 'flows')).toBe('flows');
   });
 });

@@ -237,6 +237,7 @@ export function JunctionEditor() {
   const close = useUi((s) => s.setJunctionEditor);
   const doc = useSettledDoc();
   const [tab, setTab] = useState<Tab>('lanes');
+  const viewOnly = useEditor((s) => s.mode === 'view');
   const open = Boolean(nodeId && doc.nodes[nodeId] && junctions(doc).includes(nodeId));
   useEffect(() => {
     if (!open) return undefined;
@@ -270,13 +271,13 @@ export function JunctionEditor() {
             <div className="seg seg-wide jc-tabs" role="tablist" aria-label="Разделы перекрёстка">
               {TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>)}
             </div>
-            <div className="jx-panel">
+            <fieldset className="jx-panel" disabled={viewOnly}>
               {tab === 'lanes' && <JunctionLanes nodeId={nodeId} />}
               {tab === 'signs' && <JunctionSigns nodeId={nodeId} />}
               {tab === 'signal' && <JunctionSignal nodeId={nodeId} />}
               {tab === 'capacity' && <JunctionCapacitySection nodeId={nodeId} />}
               {tab === 'info' && <JunctionInfo nodeId={nodeId} />}
-            </div>
+            </fieldset>
           </aside>
         </div>
       </section>

@@ -180,7 +180,8 @@ export const useUi = create<UiState>((set, get) => ({
     const layers = { ...get().layers };
     if (lens === 'transit') { layers.transit = true; layers.tram = true; }
     if (lens === 'rail' || lens === 'metro') layers.tram = true;
-    if (lens === 'car' || lens === 'walk') layers.roads = true;
+    if (lens === 'car' || lens === 'walk' || lens === 'signs') layers.roads = true;
+    if (lens === 'signs') { layers.signals = true; layers.signs = true; layers.crossings = true; }
     if (lens === 'walk') layers.sidewalks = true;
     if (lens === 'car') layers.sidewalks = false;
     if (lens === 'all') layers.sidewalks = true;

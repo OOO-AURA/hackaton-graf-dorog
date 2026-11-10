@@ -145,3 +145,37 @@
   .float-view { left: auto; right: 60px; transform: none; justify-items: end; }
   .float-hint { max-width: calc(100% - 24px); }
 }
+
+/* View mode island: a pill that grows into the menu of modes, like a dynamic island. */
+.island {
+  display: grid; width: 300px; max-width: calc(100vw - 32px);
+  background: var(--glass, rgba(24, 24, 28, 0.86)); color: var(--ink); backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  border: 1px solid var(--glass-line, rgba(255, 255, 255, 0.1)); border-radius: 22px; box-shadow: var(--shadow-glass, 0 10px 30px rgba(0, 0, 0, 0.35));
+  transition: width 420ms cubic-bezier(0.2, 0.9, 0.25, 1.12), border-radius 420ms cubic-bezier(0.2, 0.9, 0.25, 1.12), box-shadow 300ms ease;
+  overflow: hidden;
+}
+.island.open { width: 460px; border-radius: 26px; box-shadow: 0 22px 60px rgba(0, 0, 0, 0.5); }
+.island-pill { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border: 0; background: none; color: inherit; font-size: 13px; cursor: pointer; text-align: left; }
+.island-pill:hover .island-title { color: var(--ink); }
+.island-title { color: var(--ink-2); white-space: nowrap; transition: color var(--dur, 160ms) ease; }
+.island-mode { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 8px; border-left: 1px solid var(--line); font-weight: 700; }
+.island-chev { flex-shrink: 0; transition: transform 320ms cubic-bezier(0.2, 0.9, 0.25, 1.12); }
+.island.open .island-chev { transform: rotate(180deg); }
+.island-glyph { flex-shrink: 0; }
+.island-body { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 420ms cubic-bezier(0.2, 0.9, 0.25, 1.05), opacity 220ms ease; }
+.island.open .island-body { grid-template-rows: 1fr; opacity: 1; transition: grid-template-rows 420ms cubic-bezier(0.2, 0.9, 0.25, 1.05), opacity 260ms 80ms ease; }
+.island-inner { min-height: 0; overflow: hidden; display: grid; gap: 10px; padding: 0 10px; }
+.island.open .island-inner { padding-bottom: 12px; }
+.island-modes { display: grid; gap: 2px; }
+.island-mode-btn { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 0; border-radius: 14px; background: none; color: inherit; text-align: left; cursor: pointer; transition: background-color var(--dur, 160ms) ease; }
+.island-mode-btn:hover { background: var(--hover); }
+.island-mode-btn.on { background: var(--ink); color: var(--on-ink); }
+.island-mode-btn.on .hint { color: inherit; opacity: 0.75; }
+.island-mode-btn > span { display: grid; gap: 1px; min-width: 0; }
+.island-mode-btn b { font-size: 13px; }
+.island-mode-btn .hint { font-size: 11px; line-height: 1.3; }
+.island-basemap { padding: 8px 6px 0; border-top: 1px solid var(--line); }
+.island-basemap .tpl-group-title { margin-top: 0; }
+.island-more { justify-self: start; padding: 0 6px; font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .island, .island-body, .island-chev { transition: none; } }
+.float-tools .tool:disabled { opacity: 0.32; cursor: not-allowed; }

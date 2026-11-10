@@ -41,10 +41,10 @@ export function HelpDialog() {
           <div>
             <h3 className="micro">Шаги, слева направо в шапке</h3>
             <ol className="help-steps">
-              {STEPS.map((s, i) => (
+              {STEPS.map((s) => (
                 <li key={s.id}>
                   <button className="help-step" onClick={() => { setStep(s.id); setOpen(false); }}>
-                    <span className="step-n mono">{i + 1}</span><b>{s.label}</b>
+                    <b>{s.label}</b>
                   </button>
                   <span className="hint">{s.hint}</span>
                 </li>

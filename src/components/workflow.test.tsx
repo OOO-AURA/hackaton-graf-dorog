@@ -26,13 +26,13 @@ describe('the work in steps', () => {
     useUi.getState().setMapHints(true);
   });
 
-  test('the header lists the five steps in order and a click moves to one', () => {
+  test('the header lists the three steps unnumbered and a click moves to one', () => {
     const r = render(<StepBar />);
     const buttons = [...r.host.querySelectorAll('button')];
-    expect(buttons.map((b) => b.textContent?.replace(/\d/g, ''))).toEqual(['Правка', 'Проверка', 'Макро', 'Микро', 'Сдача']);
-    act(() => buttons[2].click());
+    expect(buttons.map((b) => b.textContent)).toEqual(['Редактирование', 'Макро', 'Микро']);
+    act(() => buttons[1].click());
     expect(useUi.getState()).toMatchObject({ step: 'flows', bottomTab: 'flows', bottomOpen: true });
-    expect(buttons[2].getAttribute('aria-current')).toBe('step');
+    expect(buttons[1].getAttribute('aria-current')).toBe('step');
     r.done();
   });
 

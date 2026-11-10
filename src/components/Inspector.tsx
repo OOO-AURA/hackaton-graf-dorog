@@ -26,7 +26,7 @@ const STARTS = [
 
 function Nothing() {
   const setMode = useEditor((s) => s.setMode);
-  const setStep = useUi((s) => s.setStep);
+  const openBottom = useUi((s) => s.openBottom);
   const setHelpOpen = useUi((s) => s.setHelpOpen);
   const errors = useEditor((s) => s.report?.issues.filter((i) => i.severity === 'error').length ?? 0);
   return (
@@ -43,9 +43,9 @@ function Nothing() {
         ))}
       </div>
       {errors > 0 && (
-        <button className="insp-start insp-start-warn" onClick={() => setStep('check')}>
+        <button className="insp-start insp-start-warn" onClick={() => openBottom('issues')}>
           <Icon name="check" size={18} />
-          <span><b>Исправить ошибки графа: {errors}</b><span className="hint">Шаг 2, многие чинятся одной кнопкой</span></span>
+          <span><b>Исправить ошибки графа: {errors}</b><span className="hint">Вкладка внизу, многие чинятся одной кнопкой</span></span>
         </button>
       )}
       <button className="link insp-help" onClick={() => setHelpOpen(true)}>Как работать и горячие клавиши <kbd>?</kbd></button>
@@ -88,7 +88,8 @@ export function Inspector() {
     <aside className="panel inspector-panel" aria-label="Инспектор" data-tour="inspector">
       <div className="panel-title micro"><span>Инспектор</span><Why id="inspector" /></div>
       {(mode === 'draw' || mode === 'signal') && <ToolPane mode={mode} />}
-      {mode !== 'draw' && mode !== 'signal' && <div key={multi.length > 1 ? `multi${multi.length}` : selection ? `${selection.type}${selection.id}` : 'none'} className="insp-swap">
+      {mode === 'view' && <p className="insp-viewonly"><Icon name="eye" size={14} /> Просмотр: поля только для чтения</p>}
+      {mode !== 'draw' && mode !== 'signal' && <fieldset disabled={mode === 'view'} key={multi.length > 1 ? `multi${multi.length}` : selection ? `${selection.type}${selection.id}` : 'none'} className="insp-swap">
         {multi.length > 1 && <MultiInspector ids={multi} />}
         {multi.length < 2 && selection?.type === 'way' && (isBuildingWay(doc.ways[selection.id])
           ? <BuildingInspector way={doc.ways[selection.id]} />
@@ -99,7 +100,7 @@ export function Inspector() {
           : <NodeInspector node={doc.nodes[selection.id]} />)}
         {multi.length < 2 && selection?.type === 'street' && <StreetInspector name={selection.id} />}
         {multi.length < 2 && !selection && <Nothing />}
-      </div>}
+      </fieldset>}
     </aside>
   );
 }

@@ -487,3 +487,8 @@ button.link:hover { text-decoration: underline; }
 .jx-sign-bg { fill: rgba(20, 20, 24, 0.75); stroke: rgba(255, 255, 255, 0.35); stroke-width: 0.12; }
 .jx-sign:hover .jx-sign-bg { stroke: #fff; stroke-width: 0.2; }
 .jx-signal rect { fill: #1A1A1E; stroke: #fff; stroke-width: 0.15; }
+
+/* The view tool: the inspector shows everything but changes nothing. */
+fieldset.insp-swap, fieldset.jx-panel { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.insp-swap:disabled input, fieldset.insp-swap:disabled select, fieldset.insp-swap:disabled button:not(.link) { opacity: 0.6; cursor: default; }
+.insp-viewonly { display: flex; align-items: center; gap: 6px; margin: 0 16px 6px; padding: 6px 10px; border-radius: var(--r-md); background: var(--hover); font-size: 12px; color: var(--ink-2); }

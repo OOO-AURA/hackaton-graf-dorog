@@ -1,3 +1,4 @@
+import { TOOLS_IN } from '../map/editScope';
 import { useEffect } from 'react';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { useEditor, type Mode } from './store';
@@ -9,7 +10,7 @@ import { copySelected, duplicateSelected, pasteBuilding, selectedBuildingId } fr
 import { BUILDING_TEMPLATES } from '../osm/buildingShape';
 import { deleteSelection, openFile, saveOsm, finishDrawing, flipSelected, reverseSelected, splitAtSelected, toggleSignalSelected } from './actions';
 
-const MODE_KEYS: Readonly<Record<string, Mode>> = { v: 'select', d: 'draw', n: 'insert', t: 'signal', b: 'building' };
+const MODE_KEYS: Readonly<Record<string, Mode>> = { h: 'view', v: 'select', d: 'draw', n: 'insert', t: 'signal', b: 'building' };
 
 export const HOTKEYS: ReadonlyArray<[string, string]> = [
   ['V / D / N / T / B', 'Выбор / Рисовать дорогу / Узел на дороге / Объект ОДД / Здание'],
@@ -71,7 +72,7 @@ function handleKey(e: KeyboardEvent): void {
     if (key === 'escape') { s.setMode('select'); return; }
   }
 
-  if (MODE_KEYS[key]) { s.setMode(MODE_KEYS[key]); return; }
+  if (MODE_KEYS[key]) { if (TOOLS_IN[useUi.getState().lens].has(MODE_KEYS[key])) s.setMode(MODE_KEYS[key]); return; }
   const template = Number.parseInt(key, 10);
   if (template >= 1 && template <= Math.min(9, ROAD_TEMPLATES.length)) { s.setTemplate(template - 1); return; }
   const actions: Record<string, () => void> = {

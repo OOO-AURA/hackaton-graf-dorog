@@ -5,7 +5,7 @@ import { useUi } from '../state/ui';
 import { featureById, toggleNodeFeature } from './features';
 import { useEditor } from '../state/store';
 import { finishDrawing } from '../state/actions';
-import { hitBuilding, hitNode, hitWay } from './hit';
+import { hitBuilding, hitNode, hitWay, pickableWay, pickNode, pickWay } from './hit';
 import { junctions } from '../osm/lanes';
 import { drawTarget } from './drawSnap';
 import { curvePoints } from '../osm/drawGeometry';
@@ -43,10 +43,13 @@ function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
     // A lane end is where a link is dragged from: a click on it keeps the junction selected.
     if (map.queryRenderedFeatures([e.point.x, e.point.y], { layers: ['lane-ends'] }).length) return;
   }
-  const nodeId = hitNode(map, e.point);
-  const way = nodeId ? null : hitWay(map, s.doc, e.point);
+  // Picking takes only what the view mode is about (editScope.ts); tools that place things see everything.
+  const picking = s.mode === 'select' || s.mode === 'view';
+  const nodeId = picking ? pickNode(map, e.point) : hitNode(map, e.point);
+  const way = nodeId ? null : picking ? pickWay(map, s.doc, e.point) : hitWay(map, s.doc, e.point);
 
-  switch (s.mode) {
+  // The view tool picks like the select tool; the store keeps it from changing anything.
+  switch (s.mode === 'view' ? 'select' : s.mode) {
     case 'select': {
       if (nodeId) { s.select({ type: 'node', id: nodeId }); return; }
       // In 3D a bridge deck is picked where it is drawn, above the ground; it wins over a road
@@ -54,7 +57,7 @@ function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
       // under the buildings.
       void hitBuilding(map, e.point).then((id) => {
         const st = useEditor.getState();
-        const picked = id ? st.doc.ways[id] : null;
+        const picked = id && pickableWay(st.doc, id) ? st.doc.ways[id] : null;
         if (picked && !isBuilding(picked.tags)) st.select({ type: 'way', id: picked.id });
         // A click on a road picks the stretch between the junctions on either side of it.
         else if (way) st.select({ type: 'way', id: way.wayId, piece: pieceAround(st.doc, way.wayId, way.index) ?? undefined });
@@ -123,7 +126,7 @@ function useNodeDrag(map: MapLibreMap | null): void {
     const onDown = (e: MapMouseEvent) => {
       const s = useEditor.getState();
       if (s.mode !== 'select' || e.originalEvent.button !== 0 || zoneEditingActive()) return;
-      const id = hitNode(map, e.point);
+      const id = pickNode(map, e.point);
       if (!id) return;
       e.preventDefault();
       dragId = id;
@@ -212,15 +215,15 @@ export function useMapInteractions(map: MapLibreMap | null, onPointer: (lon: num
       if (s.mode === 'draw') useUi.getState().setDrawTarget(drawTarget(map, s.doc, e.point, e.lngLat, s.drawing, e.originalEvent.shiftKey, Boolean(ROAD_TEMPLATES[s.templateIndex]?.tags.railway)));
       else if (useUi.getState().drawTarget) useUi.getState().setDrawTarget(null);
       const placing = s.mode === 'draw' || s.mode === 'building';
-      const hovering = !placing && (hitNode(map, e.point) || hitWay(map, s.doc, e.point));
+      const hovering = !placing && (pickNode(map, e.point) || pickWay(map, s.doc, e.point));
       map.getCanvas().style.cursor = placing ? 'crosshair' : hovering ? 'pointer' : '';
     };
     const onDblClick = (e: MapMouseEvent) => {
       const s = useEditor.getState();
       if (s.mode === 'draw') { finishDrawing(); return; }
       // A double click on a junction opens its editor window.
-      if (s.mode !== 'select') return;
-      const id = hitNode(map, e.point);
+      if (s.mode !== 'select' && s.mode !== 'view') return;
+      const id = pickNode(map, e.point);
       if (!id || !junctions(s.doc).includes(id)) return;
       e.preventDefault();
       s.select({ type: 'node', id });

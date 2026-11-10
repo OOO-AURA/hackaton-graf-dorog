@@ -8,6 +8,7 @@ import { useUi } from '../state/ui';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { Icon } from './icons';
 import { TOOLS } from './tools';
+import { TOOLS_IN } from '../map/editScope';
 import { EmptyState } from './EmptyState';
 import { SimBar } from './sim/SimBar';
 import { HeightHandle } from './HeightHandle';
@@ -41,6 +42,7 @@ function BuildingBar() {
 function FloatingTools() {
   const mode = useEditor((s) => s.mode);
   const setMode = useEditor((s) => s.setMode);
+  const lens = useUi((s) => s.lens);
   const template = useEditor((s) => s.templateIndex);
   const points = useEditor((s) => s.drawing.length);
   const drawing = useEditor((s) => s.drawing);
@@ -55,7 +57,8 @@ function FloatingTools() {
     <>
       <div className="float float-tools" role="toolbar" aria-label="Инструменты" aria-orientation="vertical">
         {TOOLS.map((t) => (
-          <button key={t.mode} className={`tool tool-labelled${mode === t.mode ? ' on' : ''}`} onClick={() => setMode(t.mode)} title={t.hint} aria-pressed={mode === t.mode}>
+          <button key={t.mode} className={`tool tool-labelled${mode === t.mode ? ' on' : ''}`} onClick={() => setMode(t.mode)} aria-pressed={mode === t.mode}
+            disabled={!TOOLS_IN[lens].has(t.mode)} title={TOOLS_IN[lens].has(t.mode) ? t.hint : `${t.label}: не нужен в этом режиме вида`}>
             <Icon name={t.icon} size={18} /><span>{t.label}</span><kbd>{t.key}</kbd>
           </button>
         ))}

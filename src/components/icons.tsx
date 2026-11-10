@@ -3,6 +3,7 @@ import type { ReactNode, SVGProps } from 'react';
 /** Small stroke icons on a 20px grid, drawn for this app. */
 const PATHS: Record<string, ReactNode> = {
   select: <path d="M5 3l10 6.5-4.5 1.2L8.3 15z" />,
+  eye: <><path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10z" /><circle cx="10" cy="10" r="2.4" /></>,
   road: <><path d="M6 17L9 3M14 17L11 3" /><path d="M10 6v1.5M10 10v1.5M10 14v1.5" /></>,
   node: <><path d="M3 14L17 6" /><circle cx="10" cy="10" r="2.6" /></>,
   signal: <><rect x="7" y="2.5" width="6" height="12" rx="2" /><circle cx="10" cy="5.6" r="1" /><circle cx="10" cy="8.6" r="1" /><circle cx="10" cy="11.6" r="1" /><path d="M10 14.5V18" /></>,

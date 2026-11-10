@@ -7,7 +7,8 @@ export type { DrawPoint };
 import { validate, type ValidationReport } from '../osm/validate';
 import type { Piece } from '../osm/pieces';
 
-export type Mode = 'select' | 'draw' | 'insert' | 'signal' | 'building';
+/** `view` looks only: objects are picked and shown, nothing is changed. */
+export type Mode = 'view' | 'select' | 'draw' | 'insert' | 'signal' | 'building';
 /** `street` selects every drivable way named `id` (see osm/street.ts). */
 /** What is selected; a way may be picked only between two of its junctions (`piece`, see osm/pieces.ts). */
 export type Selection = { type: 'node' | 'way' | 'street'; id: string; piece?: Piece } | null;
@@ -66,6 +67,13 @@ interface EditorState {
 
 const pushPast = (past: OsmDoc[], doc: OsmDoc) => [...past, doc].slice(-HISTORY_LIMIT);
 
+/** In the view tool nothing may change: says so instead of applying an edit. */
+function viewOnly(get: () => { mode: Mode; notify: (m: string | null) => void }): boolean {
+  if (get().mode !== 'view') return false;
+  get().notify('Режим просмотра: правка выключена. Выберите «Выбор» (V), чтобы править');
+  return true;
+}
+
 export const useEditor = create<EditorState>((set, get) => ({
   doc: EMPTY_DOC,
   savedDoc: EMPTY_DOC,
@@ -89,19 +97,22 @@ export const useEditor = create<EditorState>((set, get) => ({
   markSaved: (fileName, filePath, savedDoc) => set({ fileName, filePath, saveName: fileName, savedDoc }),
   load: (doc, fileName, filePath = null) => set({ doc, savedDoc: doc, baseDoc: doc, fileName, filePath, past: [], future: [], selection: null, multi: [], drawing: [], report: null, mode: 'select' }),
   apply: (edit) => {
+    if (viewOnly(get)) return;
     const { doc, past } = get();
     const next = edit(doc);
     if (next === doc) return;
     set({ doc: next, past: pushPast(past, doc), future: [], report: null });
   },
-  beginGesture: () => set(({ doc, past }) => ({ past: pushPast(past, doc), future: [] })),
-  applyLive: (edit) => set(({ doc }) => ({ doc: edit(doc), report: null })),
+  beginGesture: () => { if (!viewOnly(get)) set(({ doc, past }) => ({ past: pushPast(past, doc), future: [] })); },
+  applyLive: (edit) => { if (!viewOnly(get)) set(({ doc }) => ({ doc: edit(doc), report: null })); },
   undo: () => {
+    if (viewOnly(get)) return;
     const { past, doc, future } = get();
     if (!past.length) return;
     set({ doc: past[past.length - 1], past: past.slice(0, -1), future: [doc, ...future], report: null, drawing: [] });
   },
   redo: () => {
+    if (viewOnly(get)) return;
     const { past, doc, future } = get();
     if (!future.length) return;
     set({ doc: future[0], past: pushPast(past, doc), future: future.slice(1), report: null });

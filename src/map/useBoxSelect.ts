@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { isDrivable } from '../osm/tags';
 import type { OsmDoc } from '../osm/types';
+import { pickableWay } from './hit';
 import { useEditor } from '../state/store';
 import { zoneEditingActive } from '../macro/useZoneEditing';
 
@@ -71,7 +72,8 @@ export function useBoxSelect(map: MapLibreMap | null): void {
       map.dragPan.enable();
       if (Math.abs(rect.x1 - rect.x0) < 4 && Math.abs(rect.y1 - rect.y0) < 4) return;
       const s = useEditor.getState();
-      s.selectMany(waysInRect(s.doc, rect, (lon, lat) => map.project([lon, lat])));
+      // Only what the view mode is about (editScope.ts).
+      s.selectMany(waysInRect(s.doc, rect, (lon, lat) => map.project([lon, lat])).filter((id) => pickableWay(s.doc, id)));
     };
     map.on('mousedown', onDown);
     map.on('mousemove', onMove);
