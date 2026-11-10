@@ -380,14 +380,25 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
 }
 
 /** Road colour by class or by one attribute; bridges keep the same colour as the road they carry. */
+/**
+ * The road map look: main roads (motorways, trunk and primary roads, and any road marked as the
+ * main road) wide and warm, district roads light, local streets and driveways plain, as city maps
+ * draw their hierarchy.
+ */
+const IS_MAIN = ['any', ['==', ['get', 'priority'], true], ['in', ['get', 'highway'], ['literal', ['motorway', 'trunk', 'primary']]]];
+const IS_DISTRICT = ['in', ['get', 'highway'], ['literal', ['secondary', 'tertiary']]];
+const schemeColor = (p: MapPalette) => ['case', IS_MAIN, p.schemeMain, IS_DISTRICT, p.schemeDistrict, p.schemeLocal];
+const schemeCasing = (p: MapPalette) => ['case', IS_MAIN, p.schemeMainEdge, p.schemeEdge];
+
 export function applyRoadColors(map: MapLibreMap, p: MapPalette, mode: RoadColorMode, look: RoadLook = 'graph'): void {
   // An attribute colouring wins over the look: it is asked for on purpose.
   const asphalt = mode === 'class' && look === 'engineering';
-  const color = mode !== 'class' ? thematicExpression(mode) : asphalt ? p.asphalt : roadColorExpression(p);
+  const scheme = mode === 'class' && look === 'scheme';
+  const color = mode !== 'class' ? thematicExpression(mode) : asphalt ? p.asphalt : scheme ? schemeColor(p) : roadColorExpression(p);
   map.setPaintProperty('roads', 'line-color', color as never);
   map.setPaintProperty('roads-bridge', 'line-color', color as never);
   // On asphalt the casing is the edge line of the carriageway.
-  map.setPaintProperty('roads-casing', 'line-color', (asphalt ? p.asphaltEdge : p.casing) as never);
+  map.setPaintProperty('roads-casing', 'line-color', (asphalt ? p.asphaltEdge : scheme ? schemeCasing(p) : p.casing) as never);
   // On a plan the arrows painted on the lanes show the direction; the graph arrows would clutter it.
   map.setPaintProperty('roads-arrows', 'icon-opacity', 1);
 }

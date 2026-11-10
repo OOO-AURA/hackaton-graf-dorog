@@ -30,6 +30,12 @@ export interface MapPalette {
   bridgeParapet: string;
   /** Earth slopes of the embankments up to bridges in 3D. */
   embankment: string;
+  /** Roads in the road map look: main, district and local roads, and their edges. */
+  schemeMain: string;
+  schemeMainEdge: string;
+  schemeDistrict: string;
+  schemeLocal: string;
+  schemeEdge: string;
   /** Roads in the engineering look: asphalt with a light edge line. */
   asphalt: string;
   asphaltEdge: string;
@@ -75,6 +81,11 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     bridgeSide: '#8C7350',
     bridgeParapet: '#F4EBDD',
     embankment: '#A3A07A',
+    schemeMain: '#FFD45C',
+    schemeMainEdge: '#D9962B',
+    schemeDistrict: '#FFFFFF',
+    schemeLocal: '#F3EFE6',
+    schemeEdge: '#B9AE9A',
     asphalt: '#83838B',
     asphaltEdge: '#F4F1EA',
     lane: '#FBF6EA',
@@ -113,6 +124,11 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     bridgeSide: '#5C5C66',
     bridgeParapet: '#D9D9E0',
     embankment: '#3E4437',
+    schemeMain: '#E0A93A',
+    schemeMainEdge: '#8C6420',
+    schemeDistrict: '#8E8E98',
+    schemeLocal: '#5C5C66',
+    schemeEdge: '#2A2A30',
     asphalt: '#3E3E46',
     asphaltEdge: '#A3A3AD',
     lane: '#E8E2D4',

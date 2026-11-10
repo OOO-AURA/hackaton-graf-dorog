@@ -7,7 +7,7 @@ export type Theme = 'light' | 'dark';
 export type ThemeChoice = Theme | 'system';
 export type Workspace = 'macro' | 'micro';
 /** How roads look: coloured by class like a graph, or as asphalt with markings like an engineering plan. */
-export type RoadLook = 'graph' | 'engineering';
+export type RoadLook = 'graph' | 'engineering' | 'scheme';
 export type BottomTab = 'issues' | 'check' | 'flows' | 'transit' | 'scenarios' | 'journal' | 'errors';
 export type LayerId = 'roads' | 'sidewalks' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs' | 'transit' | 'changes';
 
