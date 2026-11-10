@@ -1,6 +1,6 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { JUNCTION_LAYERS } from './junctionLayers';
-import { RAIL_LAYERS } from './railLayers';
+import { RAIL_LAYERS, setRailBright } from './railLayers';
 
 /**
  * Lenses: one map, looked at for one kind of traveller. A lens keeps its own layers at full
@@ -40,6 +40,8 @@ const KEEP: Record<Lens, ReadonlySet<Group>> = {
 };
 
 const FADED = 0.14;
+/** Lenses that keep the roads a little visible as context: buses and trams run on them. */
+const ROAD_CONTEXT: Partial<Record<Lens, number>> = { load: 0.45, signs: 0.45, transit: 0.38 };
 
 const PROPS: Record<string, string[]> = {
   line: ['line-opacity'], circle: ['circle-opacity', 'circle-stroke-opacity'], symbol: ['icon-opacity', 'text-opacity'], fill: ['fill-opacity'],
@@ -96,12 +98,13 @@ function highlightWalking(map: MapLibreMap, on: boolean): void {
 export function applyLens(map: MapLibreMap, lens: Lens): void {
   const keep = KEEP[lens];
   highlightWalking(map, lens === 'walk');
+  setRailBright(map, lens === 'rail');
   (Object.keys(GROUPS) as Group[]).forEach((g) => {
     GROUPS[g].forEach((layer) => {
       if (lens === 'metro' && g === 'rail') {
         // Metro only: its lines and its stations, the railway faded.
         setOpacity(map, layer, layer === 'rail-metro' || layer === 'rail-metro-tunnel' ? 1 : layer === 'stations' || layer === 'station-names' ? ['case', ['in', ['get', 'kind'], ['literal', ['subway', 'subway_entrance']]], 1, FADED] : FADED);
-      } else setOpacity(map, layer, keep.has(g) ? 1 : (lens === 'load' || lens === 'signs') && g === 'road' ? 0.45 : FADED);
+      } else setOpacity(map, layer, keep.has(g) ? 1 : g === 'road' ? ROAD_CONTEXT[lens] ?? FADED : FADED);
     });
   });
 }

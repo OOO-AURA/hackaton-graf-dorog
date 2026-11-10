@@ -126,9 +126,32 @@ export function addStationLayers(map: MapLibreMap): void {
     layout: { 'icon-image': ['concat', NAME_PREFIX, ['get', 'name']], 'icon-anchor': 'left', 'icon-offset': [16, 0], 'icon-allow-overlap': false } });
 }
 
+/** Palette last applied and whether the railway view mode wants the tracks lit, per map. */
+const railState = new WeakMap<MapLibreMap, { p: MapPalette | null; bright: boolean }>();
+
+/** Track colour in the railway view: lighter than the road on a dark map, darker on a light one. */
+const brightRail = (p: MapPalette) => (Number.parseInt(p.rail.slice(1, 3), 16) > 0x70 ? '#F2F2F8' : '#1C1C22');
+/** Lit tracks are drawn this much wider. */
+const BRIGHT_WIDEN = 1.6;
+
 export function applyRailPalette(map: MapLibreMap, p: MapPalette): void {
+  const st = railState.get(map) ?? { p: null, bright: false };
+  st.p = p;
+  railState.set(map, st);
   const set = (layer: string, prop: string, value: unknown) => map.setPaintProperty(layer, prop as never, value as never);
   set('rail-platform', 'line-color', p.platform);
-  set('rail-base', 'line-color', ['case', IS_TRAM, p.tram, p.rail]);
+  set('rail-base', 'line-color', ['case', IS_TRAM, p.tram, st.bright ? brightRail(p) : p.rail]);
   set('rail-ties', 'line-color', p.railTies);
+  const k = st.bright ? BRIGHT_WIDEN : 1;
+  set('rail-base', 'line-width', zoomWidth(['case', IS_TRAM, 1.2 * k, IS_SIDE, 1.2 * k, 2 * k], ['case', IS_TRAM, 3 * k, IS_SIDE, 3 * k, 5 * k]));
+  set('rail-ties', 'line-width', zoomWidth(1 * k, 3 * k));
+}
+
+/** The railway view mode lights the tracks: a brighter colour and wider lines, kept across theme changes. */
+export function setRailBright(map: MapLibreMap, on: boolean): void {
+  const st = railState.get(map) ?? { p: null, bright: false };
+  if (st.bright === on && st.p) return;
+  st.bright = on;
+  railState.set(map, st);
+  if (st.p && map.getLayer('rail-base')) applyRailPalette(map, st.p);
 }
