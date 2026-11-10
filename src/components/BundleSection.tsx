@@ -1,6 +1,7 @@
 import { useBundle } from '../macro/bundleStore';
 import { useMacro } from '../macro/store';
 import { currentSelection, useEditor } from '../state/store';
+import { useSettledDoc } from '../state/settled';
 
 const TOP_PAIRS = 8;
 
@@ -8,7 +9,7 @@ const TOP_PAIRS = 8;
 export function BundleSection() {
   const result = useMacro((s) => s.result);
   const selection = useEditor((s) => currentSelection(s));
-  const doc = useEditor((s) => s.doc);
+  const doc = useSettledDoc();
   const { bundle, error, show, clear } = useBundle();
   const wayId = selection?.type === 'way' ? selection.id : null;
   const way = wayId ? doc.ways[wayId] : null;

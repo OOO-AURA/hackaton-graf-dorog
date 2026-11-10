@@ -17,7 +17,7 @@ const BASEMAPS: ReadonlyArray<[Basemap, string]> = [['osm', 'Схема'], ['sat
 
 export const LAYER_LABELS: Readonly<Record<LayerId, string>> = {
   roads: 'Дороги', junctions: 'Перекрёстки', signals: 'Светофоры', crossings: 'Переходы',
-  bridges: 'Мосты', tunnels: 'Тоннели', buildings: 'Здания', tram: 'Трамвай', signs: 'Знаки', transit: 'Маршруты ОТ', changes: 'Изменения',
+  bridges: 'Мосты', tunnels: 'Тоннели', buildings: 'Здания', tram: 'Ж/д и трамвай', signs: 'Знаки', transit: 'Маршруты ОТ', changes: 'Изменения',
 };
 
 function FloatingTools() {

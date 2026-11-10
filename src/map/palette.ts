@@ -40,6 +40,10 @@ export interface MapPalette {
   laneMarkCasing: string;
   path: string;
   tram: string;
+  /** Railway tracks, their ties and platforms. */
+  rail: string;
+  railTies: string;
+  platform: string;
   nodeFill: string;
   nodeStroke: string;
   signal: string;
@@ -73,6 +77,9 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     laneMarkCasing: '#2B1D12',
     path: '#9C8763',
     tram: '#7A4FA0',
+    rail: '#5B5B63',
+    railTies: '#F4F1EA',
+    platform: '#C9BDA4',
     nodeFill: '#FBF6EA',
     nodeStroke: '#3A2516',
     signal: '#E5392A',
@@ -104,6 +111,9 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     laneMarkCasing: '#0E0E10',
     path: '#6A6A72',
     tram: '#B48ADB',
+    rail: '#8E8E9A',
+    railTies: '#2A2A30',
+    platform: '#55555E',
     nodeFill: '#28282D',
     nodeStroke: '#F1E6CB',
     signal: '#F0503F',

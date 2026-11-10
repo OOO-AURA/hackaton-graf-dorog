@@ -10,6 +10,7 @@ import { Why } from './Why';
 import { TOOLS } from './tools';
 import { NODE_FEATURES } from '../map/features';
 import { placeRuleSigns } from '../osm/signs';
+import { useSettledDoc } from '../state/settled';
 
 interface Street { name: string; wayIds: string[]; bounds: [number, number, number, number] }
 
@@ -110,7 +111,7 @@ function RuleSigns() {
 }
 
 function Objects() {
-  const doc = useEditor((s) => s.doc);
+  const doc = useSettledDoc();
   const select = useEditor((s) => s.select);
   const flyTo = useUi((s) => s.flyTo);
   const [query, setQuery] = useState('');

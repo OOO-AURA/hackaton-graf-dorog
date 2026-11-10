@@ -100,6 +100,16 @@ function useNodeDrag(map: MapLibreMap | null): void {
       origin = e.point;
       map.dragPan.disable();
     };
+    // The pointer moves faster than the screen redraws: the node moves at most once a frame.
+    let pending: { lng: number; lat: number } | null = null;
+    let frame = 0;
+    const flush = () => {
+      frame = 0;
+      if (!dragId || !pending) return;
+      const [id, to] = [dragId, pending];
+      pending = null;
+      useEditor.getState().applyLive((d) => moveNode(d, id, to.lng, to.lat));
+    };
     const onMove = (e: MapMouseEvent) => {
       if (!dragId) return;
       const s = useEditor.getState();
@@ -108,16 +118,21 @@ function useNodeDrag(map: MapLibreMap | null): void {
         started = true;
         s.beginGesture();
         s.select({ type: 'node', id: dragId });
+        useUi.getState().setDragging(true);
       }
-      const id = dragId;
-      s.applyLive((d) => moveNode(d, id, e.lngLat.lng, e.lngLat.lat));
+      pending = { lng: e.lngLat.lng, lat: e.lngLat.lat };
+      if (!frame) frame = requestAnimationFrame(flush);
     };
     const onUp = (e: MapMouseEvent) => {
       if (!dragId) return;
       const id = dragId;
+      if (frame) cancelAnimationFrame(frame);
+      flush();
       dragId = null;
       map.dragPan.enable();
       if (!started) return;
+      // Letting go brings the costly layers up to date in one go.
+      useUi.getState().setDragging(false);
       const target = hitNode(map, e.point, id);
       if (!target) return;
       const s = useEditor.getState();
@@ -125,13 +140,24 @@ function useNodeDrag(map: MapLibreMap | null): void {
       s.select({ type: 'node', id: target });
       s.notify('Узлы объединены в перекрёсток');
     };
+    // Let go outside the map: the drag still ends, without merging.
+    const onWindowUp = () => {
+      if (!dragId) return;
+      if (frame) cancelAnimationFrame(frame);
+      flush();
+      dragId = null;
+      map.dragPan.enable();
+      useUi.getState().setDragging(false);
+    };
     map.on('mousedown', onDown);
     map.on('mousemove', onMove);
     map.on('mouseup', onUp);
+    window.addEventListener('mouseup', onWindowUp);
     return () => {
       map.off('mousedown', onDown);
       map.off('mousemove', onMove);
       map.off('mouseup', onUp);
+      window.removeEventListener('mouseup', onWindowUp);
     };
   }, [map]);
 }

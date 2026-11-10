@@ -2,6 +2,7 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { LayerId } from '../state/ui';
 import { ROAD_CLASSES, roadColorExpression, type MapPalette } from './palette';
 import { Scene3dLayer, SCENE3D_LAYER } from './scene3d';
+import { addRailLines, addStationLayers, applyRailPalette, RAIL_HIT_LINES, RAIL_HIT_POINTS, RAIL_LAYERS, RAIL_SOURCES } from './railLayers';
 import { addJunctionLayers, JUNCTION_LAYERS, JUNCTION_SOURCES, SIGN_LAYER, UNDER_DECK_LAYERS } from './junctionLayers';
 import type { Rgb, Scene3dColors } from './mesh3d';
 import { thematicExpression, type RoadColorMode } from './thematic';
@@ -9,10 +10,10 @@ import type { RoadLook } from '../state/ui';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, 'turns', 'changes', 'route'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, ...RAIL_SOURCES, 'turns', 'changes', 'route'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
-export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'], buildings: ['buildings'], laneEnds: ['lane-ends'], laneLinks: ['lane-links', 'lane-ribbons'] } as const;
+export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes', ...RAIL_HIT_POINTS], roads: ['roads', 'roads-bridge', ...RAIL_HIT_LINES], buildings: ['buildings'], laneEnds: ['lane-ends'], laneLinks: ['lane-links', 'lane-ribbons'] } as const;
 
 function arrowImage(color: string): ImageData | null {
   const size = 24;
@@ -157,7 +158,7 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
 
   map.addLayer({ id: 'buildings', type: 'fill', source: 'buildings', paint: { 'fill-opacity': 0.55 } });
   map.addLayer({ id: 'context', type: 'line', source: 'context', filter: ['!=', ['get', 'kind'], 'rail'], paint: { 'line-width': 1, 'line-dasharray': [2, 2] } });
-  map.addLayer({ id: 'tram', type: 'line', source: 'context', filter: ['==', ['get', 'kind'], 'rail'], paint: { 'line-width': 2, 'line-dasharray': [3, 1.5] } });
+  addRailLines(map);
   map.addLayer({ id: 'roads-casing', type: 'line', source: 'roads', filter: ['!', ['get', 'bridge']], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': laneWidth(2), 'line-offset': roadOffset } });
   // Bridge outlines end square with the deck, not in a half-disc over the road it lands on.
   map.addLayer({ id: 'bridge-casing', type: 'line', source: 'roads', filter: ['get', 'bridge'], layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-width': laneWidth(5), 'line-offset': roadOffset } });
@@ -201,6 +202,7 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   const signLayout = (size: number) => ({ 'icon-image': ['concat', 'sign-', ['get', 'symbol']], 'icon-allow-overlap': true, 'icon-size': ['interpolate', ['linear'], ['zoom'], 14, size * 0.7, 18, size] }) as never;
   map.addLayer({ id: 'crossings', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['==', ['get', 'symbol'], 'crossing'], layout: signLayout(1) });
   map.addLayer({ id: 'signs', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['in', ['get', 'symbol'], ['literal', ['bump', 'bus_stop']]], layout: signLayout(1) });
+  addStationLayers(map);
   map.addLayer({ id: 'signals', type: 'circle', source: 'nodes', minzoom: 13, filter: ['==', ['get', 'kind'], 'signal'], paint: { 'circle-radius': 6, 'circle-stroke-width': 2 } });
   // Junctions with turn bans: a dashed-looking double ring around the node.
   map.addLayer({ id: 'turn-bans', type: 'circle', source: 'turns', minzoom: 14, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 6, 18, 13], 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 2.5, 'circle-stroke-opacity': 0.9 } });
@@ -269,7 +271,7 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
   set('buildings', 'fill-color', p.building);
   set('buildings', 'fill-outline-color', p.buildingLine);
   set('context', 'line-color', p.path);
-  set('tram', 'line-color', p.tram);
+  applyRailPalette(map, p);
   set('roads-casing', 'line-color', p.casing);
   set('bridge-casing', 'line-color', p.bridgeCasing);
   set('roads', 'line-color', roadColorExpression(p));
@@ -324,7 +326,7 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   show('crossings', on.crossings);
   show('signs', on.signs);
   show('buildings', on.buildings && !view3d);
-  show('tram', on.tram);
+  RAIL_LAYERS.forEach((l) => show(l, on.tram));
   show('changes-line', on.changes);
   show('changes-point', on.changes);
   show('transit-line', on.transit);

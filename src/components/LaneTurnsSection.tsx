@@ -2,6 +2,7 @@ import { applyJunctionTemplate, junctionLanes, toggleLaneTurn, TURNS, classifyTu
 import type { OsmNode } from '../osm/types';
 import { useEditor } from '../state/store';
 import { Section } from './Section';
+import { useSettledDoc } from '../state/settled';
 
 export const TURN_GLYPHS: Readonly<Record<Turn, string>> = {
   sharp_left: '↙', left: '←', slight_left: '↖', through: '↑', slight_right: '↗', right: '→', sharp_right: '↘', reverse: '↶',
@@ -17,7 +18,7 @@ const TURN_NAMES: Readonly<Record<Turn, string>> = {
  * left to right, a button per direction the junction offers. Written to turn:lanes.
  */
 export function LaneTurnsSection({ node }: { node: OsmNode }) {
-  const doc = useEditor((s) => s.doc);
+  const doc = useSettledDoc();
   const apply = useEditor((s) => s.apply);
   const lanes = junctionLanes(doc, node.id);
   if (lanes.arms.length < 3 || !lanes.approaches.length) return null;

@@ -77,4 +77,6 @@ export const ROAD_TEMPLATES: readonly RoadTemplate[] = [
   { label: 'Односторонняя', tags: { highway: 'tertiary', lanes: '2', oneway: 'yes', maxspeed: '40', surface: 'asphalt' } },
   { label: 'Съезд', tags: { highway: 'primary_link', lanes: '1', oneway: 'yes', maxspeed: '40', surface: 'asphalt' } },
   { label: 'Проезд', tags: { highway: 'service', maxspeed: '20' } },
+  { label: 'Ж/д путь', tags: { railway: 'rail', gauge: '1520', electrified: 'contact_line' } },
+  { label: 'Трамвайный путь', tags: { railway: 'tram', gauge: '1524', electrified: 'contact_line' } },
 ];

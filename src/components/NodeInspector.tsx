@@ -14,6 +14,7 @@ import { TurnsSection } from './TurnsSection';
 import { RouteSection } from './RouteSection';
 import { isJunction } from '../osm/turns';
 import { LaneTurnsSection } from './LaneTurnsSection';
+import { useSettledDoc } from '../state/settled';
 
 const NODE_KIND_OPTIONS = [
   ['', 'Обычный узел'], ['traffic_signals', 'Светофор'], ['crossing', 'Пешеходный переход'],
@@ -27,7 +28,7 @@ const SIGNAL_DIRECTION_OPTIONS = [['', 'Все направления'], ['forwa
 
 export function NodeInspector({ node }: { node: OsmNode }) {
   const apply = useEditor((s) => s.apply);
-  const doc = useEditor((s) => s.doc);
+  const doc = useSettledDoc();
   const select = useEditor((s) => s.select);
   const ways = waysOfNode(doc, node.id);
   const setTag = (key: string) => (value: string) => apply((d) => setNodeTags(d, node.id, withTag(node.tags, key, value || null)));
