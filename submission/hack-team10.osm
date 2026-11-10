@@ -7580,9 +7580,20 @@
    <tag k="access" v="customers"/>
    <tag k="amenity" v="parking"/>
  </way>
- <way id="48803734" visible="true" version="35" changeset="178898413" timestamp="2026-02-22T13:19:01Z" user="Amor_fu2" uid="23794712">
+ <way id="14332300430" visible="true" version="1">
   <nd ref="1498786905"/>
   <nd ref="14332300416"/>
+  <nd ref="2294488028"/>
+  <tag k="foot" v="no"/>
+  <tag k="highway" v="secondary"/>
+  <tag k="lanes" v="4"/>
+  <tag k="maxspeed" v="60"/>
+  <tag k="name" v="улица Лермонтова"/>
+  <tag k="name:etymology:wikidata" v="Q46599"/>
+  <tag k="oneway" v="yes"/>
+  <tag k="surface" v="asphalt"/>
+ </way>
+ <way id="48803734" visible="true" version="35" changeset="178898413" timestamp="2026-02-22T13:19:01Z" user="Amor_fu2" uid="23794712">
   <nd ref="2294488028"/>
   <nd ref="10250784332"/>
   <nd ref="1872799434"/>
@@ -56039,6 +56050,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -56238,6 +56250,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -58113,6 +58126,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -63294,6 +63308,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -63707,6 +63722,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -63817,6 +63833,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -64095,6 +64112,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -64245,6 +64263,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -64677,6 +64696,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -64907,6 +64927,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -65207,6 +65228,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -65565,6 +65587,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -65835,6 +65858,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <tag k="from" v="Технический университет"/>
   <tag k="name" v="Автобус 77: Студгородок - Ж/Д Вокзал - Центр - плотина ГЭС - Студгородок"/>
@@ -65963,6 +65987,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -66661,6 +66686,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -67163,6 +67189,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -67518,6 +67545,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -68417,6 +68445,7 @@
   <member type="way" ref="81608266" role=""/>
   <member type="way" ref="35071296" role=""/>
   <member type="way" ref="80402426" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1256837848" role=""/>
   <member type="way" ref="1024105374" role=""/>
@@ -70219,6 +70248,7 @@
   <member type="way" ref="1199781532" role=""/>
   <member type="way" ref="1199781533" role=""/>
   <member type="way" ref="34953304" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="node" ref="3096767543" role="platform"/>
   <tag k="from" v="Ангарск (МЖК)"/>
@@ -70383,6 +70413,7 @@
   <member type="way" ref="1199781532" role=""/>
   <member type="way" ref="1199781533" role=""/>
   <member type="way" ref="34953304" role=""/>
+  <member type="way" ref="14332300430" role=""/>
   <member type="way" ref="48803734" role=""/>
   <member type="way" ref="1304387381" role=""/>
   <member type="way" ref="1265716802" role=""/>
