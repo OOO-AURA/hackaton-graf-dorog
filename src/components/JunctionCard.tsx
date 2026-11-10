@@ -11,6 +11,7 @@ import { removePickedLink } from '../state/laneActions';
 import { TURN_GLYPHS } from './LaneTurnsSection';
 import { Icon } from './icons';
 import type { OsmDoc } from '../osm/types';
+import { useSettledDoc } from '../state/settled';
 
 /**
  * The junction being edited, on the map next to it: every approach with its number of lanes
@@ -34,7 +35,7 @@ function offeredTurns(lanes: JunctionLanes, approach: Approach): Turn[] {
 }
 
 function ApproachRow({ nodeId, lanes, approach }: { nodeId: string; lanes: JunctionLanes; approach: Approach }) {
-  const doc = useEditor((s) => s.doc);
+  const doc = useSettledDoc();
   const apply = useEditor((s) => s.apply);
   const picked = useUi((s) => s.laneLink);
   const arm = approach.arm;
@@ -85,7 +86,7 @@ function PickedLink() {
 }
 
 export function JunctionCard() {
-  const doc = useEditor((s) => s.doc);
+  const doc = useSettledDoc();
   const selection = useEditor((s) => currentSelection(s));
   const select = useEditor((s) => s.select);
   const apply = useEditor((s) => s.apply);

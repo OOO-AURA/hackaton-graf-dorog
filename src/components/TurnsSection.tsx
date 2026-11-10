@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { armLabel, junctionTurns, restrictionsAt, setTurnAllowed, TURN_LABELS, type Turn } from '../osm/turns';
 import { useEditor } from '../state/store';
 import { Section } from './Section';
+import { useSettledDoc } from '../state/settled';
 
 const KIND_ARROW = { straight: '↑', left: '↰', right: '↱', uturn: '↶' } as const;
 
@@ -11,7 +12,7 @@ const KIND_ARROW = { straight: '↑', left: '↰', right: '↱', uturn: '↶' } 
  * netconvert applies when it builds the network.
  */
 export function TurnsSection({ nodeId }: { nodeId: string }) {
-  const doc = useEditor((s) => s.doc);
+  const doc = useSettledDoc();
   const apply = useEditor((s) => s.apply);
   const turns = useMemo(() => junctionTurns(doc, nodeId), [doc, nodeId]);
   const relations = restrictionsAt(doc, nodeId).length;

@@ -6,6 +6,7 @@ import { useEditor } from '../state/store';
 import { SelectField, TextField } from './fields';
 import { Section } from './Section';
 import { HIGHWAY_LABELS } from './WayInspector';
+import { useSettledDoc } from '../state/settled';
 
 const SURFACE_OPTIONS = [['asphalt', 'Асфальт'], ['concrete', 'Бетон'], ['paving_stones', 'Плитка'], ['gravel', 'Гравий'], ['unpaved', 'Грунт']] as const;
 const MIXED = 'разное';
@@ -16,7 +17,7 @@ const hint = (v: string | null) => (v === null ? MIXED : '—');
 
 /** One panel for every part of a street: lanes, speed, class and surface change on all parts at once. */
 export function StreetInspector({ name }: { name: string }) {
-  const doc = useEditor((s) => s.doc);
+  const doc = useSettledDoc();
   const apply = useEditor((s) => s.apply);
   const select = useEditor((s) => s.select);
   const ways = useMemo(() => streetWays(doc, name), [doc, name]);

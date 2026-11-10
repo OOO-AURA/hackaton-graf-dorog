@@ -5,6 +5,11 @@ import { deleteNode, deleteWay, flipDirection, reverseWay, splitWay, toggleSigna
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { isBuilding } from '../osm/building';
 import { deleteBuilding } from '../osm/buildingEdit';
+import { buildingConflicts, cutBuildings, demolishBuildings, type BuildingConflict } from '../osm/clearance';
+import { isRailLine } from '../osm/rail';
+import { roadWidthMetres } from '../map/lanesGeo';
+import type { DrawPoint } from '../osm/draw';
+import type { OsmDoc, Tags } from '../osm/types';
 import { addAllCordonConnectors } from '../osm/cordon';
 import { currentSelection, useEditor } from './store';
 import { refreshReport } from './validation';
@@ -86,17 +91,47 @@ export async function saveOsm(saveAs = false): Promise<void> {
   }
 }
 
-export function finishDrawing(): void {
+/** Width a new track takes, metres: a single track and its ballast. */
+const TRACK_WIDTH = 4;
+
+/** Width of what the template draws: the carriageway of a road, a track for a railway. */
+export const drawWidth = (tags: Tags) => (isRailLine(tags) ? TRACK_WIDTH : roadWidthMetres(tags));
+
+/** Buildings the road being drawn runs into, for the points drawn so far. */
+export const drawingConflicts = (doc: OsmDoc, points: readonly DrawPoint[], tags: Tags): BuildingConflict[] =>
+  buildingConflicts(doc, points, drawWidth(tags));
+
+/** What to do with buildings in the way: cut them along the road, demolish them, or build over them. */
+export type Clearance = 'cut' | 'demolish' | 'keep';
+const CLEARANCES: readonly string[] = ['cut', 'demolish', 'keep'];
+
+/**
+ * Builds the drawn road in one undo step. A road that runs into buildings is not built until it is
+ * said what to do with them; then they are cut or demolished first, as part of the same step.
+ */
+export function finishDrawing(choice?: unknown): void {
   const s = useEditor.getState();
   if (s.drawing.length < 2) { s.setDrawing([]); return; }
+  const tags = ROAD_TEMPLATES[s.templateIndex].tags;
+  const conflicts = drawingConflicts(s.doc, s.drawing, tags);
+  const clearance = typeof choice === 'string' && CLEARANCES.includes(choice) ? (choice as Clearance) : null;
+  if (conflicts.length && !clearance) {
+    s.notify(`Дорога задевает ${conflicts.length === 1 ? 'здание' : `здания: ${conflicts.length}`}. Выберите: срезать, снести или построить поверх`);
+    return;
+  }
+  const ids = conflicts.map((c) => c.wayId);
+  const points = s.drawing;
   let wayId = '';
   s.apply((d) => {
-    const r = commitDrawing(d, s.drawing, ROAD_TEMPLATES[s.templateIndex].tags);
+    const cleared = clearance === 'cut' ? cutBuildings(d, ids, points, drawWidth(tags)) : clearance === 'demolish' ? demolishBuildings(d, ids) : d;
+    const r = commitDrawing(cleared, points, tags);
     wayId = r.wayId;
     return r.doc;
   });
   s.setDrawing([]);
   if (wayId) s.select({ type: 'way', id: wayId });
+  if (ids.length && clearance === 'cut') s.notify(`Дорога построена, зданий срезано по дороге: ${ids.length}`);
+  if (ids.length && clearance === 'demolish') s.notify(`Дорога построена, зданий снесено: ${ids.length}`);
 }
 
 export function deleteSelection(): void {

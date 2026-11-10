@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { OsmDoc } from '../osm/types';
 import { useEditor } from '../state/store';
 import { ChangesSummary } from './ChangesSummary';
+import { useSettledDoc } from '../state/settled';
 
 interface Change { added: number; removed: number; changed: number; names: string[] }
 
@@ -50,7 +51,7 @@ function describeCached(a: OsmDoc, b: OsmDoc) {
 export function Journal() {
   const past = useEditor((s) => s.past);
   const future = useEditor((s) => s.future);
-  const doc = useEditor((s) => s.doc);
+  const doc = useSettledDoc();
   const timeline = useMemo(() => [...past, doc, ...future], [past, doc, future]);
   const entries = useMemo(() => timeline.slice(1).map((d, i) => describeCached(timeline[i], d)), [timeline]);
   const current = past.length;

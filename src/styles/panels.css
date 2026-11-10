@@ -158,6 +158,9 @@
 .s-give_way { background: #D7261E; clip-path: polygon(0 0, 100% 0, 50% 100%); }
 .s-stop { background: #D7261E; clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%); }
 .rule-signs { margin-top: 8px; width: 100%; }
+.s-station { background: #C62828; border-radius: 3px; box-shadow: 0 0 0 1.5px #fff inset; }
+.s-halt { background: #E35B4F; border-radius: 3px; width: 11px; height: 11px; margin: 0 1.5px; }
+.s-tram_stop { background: #7A4FA0; border-radius: 50%; box-shadow: 0 0 0 1.5px #fff inset; }
 
 /* Micro level */
 .los-card { display: flex; align-items: center; gap: 14px; margin: var(--sp-3) var(--sp-4); padding: 10px 12px; border: 1.5px solid var(--ink); border-radius: var(--r-md); }

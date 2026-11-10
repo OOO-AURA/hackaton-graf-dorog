@@ -8,6 +8,9 @@ import { BuildingInspector } from './BuildingInspector';
 import { StreetInspector } from './StreetInspector';
 import { isBuildingWay } from '../osm/building';
 import { Why } from './Why';
+import { RailInspector, StationInspector } from './RailInspector';
+import { isRailWay, stationKind } from '../osm/rail';
+import { useSettledDoc } from '../state/settled';
 
 function Nothing() {
   return (
@@ -24,7 +27,7 @@ function Nothing() {
 }
 
 export function Inspector() {
-  const doc = useEditor((s) => s.doc);
+  const doc = useSettledDoc();
   const selection = useEditor((s) => currentSelection(s));
   const rawMulti = useEditor((s) => s.multi);
   const multi = useMemo(() => rawMulti.filter((id) => doc.ways[id]), [rawMulti, doc]);
@@ -35,8 +38,11 @@ export function Inspector() {
         {multi.length > 1 && <MultiInspector ids={multi} />}
         {multi.length < 2 && selection?.type === 'way' && (isBuildingWay(doc.ways[selection.id])
           ? <BuildingInspector way={doc.ways[selection.id]} />
+          : isRailWay(doc.ways[selection.id].tags) ? <RailInspector way={doc.ways[selection.id]} />
           : <WayInspector way={doc.ways[selection.id]} />)}
-        {multi.length < 2 && selection?.type === 'node' && <NodeInspector node={doc.nodes[selection.id]} />}
+        {multi.length < 2 && selection?.type === 'node' && (stationKind(doc.nodes[selection.id].tags)
+          ? <StationInspector node={doc.nodes[selection.id]} />
+          : <NodeInspector node={doc.nodes[selection.id]} />)}
         {multi.length < 2 && selection?.type === 'street' && <StreetInspector name={selection.id} />}
         {multi.length < 2 && !selection && <Nothing />}
       </div>

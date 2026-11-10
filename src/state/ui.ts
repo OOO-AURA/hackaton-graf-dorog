@@ -57,6 +57,9 @@ interface UiState {
   setRoadColorMode: (mode: RoadColorMode) => void;
   roadLook: RoadLook;
   setRoadLook: (look: RoadLook) => void;
+  /** A node is being dragged: costly map layers wait for it to be let go (see state/settled.ts). */
+  dragging: boolean;
+  setDragging: (dragging: boolean) => void;
   /** Lane link picked on the map at the junction being edited; Delete forbids that turn. */
   laneLink: LaneLinkRef | null;
   setLaneLink: (link: LaneLinkRef | null) => void;
@@ -93,6 +96,8 @@ export const useUi = create<UiState>((set, get) => ({
   setRoadColorMode: (roadColorMode) => set({ roadColorMode }),
   roadLook: 'engineering',
   setRoadLook: (roadLook) => set({ roadLook }),
+  dragging: false,
+  setDragging: (dragging) => set({ dragging }),
   setThemeChoice: (themeChoice) => {
     try {
       if (themeChoice === 'system') localStorage.removeItem(THEME_KEY);

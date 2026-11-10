@@ -3,10 +3,11 @@ import { diffMarkdown, docDiff, isEmptyDiff } from '../osm/diff';
 import { saveTextFile } from '../platform';
 import { useEditor } from '../state/store';
 import { useUi } from '../state/ui';
+import { useSettledDoc } from '../state/settled';
 
 /** Changes against the opened file: counts, the map layer toggle and a Markdown change list. */
 export function ChangesSummary() {
-  const doc = useEditor((s) => s.doc);
+  const doc = useSettledDoc();
   const base = useEditor((s) => s.baseDoc);
   const saveName = useEditor((s) => s.saveName);
   const shown = useUi((s) => s.layers.changes);

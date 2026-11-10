@@ -75,3 +75,22 @@ describe('new panels render on real data', () => {
     b.done();
   });
 });
+
+describe('railway panels', () => {
+  const RAIL = `<osm version="0.6">
+    <node id="1" lat="52.0" lon="104.000"/><node id="2" lat="52.0" lon="104.001"/>
+    <node id="3" lat="52.0005" lon="104.0005"><tag k="railway" v="halt"/><tag k="name" v="Мельниково"/></node>
+    <way id="10"><nd ref="1"/><nd ref="2"/><tag k="railway" v="rail"/><tag k="service" v="siding"/></way></osm>`;
+  beforeEach(() => act(() => useEditor.getState().load(parseOsm(RAIL), 'rail.osm')));
+
+  test('a selected track opens the rail inspector, a station the station one', () => {
+    act(() => useEditor.getState().select({ type: 'way', id: '10' }));
+    const r = render(<Inspector />);
+    expect(r.text()).toContain('Железная дорога');
+    expect(r.text()).toContain('Боковой путь');
+    act(() => useEditor.getState().select({ type: 'node', id: '3' }));
+    expect(r.text()).toContain('Мельниково');
+    expect(r.text()).toContain('Остановочный пункт');
+    r.done();
+  });
+});

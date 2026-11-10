@@ -9,6 +9,7 @@ import { closeCordon } from '../state/actions';
 import { cordonPairs } from '../osm/cordon';
 import { refreshReport } from '../state/validation';
 import { VirtualList } from './VirtualList';
+import { useSettledDoc } from '../state/settled';
 
 const KIND_LABELS: Readonly<Record<Issue['kind'], string>> = {
   isolated: 'Изолированные участки', trap: 'Тупики по направлению', cordon: 'Обрезано границей фрагмента', crossing: 'Пересечения без узла', 'near-nodes': 'Разорванные перекрёстки', 'false-tunnel': 'Ложные тоннели под мостами', speed: 'Разная скорость в MATSim и SUMO', 'webots-crash': 'Значения, на которых падает Webots',
@@ -100,7 +101,7 @@ function SpeedHint() {
 
 /** Offers to join cut carriageways at the fragment edge when the check found such roads. */
 function CordonHint() {
-  const doc = useEditor((s) => s.doc);
+  const doc = useSettledDoc();
   const hasCordonIssues = useEditor((s) => s.report?.issues.some((i) => i.kind === 'cordon') ?? false);
   if (!hasCordonIssues) return null;
   const pairs = cordonPairs(doc).length;

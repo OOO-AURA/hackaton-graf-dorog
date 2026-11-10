@@ -6,7 +6,9 @@ import maplibregl, { type GeoJSONSource, type Map as MapLibreMap } from 'maplibr
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { addEditorLayers, applyLayerVisibility, applyPalette, applyRoadColors, sceneColors, sceneOf, type SourceId } from '../map/layers';
 import { buildScene3d } from '../map/mesh3d';
-import { junctionGeometry, laneLines, zebras, type LaneStyle } from '../map/lanesGeo';
+import { junctionGeometry, laneLines, pxPerMetreZ17, zebras, type LaneStyle } from '../map/lanesGeo';
+import { drawingConflicts, drawWidth } from '../state/actions';
+import { ROAD_TEMPLATES } from '../osm/tags';
 import { junctions } from '../osm/lanes';
 import { signPoints } from '../osm/signs';
 import { vcColor } from '../macro/compute';
@@ -19,9 +21,10 @@ import { useSim, vehiclesAt } from '../sim/store';
 import { losFeatures, signalFeatures } from '../sim/overlay';
 import { useMacro } from '../macro/store';
 import { useZoneEditing } from '../macro/useZoneEditing';
-import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson } from '../map/geojson';
+import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson, railGeoJson, stationGeoJson } from '../map/geojson';
 import { useMapInteractions } from '../map/useMapInteractions';
 import { currentSelection, useEditor } from '../state/store';
+import { useSettledDoc } from '../state/settled';
 import { streetWays } from '../osm/street';
 import { useBundle } from '../macro/bundleStore';
 import { diffFeatures, docDiff } from '../osm/diff';
@@ -73,6 +76,8 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     setData(map, 'buildings', context.buildings);
     setData(map, 'context', context.lines);
     setData(map, 'roads', roadsGeoJson(doc));
+    setData(map, 'rails', railGeoJson(doc));
+    setData(map, 'stations', stationGeoJson(doc));
   }, [map, doc]);
 
   useEffect(() => {
@@ -88,13 +93,15 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
   }, [map, route]);
 
   const baseDoc = useEditor((s) => s.baseDoc);
+  const settledDoc = useSettledDoc();
   const changesOn = useUi((s) => s.layers.changes);
   useEffect(() => {
     // The diff walks every object, so it runs only while the layer is shown.
-    if (map) setData(map, 'changes', { type: 'FeatureCollection', features: changesOn ? diffFeatures(docDiff(baseDoc, doc), baseDoc, doc) : [] });
-  }, [map, doc, baseDoc, changesOn]);
+    if (map) setData(map, 'changes', { type: 'FeatureCollection', features: changesOn ? diffFeatures(docDiff(baseDoc, settledDoc), baseDoc, settledDoc) : [] });
+  }, [map, settledDoc, baseDoc, changesOn]);
 
-  const routes = useMemo(() => transitRoutes(doc), [doc]);
+  const settled = useSettledDoc();
+  const routes = useMemo(() => transitRoutes(settled), [settled]);
   const transitSel = useTransit((s) => s.selected);
   useEffect(() => {
     if (map) setData(map, 'transit', transitGeoJson(routes, transitSel));
@@ -110,11 +117,6 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
   }, [map, doc, selection, multi]);
   // Selected buildings are tinted in 3D too.
   const theme = useUi((s) => s.theme);
-  useEffect(() => {
-    if (!alive(map)) return;
-    const ids = multi.length ? multi : selection?.type === 'way' ? [selection.id] : [];
-    sceneOf(map)?.setSelected(ids, sceneColors(MAP_PALETTE[theme]).selection);
-  }, [map, doc, selection, multi, theme]);
 
   useEffect(() => {
     if (!map) return;
@@ -124,15 +126,38 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     setData(map, 'issues', { type: 'FeatureCollection', features });
   }, [map, report, focusIssue]);
 
+  // The road being drawn, as wide as it will be, up to the pointer; buildings in its way in red.
+  const templateIndex = useEditor((s) => s.templateIndex);
+  const preview = useMemo(() => {
+    const points = [...drawing, ...(pointer && drawing.length ? [{ lon: pointer[0], lat: pointer[1] }] : [])];
+    const tags = ROAD_TEMPLATES[templateIndex].tags;
+    return { points, tags, conflicts: points.length > 1 ? drawingConflicts(doc, points, tags) : [] };
+  }, [doc, drawing, pointer, templateIndex]);
   useEffect(() => {
     if (!map) return;
-    const coords = [...drawing.map((p) => [p.lon, p.lat]), ...(pointer && drawing.length ? [pointer] : [])];
+    const { points, tags, conflicts } = preview;
+    const coords = points.map((p) => [p.lon, p.lat]);
+    const w17 = drawWidth(tags) * pxPerMetreZ17(points[0]?.lat ?? 52);
     const features = [
-      ...(coords.length > 1 ? [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } }] : []),
+      ...(coords.length > 1 ? [{ type: 'Feature', properties: { w17, conflict: conflicts.length > 0, rail: Boolean(tags.railway) }, geometry: { type: 'LineString', coordinates: coords } }] : []),
       ...drawing.map((p) => ({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } })),
     ];
     setData(map, 'draw', { type: 'FeatureCollection', features });
-  }, [map, drawing, pointer]);
+    const hit = new Set(conflicts.map((c) => c.wayId));
+    setData(map, 'draw-conflicts', { type: 'FeatureCollection', features: [...hit].map((id) => ({
+      type: 'Feature', properties: { id }, geometry: { type: 'Polygon', coordinates: [doc.ways[id].refs.map((r) => [doc.nodes[r].lon, doc.nodes[r].lat])] },
+    })) });
+  }, [map, preview, drawing, doc]);
+  // In 3D the buildings in the way are tinted red on the scene, like the selection.
+  useEffect(() => {
+    if (!alive(map)) return;
+    const conflictIds = preview.conflicts.map((c) => c.wayId);
+    if (conflictIds.length) sceneOf(map)?.setSelected(conflictIds, [0.93, 0.25, 0.2]);
+    else {
+      const ids = multi.length ? multi : selection?.type === 'way' ? [selection.id] : [];
+      sceneOf(map)?.setSelected(ids, sceneColors(MAP_PALETTE[theme]).selection);
+    }
+  }, [map, preview, multi, selection, theme]);
 
   useEffect(() => {
     if (!alive(map)) return;
@@ -143,7 +168,8 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
 
 /** Lanes, links across junctions and, at the selected junction, the lane ends. */
 function useLanes(map: MapLibreMap | null): void {
-  const doc = useEditor((s) => s.doc);
+  // Worked out for the whole map: while a node is dragged they wait for it to be let go.
+  const doc = useSettledDoc();
   const selection = useEditor((s) => currentSelection(s));
   const theme = useUi((s) => s.theme);
   const flows = useMacro((s) => s.result?.flows);
@@ -191,8 +217,9 @@ function useMapLook(map: MapLibreMap | null): void {
   useEffect(() => { if (alive(map)) applyBasemapTone(map, theme, opacity); }, [map, theme, opacity]);
   const view3dOn = useUi((s) => s.view3d);
   useEffect(() => { if (alive(map)) applyLayerVisibility(map, layers, view3dOn); }, [map, layers, view3dOn]);
-  // The 3D mesh is built only while 3D is on, and again on every edit or theme change.
-  const doc3d = useEditor((s) => s.doc);
+  // The 3D mesh is built only while 3D is on, and again on every edit or theme change; a node
+  // being dragged moves on the 2D layers, the mesh follows when it is let go.
+  const doc3d = useSettledDoc();
   useEffect(() => {
     if (!alive(map)) return;
     sceneOf(map)?.setMesh(view3dOn ? buildScene3d(doc3d, sceneColors(MAP_PALETTE[theme], look)) : null);

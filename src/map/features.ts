@@ -19,6 +19,9 @@ export const NODE_FEATURES: readonly NodeFeature[] = [
   { id: 'crossing', label: 'Пешеходный переход', hint: 'highway=crossing, crossing=uncontrolled. SUMO ставит переход на перекрёстке, Webots рисует зебру.', tags: { highway: 'crossing', crossing: 'uncontrolled' } },
   { id: 'give_way', label: 'Уступи дорогу', hint: 'Знак 2.4, highway=give_way на узле перед перекрёстком. Ставьте на второстепенной дороге; на карте у въезда появится пунктирная линия 1.13.', tags: { highway: 'give_way' } },
   { id: 'stop', label: 'Стоп', hint: 'Знак 2.5, highway=stop на узле перед перекрёстком: движение без остановки запрещено, на карте у въезда появится стоп-линия.', tags: { highway: 'stop' } },
+  { id: 'station', label: 'Ж/д станция', hint: 'railway=station, public_transport=station на узле пути. На карте значок и название, правится в инспекторе.', tags: { railway: 'station', public_transport: 'station' } },
+  { id: 'halt', label: 'Остановочный пункт', hint: 'railway=halt: посадка без станционных путей, как платформа электрички.', tags: { railway: 'halt', public_transport: 'station' } },
+  { id: 'tram_stop', label: 'Трамвайная остановка', hint: 'railway=tram_stop, public_transport=stop_position на узле трамвайного пути.', tags: { railway: 'tram_stop', public_transport: 'stop_position' } },
   { id: 'bump', label: 'Лежачий полицейский', hint: 'traffic_calming=bump. Отмечает искусственную неровность, машины перед ней сбрасывают скорость.', tags: { traffic_calming: 'bump' } },
 ];
 
