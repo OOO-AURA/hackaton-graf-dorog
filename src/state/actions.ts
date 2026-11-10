@@ -16,14 +16,16 @@ import { addAllCordonConnectors } from '../osm/cordon';
 import { currentSelection, useEditor } from './store';
 import { useUi } from './ui';
 import { refreshReport } from './validation';
-import { askUser, baseName, downloadText, isDesktop, openOsmFile, saveOsmFile } from '../platform';
+import { askUser, baseName, downloadText, isDesktop, openOsmFile, readOsmPath, saveOsmFile } from '../platform';
 import { isolatePiece } from '../osm/pieces';
+import { useRecent } from './recent';
 
 export function loadXml(xml: string, fileName: string, filePath: string | null = null): void {
   const { load, notify } = useEditor.getState();
   try {
     const { doc, repairs } = parseOsmChecked(xml);
     load(doc, fileName, filePath);
+    if (filePath) useRecent.getState().remember(filePath, fileName);
     const loaded = `Загружено: ${Object.keys(doc.nodes).length} узлов, ${Object.keys(doc.ways).length} линий`;
     notify(hasRepairs(repairs) ? `${loaded}. ${repairText(repairs)}` : loaded);
   } catch (err) {
@@ -67,6 +69,17 @@ export async function openFile(): Promise<void> {
 }
 
 /** Checks connectivity before saving, as the brief requires; the user may still save with warnings. */
+/** Opens a file from the recent list; one that is gone is dropped from the list. */
+export async function openRecent(path: string): Promise<void> {
+  try {
+    const file = await readOsmPath(path);
+    loadXml(file.text, file.name, file.path);
+  } catch (err) {
+    useRecent.getState().forget(path);
+    useEditor.getState().notify(String(err));
+  }
+}
+
 export async function saveOsm(saveAs = false): Promise<void> {
   const s = useEditor.getState();
   if (!Object.keys(s.doc.nodes).length) return;
@@ -88,6 +101,7 @@ export async function saveOsm(saveAs = false): Promise<void> {
     const path = await saveOsmFile(text, name, reuse);
     if (!path) return;
     s.markSaved(baseName(path), path, s.doc);
+    useRecent.getState().remember(path, baseName(path));
     s.notify(`Сохранено ${path}`);
   } catch (err) {
     s.notify(String(err));

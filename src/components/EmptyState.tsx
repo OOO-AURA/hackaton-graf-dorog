@@ -1,7 +1,8 @@
-import { openFile } from '../state/actions';
+import { openFile, openRecent } from '../state/actions';
+import { useRecent } from '../state/recent';
 import { dropDraft, restoreDraft, useDraft } from '../state/draft';
 import { useUi } from '../state/ui';
-import { openExample } from './fileActions';
+import { openExample, withLoading } from './fileActions';
 import { Icon } from './icons';
 import { AreaMenu } from './AreaMenu';
 
@@ -50,6 +51,25 @@ function DraftOffer() {
   );
 }
 
+function Recent() {
+  const files = useRecent((s) => s.files);
+  if (!files.length) return null;
+  return (
+    <div className="recent">
+      <p className="micro">Недавние файлы</p>
+      <ul>
+        {files.map((f) => (
+          <li key={f.path}>
+            <button className="recent-file" onClick={() => void withLoading(f.name, () => openRecent(f.path))} title={f.path}>
+              <b className="mono">{f.name}</b><span className="hint">{f.path.replace(/\/[^/]*$/, '')}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function EmptyState() {
   const loading = useUi((s) => s.loading);
   return (
@@ -65,6 +85,7 @@ export function EmptyState() {
             <button className="btn btn-lg" onClick={() => void openExample()}>Пример из задания</button>
             <AreaMenu align="left" />
           </div>
+          <Recent />
         </div>
       )}
     </div>

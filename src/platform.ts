@@ -36,6 +36,11 @@ export async function openOsmFile(): Promise<OpenedFile | null> {
   return { text: await invoke<string>('read_osm', { path }), name: baseName(path), path };
 }
 
+/** Reads a file the app already knows the path of (recent files). */
+export async function readOsmPath(path: string): Promise<OpenedFile> {
+  return { text: await invoke<string>('read_osm', { path }), name: baseName(path), path };
+}
+
 /** Writes to `path`, or asks where to save when there is none. Returns the path used, or null on cancel. */
 export async function saveOsmFile(text: string, suggestedName: string, path: string | null): Promise<string | null> {
   let target = path;
