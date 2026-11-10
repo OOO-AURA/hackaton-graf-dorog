@@ -3,6 +3,7 @@ import { isDrivable } from '../osm/tags';
 import type { OsmDoc, OsmWay } from '../osm/types';
 import { buildingHeight, LAYER_STEP } from '../osm/height';
 import { dividerOffsets } from './lanesGeo';
+import { isLifted, nodeElevations } from './elevation';
 
 /**
  * Geometry of the 3D view in local metres around an origin: x east, y south (the way Web
@@ -10,7 +11,7 @@ import { dividerOffsets } from './lanesGeo';
  */
 
 export type Rgb = readonly [number, number, number];
-export type Scene3dColors = { building: Rgb; deck: (highway: string) => Rgb; deckSide: Rgb; parapet: Rgb; mark: Rgb; markCasing: Rgb; pier: Rgb; portal: Rgb };
+export type Scene3dColors = { building: Rgb; deck: (highway: string) => Rgb; deckSide: Rgb; parapet: Rgb; embankment: Rgb; mark: Rgb; markCasing: Rgb; pier: Rgb; portal: Rgb };
 
 /**
  * Interleaved x, y, z, r, g, b, id, nx, ny, nz, shade, pick. `id` numbers blocks of touching
@@ -101,15 +102,16 @@ class Buf {
 }
 
 /**
- * Deck height along a bridge. The deck climbs from the ground at both ends over a ramp of up to
- * 30 m (a quarter of the bridge on short ones), since the roads it joins stay on the ground.
+ * Deck height along a bridge. An end that joins other roads stays at deck height: they climb to
+ * it on an embankment (see elevation.ts). An end that joins nothing comes down to the ground over a
+ * ramp of up to 30 m (a quarter of the bridge on short ones).
  */
-export function deckProfile(lengths: readonly number[], height: number): number[] {
+export function deckProfile(lengths: readonly number[], height: number, rampStart = true, rampEnd = true): number[] {
   const total = lengths[lengths.length - 1] ?? 0;
   const ramp = Math.min(30, total / 4);
   return lengths.map((d) => {
     if (ramp <= 0) return height;
-    const k = Math.min(1, d / ramp, (total - d) / ramp);
+    const k = Math.min(1, rampStart ? d / ramp : 1, rampEnd ? (total - d) / ramp : 1);
     return height * (k * k * (3 - 2 * k));
   });
 }
@@ -240,11 +242,10 @@ export function densify(pts: readonly P2[], step: number): P2[] {
 }
 
 const RAMP_STEP = 3;
-
-function addBridge(solid: Buf, shadows: Buf, mask: Buf, raw: P2[], tags: Record<string, string>, colors: Scene3dColors) {
+function addBridge(solid: Buf, shadows: Buf, mask: Buf, raw: P2[], tags: Record<string, string>, colors: Scene3dColors, rampStart = true, rampEnd = true) {
   const pts = densify(raw, RAMP_STEP);
   const half = roadWidth(tags) / 2;
-  const z = deckProfile(cumulative(pts), bridgeHeight(tags));
+  const z = deckProfile(cumulative(pts), bridgeHeight(tags), rampStart, rampEnd);
   const { left, right } = offsets(pts, half);
   const outer = offsets(pts, half + PARAPET_WIDTH);
   for (let i = 0; i < pts.length - 1; i += 1) {
@@ -307,6 +308,51 @@ function addShadow(shadows: Buf, [l0, l1, r0, r1]: readonly P2[], z0: number, z1
   if (z0 <= 0 && z1 <= 0) return;
   const at = (p: P2, z: number): V3 => [p[0] + SHADOW_REACH[0] * z, p[1] + SHADOW_REACH[1] * z, SHADOW_Z];
   quad(shadows, SHADOW, 0, at(r0, z0), at(r1, z1), at(l1, z1), at(l0, z0));
+}
+
+/** Embankment slopes: metres sideways per metre of height, as road embankments are built (1:1.5). */
+const SLOPE = 1.5;
+/** Below this the road lies on the ground and the 2D line shows it. */
+const ON_GROUND = 0.05;
+
+/** A polyline with its heights, with points added so no piece is longer than `step`. */
+function densifyWithHeight(pts: readonly P2[], zs: readonly number[], step: number): { pts: P2[]; z: number[] } {
+  const out: P2[] = [pts[0]];
+  const z: number[] = [zs[0]];
+  for (let i = 1; i < pts.length; i += 1) {
+    const [a, b] = [pts[i - 1], pts[i]];
+    const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / step));
+    for (let k = 1; k <= n; k += 1) {
+      out.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
+      z.push(zs[i - 1] + ((zs[i] - zs[i - 1]) * k) / n);
+    }
+  }
+  return { pts: out, z };
+}
+
+/**
+ * A road on an embankment up to a bridge: the carriageway at its height with lane markings, and
+ * earth slopes down to the ground on both sides, wider the higher the road.
+ */
+function addEmbankment(solid: Buf, mask: Buf, raw: P2[], rawZ: number[], tags: Record<string, string>, colors: Scene3dColors) {
+  const { pts, z } = densifyWithHeight(raw, rawZ, RAMP_STEP);
+  const half = roadWidth(tags) / 2;
+  const { left, right } = offsets(pts, half);
+  // Unit offsets (mitred) give the feet of the slopes, which move out with the height.
+  const unit = offsets(pts, 1);
+  const foot = (side: P2[], i: number): P2 => [pts[i][0] + (side[i][0] - pts[i][0]) * (half + z[i] * SLOPE), pts[i][1] + (side[i][1] - pts[i][1]) * (half + z[i] * SLOPE)];
+  const road = colors.deck((tags.highway ?? '').replace(/_link$/, ''));
+  for (let i = 0; i < pts.length - 1; i += 1) {
+    const [z0, z1] = [z[i], z[i + 1]];
+    if (z0 < ON_GROUND && z1 < ON_GROUND) continue;
+    const [l0, l1, r0, r1] = [left[i], left[i + 1], right[i], right[i + 1]];
+    quad(solid, road, 0, [r0[0], r0[1], z0], [r1[0], r1[1], z1], [l1[0], l1[1], z1], [l0[0], l0[1], z0]);
+    const [fl0, fl1, fr0, fr1] = [foot(unit.left, i), foot(unit.left, i + 1), foot(unit.right, i), foot(unit.right, i + 1)];
+    quad(solid, colors.embankment, 0, [l0[0], l0[1], z0], [l1[0], l1[1], z1], [fl1[0], fl1[1], 0], [fl0[0], fl0[1], 0]);
+    quad(solid, colors.embankment, 0, [r1[0], r1[1], z1], [r0[0], r0[1], z0], [fr0[0], fr0[1], 0], [fr1[0], fr1[1], 0]);
+    ribbon(mask, l0, l1, r0, r1, z0 + 0.05, z1 + 0.05);
+  }
+  addMarkings(solid, pts, z, tags, colors);
 }
 
 /** Depth of a tunnel's road below the ground: its OSM `layer` (at least −1) times one step. */
@@ -519,13 +565,16 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
   const buildings = groups.reduce((a, b) => Math.max(a, b), 0);
   const pickIds = buildingWays.map((w) => w.id);
 
+  const lifted = nodeElevations(doc);
+  // A bridge end that only the bridge itself touches comes down on a ramp; others meet an embankment.
+  const joined = (id: string | undefined) => (id ? (openAir.get(id) ?? 0) > 1 : false);
   Object.values(doc.ways).forEach((w) => {
     const pts = pointsOf(w);
     if (pts.length < 2 || w.tags.building) return;
     if (!isDrivable(w.tags)) return;
     if (isBridge(w)) {
       const start = structures.length;
-      addBridge(structures, shadows, mask, pts, w.tags, colors);
+      addBridge(structures, shadows, mask, pts, w.tags, colors, !joined(w.refs[0]), !joined(w.refs[w.refs.length - 1]));
       pickIds.push(w.id);
       structures.fill(start, 11, pickIds.length);
       return;
@@ -541,6 +590,11 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
       pickIds.push(w.id);
       structures.fill(start, 11, pickIds.length);
       underground.fill(tubeStart, 11, pickIds.length);
+      return;
+    }
+    if (isLifted(doc, w)) {
+      const zs = w.refs.filter((r) => doc.nodes[r] && local(r) !== null).map((r) => lifted.get(r) ?? 0);
+      addEmbankment(structures, mask, pts, zs, w.tags, colors);
       return;
     }
     // Yard driveways and parking aisles are drawn thin, like paths, and do not cut buildings.

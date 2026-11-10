@@ -1,6 +1,9 @@
 .map-wrap, .map { position: absolute; inset: 0; }
 .map-wrap { overflow: hidden; }
-.maplibregl-ctrl-bottom-right { margin-bottom: 46px; }
+.maplibregl-ctrl-bottom-right { margin-bottom: var(--stage-bottom, 0px); margin-right: var(--stage-right, 0px); }
+/* The free part of the map between the floating panels; the map's own controls live in it. */
+.stage { position: absolute; z-index: 2; top: var(--stage-top); left: var(--stage-left); right: var(--stage-right); bottom: var(--stage-bottom); pointer-events: none; }
+.stage > * { pointer-events: auto; }
 .maplibregl-ctrl-scale { background: color-mix(in srgb, var(--paper) 85%, transparent) !important; border-color: var(--ink) !important; color: var(--ink) !important; font-family: var(--font-mono); font-size: 10px !important; }
 .maplibregl-ctrl-attrib { background: color-mix(in srgb, var(--paper) 80%, transparent) !important; color: var(--ink-2); font-size: 10px; }
 .maplibregl-ctrl-attrib a { color: var(--ink-2) !important; }
@@ -8,7 +11,8 @@
 
 .float {
   position: absolute; z-index: 2; display: flex; align-items: center; gap: 2px; padding: 3px;
-  background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--shadow-float);
+  background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-line); border-radius: var(--r-lg); box-shadow: var(--shadow-glass);
   animation: float-in 220ms var(--ease-out) both;
 }
 @keyframes float-in { from { opacity: 0; transform: translateY(-4px); } }
@@ -24,6 +28,10 @@
 .float-draw { display: flex; align-items: center; gap: 6px; padding: 0 3px 0 8px; margin-left: 4px; border-left: 1px solid var(--line); animation: rise 180ms var(--ease-out); }
 .float-draw select { height: 28px; font-size: 12px; }
 .float-zoom { top: 12px; right: 12px; flex-direction: column; }
+.float-look { top: 12px; left: 50%; transform: translateX(-50%); animation-name: float-in-center; }
+.float-look button.on { background: var(--pink); color: #fff; }
+/* A narrow free map: the switch goes under the tools instead of between them and the zoom. */
+@media (max-width: 1360px) { .float-look { top: 56px; left: 12px; transform: none; animation-name: float-in; } }
 .float-basemap { bottom: 12px; left: 12px; gap: 10px; padding: 3px 10px 3px 3px; }
 .seg { display: flex; gap: 2px; }
 .seg button { height: 26px; padding: 0 10px; border: 0; border-radius: var(--r-md); background: none; font-size: 12px; font-weight: 600; color: var(--ink-2); transition: background-color var(--dur) ease, color var(--dur) ease; }
@@ -87,3 +95,41 @@
 .range-field span b { font-weight: 600; margin-left: 4px; }
 .seg-wide { display: flex; margin-bottom: 8px; }
 .seg-wide button { flex: 1; }
+
+/* Junction editor card, top right of the free map, next to the zoom controls. */
+.junction-card {
+  top: 56px; right: 60px; width: 300px; max-height: calc(100% - 68px); flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px 12px;
+  overflow-y: auto; scrollbar-width: thin;
+}
+.jc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.jc-head h3 { margin: 2px 0 0; font-size: 14px; font-weight: 700; line-height: 1.25; }
+.jc-head .tool { width: 26px; height: 26px; flex-shrink: 0; }
+.jc-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 0; list-style: none; font-size: 11px; color: var(--ink-2); }
+.jc-legend li { display: flex; align-items: center; gap: 5px; }
+.jc-legend i { width: 14px; height: 6px; border-radius: 3px; }
+.jc-body { display: grid; gap: 8px; }
+.jc-approach { padding: 8px; border-radius: var(--r-md); background: var(--hover); }
+.jc-approach-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.jc-street { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 600; }
+.jc-street em { margin-left: 6px; font-style: normal; font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-2); }
+.jc-stepper { display: inline-flex; align-items: center; border: 1px solid var(--line-strong); border-radius: var(--r-md); overflow: hidden; flex-shrink: 0; }
+.jc-stepper button { width: 24px; height: 22px; border: 0; background: none; color: var(--ink); font-size: 15px; line-height: 1; }
+.jc-stepper button:hover:not(:disabled) { background: var(--hover); }
+.jc-stepper button:disabled { opacity: 0.35; }
+.jc-stepper b { min-width: 22px; text-align: center; font-size: 12px; }
+.jc-lanes { display: flex; gap: 4px; }
+.jc-lane { flex: 1; display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; padding: 4px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--paper) 60%, transparent); border-left: 2px dashed var(--line-strong); }
+.jc-lane:first-child { border-left: 0; }
+.jc-turn {
+  width: 26px; height: 26px; display: grid; place-items: center; border-radius: 6px; font-size: 15px; line-height: 1;
+  border: 1.5px solid color-mix(in srgb, var(--turn) 55%, transparent); background: none; color: var(--ink-2);
+  transition: background-color var(--dur) ease, color var(--dur) ease, transform 100ms var(--ease-out);
+}
+.jc-turn:hover { background: color-mix(in srgb, var(--turn) 18%, transparent); color: var(--ink); }
+.jc-turn:active { transform: scale(0.92); }
+.jc-turn.on { background: var(--turn); border-color: var(--turn); color: #10141A; font-weight: 700; }
+.jc-turn.picked { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--turn); }
+.jc-hint { margin: 0; font-size: 11px; color: var(--ink-2); line-height: 1.4; }
+.jc-picked { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 600; }
+.jc-templates { display: flex; flex-wrap: wrap; gap: 4px; }
+@media (max-width: 1360px) { .junction-card { top: 100px; max-height: calc(100% - 112px); } }

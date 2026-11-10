@@ -229,6 +229,31 @@ export function setApproachTurns(doc: OsmDoc, nodeId: string, arm: Pick<Arm, 'wa
   return setWayTags(d, wayId, withTag(way.tags, turnKey(way.tags, arm.step), formatTurns(turns)));
 }
 
+const MAX_APPROACH_LANES = 8;
+
+/**
+ * Sets how many lanes come into the junction along an arm. Only the piece of road before the
+ * junction changes (a road passing through is split there), only in that direction, and the turn
+ * rules of the approach go back to the usual ones, since they were written for the old count.
+ */
+export function setApproachLanes(doc: OsmDoc, nodeId: string, arm: Pick<Arm, 'wayId' | 'step'>, lanes: number): OsmDoc {
+  const n = Math.max(1, Math.min(MAX_APPROACH_LANES, Math.round(lanes)));
+  const { doc: d, wayId } = wayEndingAt(doc, nodeId, arm);
+  const way = d.ways[wayId];
+  if (!way) return doc;
+  const key = turnKey(way.tags, arm.step);
+  let tags = withTag(way.tags, key, null);
+  if (key === 'turn:lanes') {
+    tags = withTag(tags, 'lanes', String(n));
+  } else {
+    // Coming in along an arm laid out with the way (+1) is travel against it.
+    const { forward, backward } = travelLanes(way.tags);
+    const [f, b] = arm.step === 1 ? [forward, n] : [n, backward];
+    tags = withTag(withTag(withTag(tags, 'lanes:forward', String(f)), 'lanes:backward', String(b)), 'lanes', String(f + b));
+  }
+  return setWayTags(d, wayId, tags);
+}
+
 const sameArm = (a: Pick<Arm, 'wayId' | 'step'>, b: Pick<Arm, 'wayId' | 'step'>) => a.wayId === b.wayId && a.step === b.step;
 
 /** Allows or forbids one turn from one lane of an approach; the other lanes keep what they had. */

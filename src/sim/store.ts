@@ -9,8 +9,28 @@ import { STRIDE, type DemandKind, type SimResult } from './types';
 
 export const SPEEDS = [1, 5, 10, 30, 60] as const;
 
-/** Cycle length, s, and the main direction's share of green time. */
-export interface SignalPlan { cycle: number; mainShare: number }
+/**
+ * Program of one traffic light in the micro run. `fixed`: a cycle of `cycle` s with `mainShare`
+ * of the green for the main direction. `adaptive` (SUMO actuated): green lasts at least `minGreen`
+ * and at most `maxGreen` s and goes on while cars keep coming, ending once the gap between them is
+ * over `maxGap` s, so a busy direction gets more green and an empty one gives it away.
+ */
+export interface SignalPlan {
+  mode?: 'fixed' | 'adaptive';
+  cycle: number;
+  mainShare: number;
+  minGreen?: number;
+  maxGreen?: number;
+  maxGap?: number;
+}
+
+export const ADAPTIVE_DEFAULTS = { minGreen: 8, maxGreen: 50, maxGap: 3 } as const;
+
+/** The plan as the desktop simulator takes it. */
+export const planForSim = (p: SignalPlan) => ({
+  cycle_s: p.cycle, main_share: p.mainShare, adaptive: p.mode === 'adaptive',
+  min_green_s: p.minGreen ?? ADAPTIVE_DEFAULTS.minGreen, max_green_s: p.maxGreen ?? ADAPTIVE_DEFAULTS.maxGreen, max_gap_s: p.maxGap ?? ADAPTIVE_DEFAULTS.maxGap,
+});
 
 /** What the desktop app found of the SUMO install (see sumo_status in sim.rs). */
 export interface SumoStatus { ok: boolean; version: string | null; bin: string; sumo_home: string | null; missing: string[] }
@@ -101,7 +121,7 @@ export async function runSimulation(): Promise<void> {
     const doc = useEditor.getState().doc;
     const extras = { transit: useTransit.getState().inSim ? transitDemand(transitRoutes(doc)) : [], pedestrians: useSim.getState().pedestrians,
       signals: Object.entries(useSim.getState().plans).filter(([id]) => doc.nodes[id]?.tags.highway === 'traffic_signals')
-        .map(([id, p]) => ({ node: id, lon: doc.nodes[id].lon, lat: doc.nodes[id].lat, cycle_s: p.cycle, main_share: p.mainShare })) };
+        .map(([id, p]) => ({ node: id, lon: doc.nodes[id].lon, lat: doc.nodes[id].lat, ...planForSim(p) })) };
     const result = await invoke<SimResult>('simulate', { text: serializeOsm(doc), minutes, demand: od, extras });
     useSim.setState({ result, playing: true });
   } catch (err) {

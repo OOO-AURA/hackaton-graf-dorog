@@ -1,7 +1,9 @@
-import type { Feature, FeatureCollection, LineString, Point } from 'geojson';
-import { armKey, armsAt, junctionLanes, junctions, type Arm } from '../osm/lanes';
+import type { Feature, FeatureCollection, LineString, Point, Polygon } from 'geojson';
+import { armKey, armsAt, junctionLanes, junctions, turnSide, type Arm, type Turn } from '../osm/lanes';
 import { lanesByDirection } from '../osm/profile';
 import { isDrivable } from '../osm/tags';
+import { approachControl } from '../osm/signs';
+import { isLifted, isLiftedNode } from './elevation';
 import type { OsmDoc, OsmWay, Tags } from '../osm/types';
 
 /**
@@ -20,6 +22,9 @@ const JUNCTION_MARGIN = 2;
 const CURVE_POINTS = 14;
 
 const M_PER_DEG = (Math.PI / 180) * 6_371_000;
+
+/** Screen pixels per metre at zoom 17 on MapLibre's 512 px tiles; widths in metres become `w17`. */
+export const pxPerMetreZ17 = (lat: number) => 2 ** 17 / (78271.517 * Math.cos((lat * Math.PI) / 180));
 
 /** Local frame around a point: metres east and north. */
 function frame(lat0: number) {
@@ -81,8 +86,10 @@ export function roadWidthMetres(tags: Tags): number {
 
 const halfWidth = (tags: Tags) => roadWidthMetres(tags) / 2;
 
+const isRaised = (tags: Tags) => Boolean((tags.bridge && tags.bridge !== 'no') || (tags.tunnel && tags.tunnel !== 'no'));
+
 /** How far from the centre of a junction its lanes end. */
-function junctionRadius(doc: OsmDoc, nodeId: string): number {
+export function junctionRadius(doc: OsmDoc, nodeId: string): number {
   return Math.max(...armsAt(doc, nodeId).map((a) => halfWidth(doc.ways[a.wayId].tags)), 3) + JUNCTION_MARGIN;
 }
 
@@ -154,7 +161,8 @@ export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<Line
     if (!isDrivable(w.tags) || w.refs.length < 2) continue;
     const { forward, backward } = travelLanes(w.tags);
     const vc = style.load(w.id);
-    const raised = Boolean((w.tags.bridge && w.tags.bridge !== 'no') || (w.tags.tunnel && w.tags.tunnel !== 'no'));
+    // In 3D these lanes are on a deck, in a tube or on an embankment, drawn by the 3D scene.
+    const raised = isRaised(w.tags) || isLifted(doc, w);
     const marks = dividerOffsets(w.tags);
     for (const piece of pieces(w)) {
       const nodes = piece.refs.map((r) => doc.nodes[r]).filter(Boolean);
@@ -206,41 +214,162 @@ function curve(a: { p: V; out: V }, b: { p: V; out: V }): V[] {
   });
 }
 
+/** How a movement is drawn: straight on, to the left, to the right or back. */
+export type TurnGroup = 'through' | 'left' | 'right' | 'uturn';
+const GROUP_ORDER: readonly TurnGroup[] = ['left', 'through', 'right', 'uturn'];
+export const turnGroup = (t: Turn): TurnGroup => (t === 'reverse' ? 'uturn' : t === 'through' ? 'through' : turnSide(t) < 0 ? 'left' : 'right');
+
+/** Image id of the road arrow for the turns of one lane, like `turn-arrow:left-through`. */
+export const arrowIcon = (turns: readonly Turn[]) =>
+  `turn-arrow:${GROUP_ORDER.filter((g) => turns.some((t) => turnGroup(t) === g)).join('-') || 'none'}`;
+
+/** How far back from the stop line the lane arrows are painted. */
+const ARROW_BACK = 9;
+/** The stop line stands a little before the lanes end. */
+const STOP_BACK = 1;
+/** Room around the lane ends inside the junction outline. */
+const AREA_MARGIN = 2.5;
+
+const bearingOf = (v: V) => ((Math.atan2(v[0], v[1]) * 180) / Math.PI + 360) % 360;
+
+/** Convex hull of points (monotone chain), counter-clockwise. */
+function hull(points: readonly V[]): V[] {
+  const pts = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (pts.length < 3) return pts;
+  const cross = (o: V, a: V, b: V) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const half = (list: V[]) => list.reduce<V[]>((out, p) => {
+    while (out.length >= 2 && cross(out[out.length - 2], out[out.length - 1], p) <= 0) out.pop();
+    return [...out, p];
+  }, []);
+  const lower = half(pts);
+  const upper = half([...pts].reverse());
+  return [...lower.slice(0, -1), ...upper.slice(0, -1)];
+}
+
+/** The hull pushed out from its centre by `margin` metres, as a closed ring. */
+function grow(ring: readonly V[], margin: number): V[] {
+  const c: V = [ring.reduce((s, p) => s + p[0], 0) / ring.length, ring.reduce((s, p) => s + p[1], 0) / ring.length];
+  const out = ring.map((p): V => {
+    const d = Math.hypot(p[0] - c[0], p[1] - c[1]) || 1;
+    return [p[0] + ((p[0] - c[0]) / d) * margin, p[1] + ((p[1] - c[1]) / d) * margin];
+  });
+  return [...out, out[0]];
+}
+
+type Fc<G extends LineString | Point | Polygon> = FeatureCollection<G, Props>;
+
 /**
- * Lane ends and lane-to-lane links at junctions. Links are drawn at every junction given;
- * the ends only at `withEnds`, the junction being edited.
+ * Everything drawn at junctions: the lane-to-lane links as ribbons coloured by turn group, the
+ * junction outline, a stop line on every approach and the turn arrows painted on the lanes coming
+ * in. The lane ends, where links are dragged from and to, only at `withEnds`, the junction being
+ * edited.
  */
 export function junctionGeometry(doc: OsmDoc, nodeIds: readonly string[], withEnds: string | null, style: LaneStyle) {
   const ends: Feature<Point, Props>[] = [];
   const links: Feature<LineString, Props>[] = [];
+  const areas: Feature<Polygon, Props>[] = [];
+  const stops: Feature<LineString, Props>[] = [];
+  const arrows: Feature<Point, Props>[] = [];
   for (const nodeId of nodeIds) {
     const node = doc.nodes[nodeId];
     if (!node) continue;
     const f = frame(node.lat);
+    const px = pxPerMetreZ17(node.lat);
     const r = junctionRadius(doc, nodeId) - (JUNCTION_MARGIN - 0.5);
     const lanes = junctionLanes(doc, nodeId);
     const endOf = (arm: Arm, coming: boolean, i: number) => laneEnd(doc, arm, coming, i, r, f);
+    const edit = nodeId === withEnds;
+    const raisedWay = (wayId: string) => Boolean(doc.ways[wayId]) && (isRaised(doc.ways[wayId].tags) || isLifted(doc, doc.ways[wayId]));
+    // A junction up on an embankment: in 3D its flat drawing would lie on the ground under it.
+    const lifted = isLiftedNode(doc, nodeId);
     lanes.links.forEach((l) => {
       const a = endOf(l.from, true, l.fromLane);
       const b = endOf(l.to, false, l.toLane);
       links.push({
         type: 'Feature',
-        properties: { node: nodeId, from: armKey(l.from), lane: l.fromLane, to: armKey(l.to), turn: l.turn, color: style.color(style.load(l.from.wayId)), edit: nodeId === withEnds },
+        properties: {
+          node: nodeId, from: armKey(l.from), lane: l.fromLane, to: armKey(l.to), turn: l.turn, group: turnGroup(l.turn),
+          w17: laneWidth(doc.ways[l.from.wayId].tags) * px, color: style.color(style.load(l.from.wayId)), edit,
+          raised: lifted,
+        },
         geometry: { type: 'LineString', coordinates: curve(a, b).map(f.back) },
       });
     });
-    if (nodeId !== withEnds) continue;
+    const corners: V[] = [];
     for (const arm of lanes.arms) {
-      for (let i = 0; i < arm.lanesIn; i += 1) {
-        ends.push({ type: 'Feature', properties: { node: nodeId, arm: armKey(arm), lane: i, kind: 'in' }, geometry: { type: 'Point', coordinates: f.back(endOf(arm, true, i).p) } });
+      const tags = doc.ways[arm.wayId].tags;
+      const w = laneWidth(tags);
+      const inEnds = Array.from({ length: arm.lanesIn }, (_, i) => endOf(arm, true, i));
+      const outEnds = Array.from({ length: arm.lanesOut }, (_, i) => endOf(arm, false, i));
+      [...inEnds, ...outEnds].forEach((e) => corners.push(e.p));
+      if (edit) {
+        inEnds.forEach((e, i) => ends.push({ type: 'Feature', properties: { node: nodeId, arm: armKey(arm), lane: i, kind: 'in' }, geometry: { type: 'Point', coordinates: f.back(e.p) } }));
+        outEnds.forEach((e, i) => ends.push({ type: 'Feature', properties: { node: nodeId, arm: armKey(arm), lane: i, kind: 'out' }, geometry: { type: 'Point', coordinates: f.back(e.p) } }));
       }
-      for (let i = 0; i < arm.lanesOut; i += 1) {
-        ends.push({ type: 'Feature', properties: { node: nodeId, arm: armKey(arm), lane: i, kind: 'out' }, geometry: { type: 'Point', coordinates: f.back(endOf(arm, false, i).p) } });
+      if (!inEnds.length) continue;
+      const out = inEnds[0].out;
+      const across: V = [-out[1], out[0]];
+      const proj = inEnds.map((e) => e.p[0] * across[0] + e.p[1] * across[1]);
+      const lo = inEnds[proj.indexOf(Math.min(...proj))].p;
+      const hi = inEnds[proj.indexOf(Math.max(...proj))].p;
+      const at = (p: V, side: number, back: number): V => [p[0] + across[0] * side * (w / 2) + out[0] * back, p[1] + across[1] * side * (w / 2) + out[1] * back];
+      // A stop line only where traffic has to stop: a light or a stop sign; a give-way sign has its
+      // own dashed line (marking 1.13). A junction with neither has no line at all, as on the street.
+      const control = approachControl(doc, nodeId, arm);
+      if (control) {
+        stops.push({
+          type: 'Feature', properties: { node: nodeId, w17: (control === 'give_way' ? 0.6 : 0.4) * px, kind: control === 'give_way' ? 'yield' : 'stop', raised: lifted },
+          geometry: { type: 'LineString', coordinates: [at(lo, -1, STOP_BACK), at(hi, 1, STOP_BACK)].map(f.back) },
+        });
       }
+      const approach = lanes.approaches.find((ap) => armKey(ap.arm) === armKey(arm));
+      inEnds.forEach((e, i) => {
+        const p: V = [e.p[0] + out[0] * ARROW_BACK, e.p[1] + out[1] * ARROW_BACK];
+        arrows.push({
+          type: 'Feature',
+          properties: { node: nodeId, icon: arrowIcon(approach?.turns[i] ?? []), bearing: bearingOf([-out[0], -out[1]]), w17: w * px, raised: lifted || raisedWay(arm.wayId) },
+          geometry: { type: 'Point', coordinates: f.back(p) },
+        });
+      });
+    }
+    if (corners.length >= 3) {
+      areas.push({ type: 'Feature', properties: { node: nodeId, edit, raised: lifted }, geometry: { type: 'Polygon', coordinates: [grow(hull(corners), AREA_MARGIN).map(f.back)] } });
     }
   }
-  return {
-    ends: { type: 'FeatureCollection', features: ends } as FeatureCollection<Point, Props>,
-    links: { type: 'FeatureCollection', features: links } as FeatureCollection<LineString, Props>,
-  };
+  const fc = <G extends LineString | Point | Polygon>(features: Feature<G, Props>[]) => ({ type: 'FeatureCollection', features }) as Fc<G>;
+  return { ends: fc(ends), links: fc(links), areas: fc(areas), stops: fc(stops), arrows: fc(arrows) };
+}
+
+/** Depth of a zebra along the road, metres, and how far it reaches past the carriageway. */
+const ZEBRA_DEPTH = 3;
+const ZEBRA_MARGIN = 0.5;
+
+const isCrossing = (tags: Tags) => tags.highway === 'crossing' || Boolean(tags.crossing && tags.crossing !== 'no');
+
+/** Zebra crossings: at every crossing node on a road, a band across the carriageway. */
+export function zebras(doc: OsmDoc): Fc<LineString> {
+  const features: Feature<LineString, Props>[] = [];
+  const done = new Set<string>();
+  for (const w of Object.values(doc.ways)) {
+    if (!isDrivable(w.tags)) continue;
+    w.refs.forEach((id, i) => {
+      const n = doc.nodes[id];
+      if (!n || done.has(id) || !isCrossing(n.tags)) return;
+      const a = doc.nodes[w.refs[Math.max(0, i - 1)]];
+      const b = doc.nodes[w.refs[Math.min(w.refs.length - 1, i + 1)]];
+      if (!a || !b || a === b) return;
+      done.add(id);
+      const f = frame(n.lat);
+      const [pa, pb, p] = [f.to(a.lon, a.lat), f.to(b.lon, b.lat), f.to(n.lon, n.lat)];
+      const len = Math.hypot(pb[0] - pa[0], pb[1] - pa[1]) || 1;
+      const across: V = [-(pb[1] - pa[1]) / len, (pb[0] - pa[0]) / len];
+      const half = halfWidth(w.tags) + ZEBRA_MARGIN;
+      features.push({
+        type: 'Feature',
+        properties: { node: id, w17: ZEBRA_DEPTH * pxPerMetreZ17(n.lat) },
+        geometry: { type: 'LineString', coordinates: [[p[0] - across[0] * half, p[1] - across[1] * half], [p[0] + across[0] * half, p[1] + across[1] * half]].map((q) => f.back(q as V)) },
+      });
+    });
+  }
+  return { type: 'FeatureCollection', features };
 }
