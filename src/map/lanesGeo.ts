@@ -133,11 +133,21 @@ export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<Line
 }
 
 /** Where the lane `index` of an arm meets the edge of the junction, and the arm's outward direction. */
-function laneEnd(doc: OsmDoc, arm: Arm, coming: boolean, index: number, r: number, f: ReturnType<typeof frame>): { p: V; out: V } {
+/** Points of an arm in the local frame, from the junction outwards. */
+function armPoints(doc: OsmDoc, arm: Arm, f: ReturnType<typeof frame>): V[] {
   const way = doc.ways[arm.wayId];
   const refs = arm.step === 1 ? way.refs.slice(arm.index) : way.refs.slice(0, arm.index + 1).reverse();
-  const pts = refs.map((id) => doc.nodes[id]).filter(Boolean).map((n) => f.to(n.lon, n.lat));
-  const { p, t } = along(pts, Math.min(r, lengthOf(pts) * 0.45));
+  return refs.map((id) => doc.nodes[id]).filter(Boolean).map((n) => f.to(n.lon, n.lat));
+}
+
+/** How much of an arm a lane end or an arrow may take: the rest belongs to the junction at its far end. */
+const ARM_SHARE = 0.45;
+const armLength = (doc: OsmDoc, arm: Arm, f: ReturnType<typeof frame>) => lengthOf(armPoints(doc, arm, f));
+
+function laneEnd(doc: OsmDoc, arm: Arm, coming: boolean, index: number, r: number, f: ReturnType<typeof frame>): { p: V; out: V } {
+  const way = doc.ways[arm.wayId];
+  const pts = armPoints(doc, arm, f);
+  const { p, t } = along(pts, Math.min(r, lengthOf(pts) * ARM_SHARE));
   // Coming in along an arm laid out with the way (+1) is travel against the way, and so on;
   // offsets are to the left of the way, which is the arm's own left only when step is +1.
   const travel = (arm.step === 1) === coming ? 'backward' : 'forward';
@@ -269,14 +279,20 @@ export function junctionGeometry(doc: OsmDoc, nodeIds: readonly string[], withEn
         });
       }
       const approach = lanes.approaches.find((ap) => armKey(ap.arm) === armKey(arm));
-      inEnds.forEach((e, i) => {
-        const p: V = [e.p[0] + out[0] * ARROW_BACK, e.p[1] + out[1] * ARROW_BACK];
-        arrows.push({
-          type: 'Feature',
-          properties: { node: nodeId, icon: arrowIcon(approach?.turns[i] ?? []), bearing: bearingOf([-out[0], -out[1]]), w17: w * px, raised: lifted || raisedWay(arm.wayId) },
-          geometry: { type: 'Point', coordinates: f.back(p) },
+      // Arrows stand on the lane itself, followed along the road: on a short or bent approach (a
+      // U-turn link) a point straight back from the stop line would land off the road, so a road
+      // too short to hold one gets none.
+      const back = r + ARROW_BACK;
+      if (armLength(doc, arm, f) * ARM_SHARE >= back) {
+        inEnds.forEach((_, i) => {
+          const at = laneEnd(doc, arm, true, i, back, f);
+          arrows.push({
+            type: 'Feature',
+            properties: { node: nodeId, icon: arrowIcon(approach?.turns[i] ?? []), bearing: bearingOf([-at.out[0], -at.out[1]]), w17: w * px, raised: lifted || raisedWay(arm.wayId) },
+            geometry: { type: 'Point', coordinates: f.back(at.p) },
+          });
         });
-      });
+      }
     }
     if (corners.length >= 3) {
       areas.push({ type: 'Feature', properties: { node: nodeId, edit, raised: lifted }, geometry: { type: 'Polygon', coordinates: [grow(hull(corners), AREA_MARGIN).map(f.back)] } });

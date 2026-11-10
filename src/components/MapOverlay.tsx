@@ -66,6 +66,7 @@ function FloatingTools() {
         {mode === 'building' && <BuildingBar />}
         {mode === 'draw' && (
           <div className="float-draw">
+            <DrawShape />
             <button className="btn btn-ink" onClick={() => finishDrawing()} disabled={points < 2 || conflicts.length > 0}>Готово <kbd>Enter</kbd></button>
           </div>
         )}
@@ -80,6 +81,33 @@ function FloatingTools() {
           </div>
         </div>
       )}
+    </>
+  );
+}
+
+const SNAP_TEXT = { node: 'к узлу', way: 'к дороге', angle: 'ровный угол' } as const;
+
+/** Straight or curved road, and the length and turn of the segment under the pointer. */
+function DrawShape() {
+  const curve = useUi((s) => s.drawCurve);
+  const toggle = useUi((s) => s.toggleDrawCurve);
+  const target = useUi((s) => s.drawTarget);
+  const control = useUi((s) => s.curveControl);
+  const points = useEditor((s) => s.drawing.length);
+  const turn = target?.turn;
+  const readout = [
+    target?.length ? `${Math.round(target.length)} м` : '',
+    turn !== null && turn !== undefined ? `${turn > 0 ? 'вправо' : turn < 0 ? 'влево' : 'прямо'} ${Math.abs(Math.round(turn))}°` : '',
+    target?.snap ? SNAP_TEXT[target.snap] : '',
+  ].filter(Boolean).join(' · ');
+  const hint = curve ? (!points ? 'клик — начало' : control ? 'клик — конец дуги' : 'клик — куда изогнуть') : 'Shift — шаг 15°';
+  return (
+    <>
+      <span className="seg" role="radiogroup" aria-label="Форма дороги">
+        <button role="radio" aria-checked={!curve} className={!curve ? 'on' : ''} onClick={() => curve && toggle()} title="Отрезки; угол сам встаёт на 15°, 30°, 45°, 60°, 90°">Прямая</button>
+        <button role="radio" aria-checked={curve} className={curve ? 'on' : ''} onClick={() => !curve && toggle()} title="Дуга по трём кликам: начало, изгиб, конец. Изгиб далеко вперёд и конец рядом с началом дают разворот">Кривая</button>
+      </span>
+      <span className="draw-readout mono" aria-live="polite">{readout || hint}</span>
     </>
   );
 }

@@ -12,6 +12,7 @@ import type { DrawPoint } from '../osm/draw';
 import type { OsmDoc, Tags } from '../osm/types';
 import { addAllCordonConnectors } from '../osm/cordon';
 import { currentSelection, useEditor } from './store';
+import { useUi } from './ui';
 import { refreshReport } from './validation';
 import { askUser, baseName, downloadText, isDesktop, openOsmFile, saveOsmFile } from '../platform';
 
@@ -129,6 +130,7 @@ export function finishDrawing(choice?: unknown): void {
     return r.doc;
   });
   s.setDrawing([]);
+  useUi.getState().setCurveControl(null);
   if (wayId) s.select({ type: 'way', id: wayId });
   if (ids.length && clearance === 'cut') s.notify(`Дорога построена, зданий срезано по дороге: ${ids.length}`);
   if (ids.length && clearance === 'demolish') s.notify(`Дорога построена, зданий снесено: ${ids.length}`);

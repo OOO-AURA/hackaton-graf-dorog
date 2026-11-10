@@ -279,12 +279,23 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   // centre line; it turns red over buildings in its way, and those buildings turn red too.
   map.addLayer({ id: 'draw-conflict-fill', type: 'fill', source: 'draw-conflicts', paint: { 'fill-color': '#E5392A', 'fill-opacity': 0.45 } });
   map.addLayer({ id: 'draw-conflict-line', type: 'line', source: 'draw-conflicts', paint: { 'line-color': '#E5392A', 'line-width': 2 } });
-  map.addLayer({ id: 'draw-road-edge', type: 'line', source: 'draw', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' },
+  const ROAD_LINE = ['all', ['==', ['geometry-type'], 'LineString'], ['!', ['has', 'handle']]];
+  map.addLayer({ id: 'draw-handle', type: 'line', source: 'draw', filter: ['has', 'handle'], paint: { 'line-color': '#F2A33A', 'line-width': 1.5, 'line-dasharray': [2, 2] } });
+  map.addLayer({ id: 'draw-road-edge', type: 'line', source: 'draw', filter: ROAD_LINE as never, layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: { 'line-width': drawWidthExpr(3), 'line-opacity': 0.9 } });
-  map.addLayer({ id: 'draw-road', type: 'line', source: 'draw', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' },
+  map.addLayer({ id: 'draw-road', type: 'line', source: 'draw', filter: ROAD_LINE as never, layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: { 'line-width': drawWidthExpr(0), 'line-opacity': 0.85 } });
-  map.addLayer({ id: 'draw-line', type: 'line', source: 'draw', filter: ['==', ['geometry-type'], 'LineString'], paint: { 'line-width': 1.5, 'line-dasharray': [3, 3] } });
-  map.addLayer({ id: 'draw-points', type: 'circle', source: 'draw', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-stroke-width': 2 } });
+  map.addLayer({ id: 'draw-line', type: 'line', source: 'draw', filter: ROAD_LINE as never, paint: { 'line-width': 1.5, 'line-dasharray': [3, 3] } });
+  map.addLayer({ id: 'draw-points', type: 'circle', source: 'draw', filter: ['all', ['==', ['geometry-type'], 'Point'], ['!', ['has', 'marker']]], paint: { 'circle-radius': 5, 'circle-stroke-width': 2 } });
+  // The magnet: a ring on the node or road the next point joins, a dot on a round angle, a square
+  // handle for the bend of a curve.
+  map.addLayer({ id: 'draw-snap', type: 'circle', source: 'draw', filter: ['has', 'marker'],
+    paint: {
+      'circle-radius': ['match', ['get', 'marker'], 'node', 11, 'way', 8, 'control', 6, 'angle', 5, 4],
+      'circle-color': ['match', ['get', 'marker'], 'control', '#F2A33A', 'rgba(0,0,0,0)'],
+      'circle-stroke-width': ['match', ['get', 'marker'], 'free', 1.5, 2.5],
+      'circle-stroke-color': ['match', ['get', 'marker'], 'node', '#2CC7C9', 'way', '#4C8DF6', 'angle', '#F2A33A', 'control', '#FFFFFF', '#FFFFFF'],
+    } });
   applyPalette(map, p);
 }
 

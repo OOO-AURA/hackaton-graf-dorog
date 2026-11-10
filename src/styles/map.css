@@ -154,3 +154,4 @@
 .float-load li { display: flex; align-items: center; gap: 8px; }
 .float-load i { width: 22px; height: 5px; border-radius: 3px; }
 .float-load .err { color: var(--red-text); }
+.draw-readout { min-width: 150px; font-size: 11px; color: var(--ink-2); white-space: nowrap; }

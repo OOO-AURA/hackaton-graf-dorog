@@ -40,7 +40,7 @@ export function wayLabel(way: { tags: Record<string, string> } | undefined, id: 
   return `${cls ? cls.label.split(',')[0] : 'Дорога'} · ${id}`;
 }
 
-const DEMAND_LABEL = { random: 'случайные поездки', od: 'матрица из макромодели' } as const;
+const DEMAND_LABEL = { random: 'случайные поездки', rush: 'вечерний час пик', od: 'матрица из макромодели' } as const;
 
 /** One KPI with its change against the baseline; `better` says which sign is good. */
 function Kpi({ value, base, label, digits = 1, better }: { value: number; base?: number; label: string; digits?: number; better: 'up' | 'down' }) {

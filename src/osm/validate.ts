@@ -6,15 +6,17 @@ import { falseTunnels } from './structures';
 import { speedMismatches } from './speeds';
 import { unsafeTags } from './pipelineSafety';
 import type { OsmDoc, OsmWay } from './types';
+import { flowRuleIssues, type FlowFix } from './flowRules';
 
-export type IssueKind = 'isolated' | 'trap' | 'cordon' | 'crossing' | 'near-nodes' | 'false-tunnel' | 'speed' | 'webots-crash';
+export type IssueKind = 'isolated' | 'trap' | 'cordon' | 'crossing' | 'near-nodes' | 'false-tunnel' | 'speed' | 'webots-crash' | 'head-on' | 'wrong-uturn';
 
 export type IssueFix =
   | { type: 'connect'; a: { wayId: string; index: number }; b: { wayId: string; index: number }; at: LonLat }
   | { type: 'merge'; keep: string; remove: string }
   | { type: 'ground'; wayId: string }
   | { type: 'speed'; wayId: string }
-  | { type: 'sanitize'; wayId: string };
+  | { type: 'sanitize'; wayId: string }
+  | FlowFix;
 
 export interface Issue {
   readonly id: string;
@@ -199,6 +201,7 @@ export function validate(doc: OsmDoc): ValidationReport {
         at: mid ? [mid.lon, mid.lat] : [0, 0], wayIds: [u.wayId], nodeIds: [], fix: { type: 'sanitize', wayId: u.wayId },
       };
     }),
+    ...flowRuleIssues(doc).map((f): Issue => ({ ...f, severity: 'error' })),
     ...speedMismatches(doc).map((m): Issue => {
       const w = doc.ways[m.wayId];
       const mid = doc.nodes[w.refs[Math.floor(w.refs.length / 2)]];
