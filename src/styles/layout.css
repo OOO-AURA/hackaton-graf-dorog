@@ -115,6 +115,8 @@ body.resizing-y, body.resizing-y * { cursor: row-resize !important; user-select:
 }
 .badge.err { background: var(--red-text); }
 .badge.warn { background: var(--orange-text); }
+.badge.muted { background: none; color: var(--ink-2); border: 1px solid var(--line-strong); }
+.badge + .badge { margin-left: 3px; }
 .badge.ok { background: var(--green-text); padding: 0 3px; }
 .badge.spin { width: 12px; min-width: 12px; height: 12px; padding: 0; background: none; border: 2px solid var(--line-strong); border-top-color: var(--ink); animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -124,6 +126,8 @@ body.resizing-y, body.resizing-y * { cursor: row-resize !important; user-select:
   padding: 9px 16px; background: var(--ink); color: var(--on-ink); border-radius: var(--r-md); font-size: var(--fs-sm); font-weight: 500;
   box-shadow: var(--shadow-pop); animation: toast-in 220ms var(--ease-out);
 }
+/* Over the map the message stands above the hint and the capsule, centred on the map, not the window. */
+.app:not(.is-empty) .toast { left: calc(var(--nav-w) + (100vw - var(--nav-w) - var(--insp-w)) / 2); bottom: calc(var(--stage-bottom) + 128px); max-width: min(560px, calc(100vw - var(--nav-w) - var(--insp-w) - 40px)); }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } }
 
 @media (max-width: 1500px) {

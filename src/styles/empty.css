@@ -6,12 +6,14 @@
 .empty-ribbon { width: 170%; height: clamp(120px, 22vh, 220px); right: -60%; top: 8%; transform: rotate(-22deg); transform-origin: center; animation: ribbon-in 700ms var(--ease-out) both; }
 @keyframes ribbon-in { from { transform: rotate(-22deg) translateX(30%); } }
 .empty-card {
-  position: relative; z-index: 1; width: min(560px, calc(100% - 48px)); padding: 36px 40px 32px; background: var(--panel);
+  position: relative; z-index: 1; width: min(620px, calc(100% - 48px)); padding: 36px 40px 32px; background: var(--panel);
   border: 1.5px solid var(--ink); border-radius: var(--r-lg); box-shadow: 8px 8px 0 var(--ink); animation: rise 360ms 120ms var(--ease-out) both;
 }
-.empty-card .display { font-size: clamp(64px, 9vw, 112px); text-transform: uppercase; margin: 10px 0 14px; letter-spacing: -0.02em; line-height: 0.84; }
+.empty-card .display { font-size: clamp(64px, 9vw, 112px); text-transform: uppercase; margin: 10px 0 14px; letter-spacing: -0.02em; line-height: 0.84; padding-bottom: 0.12em; }
 .empty-lead { font-size: var(--fs-lg); line-height: 1.45; max-width: 40ch; }
-.empty-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.empty-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 24px; }
+/* «Из OSM» stands as a button of the row, not as a word beside it. */
+.empty-actions .area-menu > summary { height: 40px; padding: 0 18px; font-size: var(--fs-lg); border: 1px solid var(--line-strong); }
 .stamp {
   position: absolute; display: inline-block; padding: 4px 10px; border: 2px solid var(--red-text); color: var(--red-text);
   font-family: var(--font-display); font-weight: 900; font-size: 18px; letter-spacing: 0.04em; text-transform: uppercase; transform: rotate(-6deg);

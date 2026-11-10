@@ -159,6 +159,13 @@
   .float-view { left: auto; right: 60px; transform: none; justify-items: end; }
   .float-hint { max-width: calc(100% - 24px); }
 }
+/* Narrower still: the island keeps only the mode, so it clears the tools on the left. */
+@container (max-width: 560px) {
+  .island:not(.open) { width: auto; max-width: calc(100cqw - 210px); }
+  .island-title { display: none; }
+  .island-mode { padding-left: 0; border-left: 0; }
+  .island.open { width: min(460px, calc(100cqw - 24px)); }
+}
 
 /* View mode island: a pill that grows into the menu of modes, like a dynamic island. */
 .island {

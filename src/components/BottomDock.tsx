@@ -24,7 +24,14 @@ function Badge({ tab }: { tab: BottomTab }) {
     const errors = report.issues.filter((i) => i.severity === 'error').length;
     const all = report.issues.length;
     if (!all) return <span className="badge ok" aria-label="ошибок нет"><Icon name="check" size={11} /></span>;
-    return <span className={`badge${errors ? ' err' : ' warn'}`}>{all}</span>;
+    // Errors break the network in a simulator, remarks only make it less exact: two counts, not one sum.
+    const remarks = all - errors;
+    return (
+      <>
+        {errors > 0 && <span className="badge err" title={`Ошибок: ${errors}`}>{errors}</span>}
+        {remarks > 0 && <span className="badge muted" title={`Замечаний: ${remarks}`}>{remarks}</span>}
+      </>
+    );
   }
   if (tab === 'errors' && logged) return <span className="badge err">{logged}</span>;
   if (tab === 'check' && running) return <span className="badge spin" aria-label="идёт проверка" />;
