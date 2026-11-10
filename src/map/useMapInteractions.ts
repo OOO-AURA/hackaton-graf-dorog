@@ -21,8 +21,36 @@ import { zoneEditingActive } from '../macro/useZoneEditing';
 import { mayJoin, pieceAround } from '../osm/pieces';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { useCustomFlows } from '../sim/customFlows';
+import { sceneOf } from './layers';
+import { LAYER_STEP, roadLevel } from '../osm/height';
 
 const DRAG_THRESHOLD_PX = 3;
+
+/**
+ * The stretch of a lifted way under a screen point: its segments are projected at deck height
+ * (layer × 5 m, as the 3D draws them) and the nearest one names the stretch between junctions.
+ */
+function deckPiece(map: MapLibreMap, doc: OsmDoc, wayId: string, point: { x: number; y: number }) {
+  const way = doc.ways[wayId];
+  const scene = sceneOf(map);
+  if (!way || way.refs.length < 3) return undefined;
+  const metres = roadLevel(way.tags).layer * LAYER_STEP;
+  const at = way.refs.map((r) => {
+    const n = doc.nodes[r];
+    return n ? (scene?.project(n.lon, n.lat, metres) ?? map.project([n.lon, n.lat])) : null;
+  });
+  let best = -1;
+  let bestD = Infinity;
+  for (let i = 0; i < at.length - 1; i++) {
+    const a = at[i], b = at[i + 1];
+    if (!a || !b) continue;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+    const d = Math.hypot(point.x - (a.x + dx * t), point.y - (a.y + dy * t));
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return best < 0 ? undefined : pieceAround(doc, wayId, best) ?? undefined;
+}
 
 /** Selects what is under the point as the select tool does; resolves once it is selected. */
 async function pickAt(map: MapLibreMap, point: { x: number; y: number }): Promise<void> {
@@ -36,7 +64,8 @@ async function pickAt(map: MapLibreMap, point: { x: number; y: number }): Promis
   const id = await hitBuilding(map, point);
   const st = useEditor.getState();
   const picked = id && pickableWay(st.doc, id) ? st.doc.ways[id] : null;
-  if (picked && !isBuilding(picked.tags)) st.select({ type: 'way', id: picked.id });
+  // A bridge deck picked in 3D: the stretch under the cursor, as a click on a flat road picks.
+  if (picked && !isBuilding(picked.tags)) st.select({ type: 'way', id: picked.id, piece: deckPiece(map, st.doc, picked.id, point) });
   // A click on a road picks the stretch between the junctions on either side of it.
   else if (way) st.select({ type: 'way', id: way.wayId, piece: pieceAround(st.doc, way.wayId, way.index) ?? undefined });
   else st.select(picked ? { type: 'way', id: picked.id } : null);

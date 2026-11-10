@@ -1,5 +1,6 @@
 import earcut from 'earcut';
 import { isDrivable } from '../osm/tags';
+import { pieceAround, type Piece } from '../osm/pieces';
 import type { OsmDoc, OsmWay } from '../osm/types';
 import { buildingHeight, LAYER_STEP } from '../osm/height';
 import { sectionAt, sectionOf, widthOf, type CrossSection, type Taper } from './section';
@@ -33,6 +34,11 @@ export type Scene3dMesh = {
   buildings: number;
   /** OSM way of every building and bridge, by its `pick` number minus one. */
   pickIds: string[];
+  /**
+   * The stretch between junctions each pick number covers, for bridges cut by junctions into
+   * several (a stretch is picked and lit alone); null where the number covers the whole way.
+   */
+  pickPieces: Array<Piece | null>;
   /** Building triangles, wound the same way as the roofs seen from outside. */
   solid: Float32Array;
   /** Bridge decks, piers and tunnel portals: opaque, never cut away. */
@@ -105,6 +111,23 @@ class Buf {
     for (let i = start + field; i < this.data.length; i += STRIDE) this.data[i] = value;
   }
   get array() { return new Float32Array(this.data); }
+  /** Field `field` of the vertex that starts at `at`. */
+  at(at: number, field: number) { return this.data[at + field]; }
+  set(at: number, field: number, value: number) { this.data[at + field] = value; }
+}
+
+/** The index of the segment of `pts` nearest to (x, y). */
+function nearestSegment(pts: readonly P2[], x: number, y: number): number {
+  let best = 0;
+  let bestD = Infinity;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, ay] = pts[i];
+    const dx = pts[i + 1][0] - ax, dy = pts[i + 1][1] - ay;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+    const d = (x - ax - dx * t) ** 2 + (y - ay - dy * t) ** 2;
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return best;
 }
 
 /**
@@ -594,6 +617,7 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
   });
   const buildings = groups.reduce((a, b) => Math.max(a, b), 0);
   const pickIds = buildingWays.map((w) => w.id);
+  const pickPieces: Array<Piece | null> = buildingWays.map(() => null);
 
   const lifted = nodeElevations(doc);
   // A bridge end that only the bridge itself touches comes down on a ramp; others meet an embankment.
@@ -608,8 +632,24 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     if (isBridge(w)) {
       const start = structures.length;
       addBridge(structures, shadows, mask, pts, w.tags, tapers.get(w.id), colors, !joined(w.refs[0]), !joined(w.refs[w.refs.length - 1]));
-      pickIds.push(w.id);
-      structures.fill(start, 11, pickIds.length);
+      // A bridge that junctions cut into stretches gets a pick number per stretch, so the stretch
+      // under the cursor is what lights up; each vertex goes to the stretch of its nearest segment.
+      const pieces = pts.length === w.refs.length ? pts.slice(0, -1).map((_, i) => pieceAround(doc, w.id, i)) : [];
+      if (!pieces.some(Boolean)) {
+        pickIds.push(w.id);
+        pickPieces.push(null);
+        structures.fill(start, 11, pickIds.length);
+        return;
+      }
+      const numberOf = new Map<string, number>();
+      const pickOfSegment = pieces.map((piece) => {
+        const key = `${piece!.from}-${piece!.to}`;
+        if (!numberOf.has(key)) { pickIds.push(w.id); pickPieces.push(piece); numberOf.set(key, pickIds.length); }
+        return numberOf.get(key)!;
+      });
+      for (let v = start; v < structures.length; v += STRIDE) {
+        structures.set(v, 11, pickOfSegment[nearestSegment(pts, structures.at(v, 0), structures.at(v, 1))]);
+      }
       return;
     }
     if (isTunnel(w)) {
@@ -621,6 +661,7 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
       const tubeStart = underground.length;
       addTunnel(underground, pts, w.tags, colors);
       pickIds.push(w.id);
+      pickPieces.push(null);
       structures.fill(start, 11, pickIds.length);
       underground.fill(tubeStart, 11, pickIds.length);
       return;
@@ -646,5 +687,5 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
   });
   addStreetProps(structures, { doc, local, roadWidth, signs });
 
-  return { origin, buildings, pickIds, solid: solid.array, structures: structures.array, underground: underground.array, shadows: shadows.array, roadMask: mask.array };
+  return { origin, buildings, pickIds, pickPieces, solid: solid.array, structures: structures.array, underground: underground.array, shadows: shadows.array, roadMask: mask.array };
 }

@@ -1,6 +1,7 @@
 import type { CustomLayerInterface, Map as MapLibreMap } from 'maplibre-gl';
 import { mercatorX, mercatorY, STRIDE, type Rgb, type Scene3dMesh } from './mesh3d';
 import { FloatSink, VEHICLE_MIN_ZOOM, vehicleTriangles, type VehicleKind } from './props3d';
+import type { Piece } from '../osm/pieces';
 
 /**
  * 3D buildings, bridges and tunnel portals drawn with our own WebGL, so that a building standing
@@ -288,6 +289,7 @@ export class Scene3dLayer implements CustomLayerInterface {
   private pending: Array<{ x: number; y: number; resolve: (id: string | null) => void }> = [];
   private lastMatrix: Float32Array | null = null;
   private selected = new Set<string>();
+  private selPiece: Piece | null = null;
   private selColor: Rgb = [0.93, 0.36, 0.61];
   private selTex: WebGLTexture | null = null;
   private selRows = 1;
@@ -334,9 +336,13 @@ export class Scene3dLayer implements CustomLayerInterface {
     this.map?.triggerRepaint();
   }
 
-  /** Buildings and bridges to highlight, by OSM way id, and the highlight colour. */
-  setSelected(ids: Iterable<string>, color: Rgb): void {
+  /**
+   * Buildings and bridges to highlight, by OSM way id, and the highlight colour. With `piece`
+   * only that stretch of a bridge lights up, as the stretch picked on a flat road.
+   */
+  setSelected(ids: Iterable<string>, color: Rgb, piece?: Piece | null): void {
     this.selected = new Set(ids);
+    this.selPiece = piece ?? null;
     this.selColor = color;
     this.selDirty = true;
     this.map?.triggerRepaint();
@@ -583,7 +589,11 @@ export class Scene3dLayer implements CustomLayerInterface {
     const n = this.mesh.pickIds.length;
     const rows = Math.max(1, Math.ceil((n + 1) / CUT_TEX_WIDTH));
     const data = new Uint8Array(CUT_TEX_WIDTH * rows * 4);
-    this.mesh.pickIds.forEach((id, i) => { if (this.selected.has(id)) data[(i + 1) * 4 + 3] = 255; });
+    const sel = this.selPiece;
+    this.mesh.pickIds.forEach((id, i) => {
+      const piece = this.mesh!.pickPieces[i];
+      if (this.selected.has(id) && (!sel || !piece || (piece.from === sel.from && piece.to === sel.to))) data[(i + 1) * 4 + 3] = 255;
+    });
     if (this.selTex) gl.deleteTexture(this.selTex);
     this.selTex = makeTexture(gl, CUT_TEX_WIDTH, rows, data);
     this.selRows = rows;

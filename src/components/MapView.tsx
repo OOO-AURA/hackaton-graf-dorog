@@ -200,7 +200,7 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     if (conflictIds.length) sceneOf(map)?.setSelected(conflictIds, [0.93, 0.25, 0.2]);
     else {
       const ids = multi.length ? multi : selection?.type === 'way' ? [selection.id] : [];
-      sceneOf(map)?.setSelected(ids, sceneColors(MAP_PALETTE[theme]).selection);
+      sceneOf(map)?.setSelected(ids, sceneColors(MAP_PALETTE[theme]).selection, !multi.length && selection?.type === 'way' ? selection.piece : null);
     }
   }, [map, preview, multi, selection, theme]);
 

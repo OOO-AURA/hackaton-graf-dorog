@@ -148,6 +148,15 @@ describe('3D scene geometry', () => {
     expect(marks('<tag k="oneway" v="yes"/><tag k="lanes" v="1"/>')).toHaveLength(0);
   });
 
+  test('a bridge cut by a junction gets a pick number per stretch, each vertex on its own stretch', () => {
+    const nodes = `<node id="1" lat="52.0" lon="104.000"/><node id="2" lat="52.0" lon="104.003"/><node id="3" lat="52.0" lon="104.006"/><node id="4" lat="52.003" lon="104.003"/>`;
+    const m = buildScene3d(osm(`${nodes}<way id="10"><nd ref="1"/><nd ref="2"/><nd ref="3"/><tag k="highway" v="primary"/><tag k="bridge" v="yes"/><tag k="layer" v="1"/></way><way id="11"><nd ref="2"/><nd ref="4"/><tag k="highway" v="residential"/></way>`), COLORS)!;
+    expect(m.pickIds).toEqual(['10', '10']);
+    expect(m.pickPieces).toEqual([{ from: 0, to: 1 }, { from: 1, to: 2 }]);
+    const picks = new Set(Array.from({ length: m.structures.length / STRIDE }, (_, i) => m.structures[i * STRIDE + 11]));
+    expect(picks.has(1) && picks.has(2)).toBe(true);
+  });
+
   test('a tunnel is a tube under the ground, as deep as its level', () => {
     const nodes = `<node id="1" lat="52.0" lon="104.000"/><node id="2" lat="52.0" lon="104.003"/>`;
     const tube = (layer: string) => buildScene3d(osm(`${nodes}<way id="10"><nd ref="1"/><nd ref="2"/><tag k="highway" v="primary"/><tag k="tunnel" v="yes"/><tag k="layer" v="${layer}"/></way>`), COLORS)!;
