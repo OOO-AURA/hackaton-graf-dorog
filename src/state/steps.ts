@@ -8,8 +8,8 @@ import type { BottomTab, Workspace } from './ui';
 
 export type Step = 'edit' | 'flows' | 'sim';
 
-/** Tabs of the bottom panel in every step: errors of the graph, the error log, the server check, hand-in, the journal. */
-export const ALWAYS_TABS: readonly BottomTab[] = ['issues', 'errors', 'check', 'submit', 'journal'];
+/** Tabs of the bottom panel in every step: errors of the graph, the error log, the server check, the journal. */
+export const ALWAYS_TABS: readonly BottomTab[] = ['issues', 'errors', 'check', 'journal'];
 
 export interface StepInfo {
   readonly id: Step;

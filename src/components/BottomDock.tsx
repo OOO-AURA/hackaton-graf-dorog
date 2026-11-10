@@ -13,7 +13,6 @@ import { Icon } from './icons';
 import { Why } from './Why';
 import { Splitter } from './SidePanel';
 import { useScenarios } from '../scenarios/store';
-import { SubmitPanel } from './SubmitPanel';
 import { stepInfo } from '../state/steps';
 
 function Badge({ tab }: { tab: BottomTab }) {
@@ -37,7 +36,7 @@ function Badge({ tab }: { tab: BottomTab }) {
 }
 
 export const TAB_LABELS: Readonly<Record<BottomTab, string>> = {
-  issues: 'Ошибки графа', check: 'Отчёт сервера', flows: 'Потоки', transit: 'Транспорт', scenarios: 'Сценарии', journal: 'Что изменено', errors: 'Журнал ошибок', submit: 'Чек-лист сдачи',
+  issues: 'Ошибки графа', check: 'Отчёт сервера', flows: 'Потоки', transit: 'Транспорт', scenarios: 'Сценарии', journal: 'Что изменено', errors: 'Журнал ошибок',
 };
 
 /** How long the panel takes to slide open or shut, ms (layout.css says the same). */
@@ -88,7 +87,6 @@ export function BottomDock() {
           {tab === 'scenarios' && <ScenariosPanel />}
           {tab === 'journal' && <Journal />}
           {tab === 'errors' && <ErrorLogPanel />}
-          {tab === 'submit' && <SubmitPanel />}
         </div>
       )}
       </div>

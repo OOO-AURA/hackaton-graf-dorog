@@ -6,7 +6,7 @@ describe('steps of the work', () => {
 
   test('every tab of the bottom panel belongs to some step', () => {
     const tabs = new Set(STEPS.flatMap((s) => s.tabs));
-    for (const t of ['issues', 'check', 'flows', 'transit', 'scenarios', 'journal', 'errors', 'submit']) expect(tabs.has(t as never)).toBe(true);
+    for (const t of ['issues', 'check', 'flows', 'transit', 'scenarios', 'journal', 'errors']) expect(tabs.has(t as never)).toBe(true);
   });
 
   test('choosing a step opens its tab and the model level it needs', () => {
@@ -19,7 +19,7 @@ describe('steps of the work', () => {
   });
 
   test('checks and hand-in are tabs of every step, opening one keeps the step', () => {
-    for (const s of STEPS) for (const t of ['issues', 'errors', 'check', 'submit', 'journal']) expect(s.tabs).toContain(t);
+    for (const s of STEPS) for (const t of ['issues', 'errors', 'check', 'journal']) expect(s.tabs).toContain(t);
     useUi.getState().setStep('flows');
     useUi.getState().openBottom('check');
     expect(useUi.getState().step).toBe('flows');

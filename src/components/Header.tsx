@@ -1,5 +1,6 @@
 import { isDirty, useEditor } from '../state/store';
-import { BROWSER_FILE_INPUT, openFile, saveOsm } from '../state/actions';
+import { BROWSER_FILE_INPUT, openFile } from '../state/actions';
+import { SaveMenu } from './SaveMenu';
 import { isDesktop } from '../platform';
 import { useUi } from '../state/ui';
 import { AreaMenu } from './AreaMenu';
@@ -32,7 +33,7 @@ function ThemeToggle() {
 
 /**
  * Header, left to right: the file (open, example, any area of OSM, undo), the steps of the work,
- * then help, theme and save. The server check and the exports live in the step «Сдача».
+ * then help, theme and save; the file name and the exports are in the menu beside «Сохранить».
  */
 export function Header() {
   const fileName = useEditor((s) => s.fileName);
@@ -70,7 +71,7 @@ export function Header() {
         )}
         <button className="icon-btn help-btn" onClick={() => setHelpOpen(true)} title="Как работать и горячие клавиши (?)" aria-label="Справка">?</button>
         <ThemeToggle />
-        <button className="btn btn-ink" onClick={() => void saveOsm()} disabled={empty} title="⌘S, сохранить как ⌘⇧S. Имя файла и экспорт — в шаге «Сдача»"><Icon name="save" /> Сохранить</button>
+        <SaveMenu />
       </div>
     </header>
   );

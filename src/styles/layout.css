@@ -154,3 +154,14 @@ body.resizing-y, body.resizing-y * { cursor: row-resize !important; user-select:
 .area-search .btn { flex-shrink: 0; }
 .area-scope { display: flex; gap: 8px; align-items: flex-start; padding: 4px 10px 8px; font-size: 11.5px; }
 .area-scope input { margin-top: 2px; }
+
+/* Save with its menu: name of the file, save as, exports. */
+.save-split { display: flex; align-items: stretch; }
+.save-split > .btn { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.save-more { padding: 0 8px; border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: 1px solid color-mix(in srgb, var(--on-ink) 25%, transparent); height: 100%; display: flex; align-items: center; }
+.save-menu .menu-list { width: 300px; }
+.save-menu .save-name { display: grid; gap: 4px; padding: 6px 10px 8px; }
+.save-menu .save-name span { opacity: 1; }
+.save-menu .save-name input { width: 100%; }
+.save-menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 6px; }
+.save-menu kbd { margin-left: 6px; }

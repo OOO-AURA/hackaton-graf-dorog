@@ -9,7 +9,7 @@ export type ThemeChoice = Theme | 'system';
 export type Workspace = 'macro' | 'micro';
 /** How roads look: coloured by class like a graph, or as asphalt with markings like an engineering plan. */
 export type RoadLook = 'graph' | 'engineering' | 'scheme';
-export type BottomTab = 'issues' | 'check' | 'flows' | 'transit' | 'scenarios' | 'journal' | 'errors' | 'submit';
+export type BottomTab = 'issues' | 'check' | 'flows' | 'transit' | 'scenarios' | 'journal' | 'errors';
 /** Tab of the navigator: objects of the graph, how the map looks, the legend. */
 export type NavTab = 'objects' | 'view' | 'legend';
 export type LayerId = 'roads' | 'sidewalks' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs' | 'transit' | 'changes';

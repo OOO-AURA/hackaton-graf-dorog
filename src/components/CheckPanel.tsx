@@ -71,7 +71,7 @@ export function CheckPanel() {
   return (
     <section className="check-panel" aria-live="polite">
       {!isDesktop && <p className="hint">Проверка на SUMO, MATSim и Webots работает в настольном приложении: в браузере нет доступа к этим программам.</p>}
-      {isDesktop && !report && !running && !error && <p className="hint">Кнопка «Проверить как на сервере» на вкладке «Чек-лист сдачи» прогонит граф через те же адаптеры, что и сервер организаторов.</p>}
+      {isDesktop && !report && !running && !error && <p className="hint">Кнопка «Проверить как на сервере» прогонит граф через те же адаптеры, что и сервер организаторов.</p>}
       {running && <p className="hint running">netconvert и sumo, MATSim OsmNetworkReader, импортёр Webots. Обычно 10–20 секунд.</p>}
       {error && <p className="check-error">{error}</p>}
       {report && !running && (

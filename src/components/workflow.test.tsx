@@ -4,7 +4,7 @@ import { parseOsm } from '../osm/parse';
 import { useEditor } from '../state/store';
 import { useUi } from '../state/ui';
 import { StepBar } from './StepBar';
-import { SubmitPanel } from './SubmitPanel';
+import { SaveMenu } from './SaveMenu';
 import { MapHint } from './MapHint';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -36,14 +36,13 @@ describe('the work in steps', () => {
     r.done();
   });
 
-  test('the hand-in list asks for the team file name', () => {
+  test('the save menu holds the team file name and the exports', () => {
     useEditor.getState().setSaveName('graph.osm');
-    const r = render(<SubmitPanel />);
-    expect(r.host.textContent).toContain('Граф без ошибок');
-    expect(r.host.textContent).toContain('Имя файла');
-    expect(r.host.querySelector('.submit-item.is-warn')).not.toBeNull();
+    const r = render(<SaveMenu />);
+    expect(r.host.textContent).toContain('сервер ждёт hack-teamNN.osm');
+    expect(r.host.textContent).toContain('Сеть MATSim network.xml');
     act(() => useEditor.getState().setSaveName('hack-team10.osm'));
-    expect(r.host.querySelectorAll('.submit-item.is-ok').length).toBeGreaterThan(0);
+    expect(r.host.textContent).not.toContain('сервер ждёт');
     r.done();
   });
 
