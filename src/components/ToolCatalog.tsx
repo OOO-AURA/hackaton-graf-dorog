@@ -15,6 +15,13 @@ export function Profile({ tags }: { tags: Record<string, string> }) {
     );
   }
   const hw = tags.highway ?? '';
+  if (hw === 'steps') {
+    return (
+      <svg className="tpl-profile" viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
+        {[0, 1, 2, 3, 4, 5].map((k) => <rect key={k} x={22 + k * 5} y="7" width="4" height="12" fill={k % 2 ? '#8C8478' : '#A39B8F'} />)}
+      </svg>
+    );
+  }
   if (hw === 'footway' || hw === 'pedestrian' || hw === 'cycleway') {
     const color = hw === 'cycleway' ? '#3D7A52' : '#8C8478';
     return (
@@ -54,6 +61,7 @@ export const gabarit = (tags: Record<string, string>) => {
   if (tags.railway) return tags.railway === 'subway' ? 'тоннель · 1520 мм' : `колея ${tags.gauge ?? '1520'} мм`;
   const hw = tags.highway ?? '';
   if (hw === 'footway' || hw === 'pedestrian') return 'ширина 2,25 м';
+  if (hw === 'steps') return 'ступени';
   if (hw === 'cycleway') return 'ширина 1,5 м';
   const lanes = Number(tags.lanes ?? 1);
   return `${lanes} пол. · ${tags.maxspeed ?? '—'} км/ч`;

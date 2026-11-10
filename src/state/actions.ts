@@ -111,7 +111,11 @@ export const builtPoints = (points: readonly DrawPoint[], tags: Tags): DrawPoint
 
 /** Buildings the road being drawn runs into, for the points drawn so far. */
 export const drawingConflicts = (doc: OsmDoc, points: readonly DrawPoint[], tags: Tags): BuildingConflict[] =>
-  buildingConflicts(doc, points, drawWidth(tags));
+  // Underground lines (metro, tunnels) and footpaths go under or between buildings: nothing to clear.
+  underground(tags) || isPath(tags) ? [] : buildingConflicts(doc, points, drawWidth(tags));
+
+const underground = (tags: Tags) => tags.railway === 'subway' || (tags.tunnel !== undefined && tags.tunnel !== 'no') || Number.parseInt(tags.layer ?? '0', 10) < 0;
+const isPath = (tags: Tags) => ['footway', 'path', 'steps', 'cycleway'].includes(tags.highway ?? '');
 
 /** What to do with buildings in the way: cut them along the road, demolish them, or build over them. */
 export type Clearance = 'cut' | 'demolish' | 'keep';

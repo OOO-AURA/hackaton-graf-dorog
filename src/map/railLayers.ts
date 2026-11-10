@@ -9,15 +9,16 @@ import type { MapPalette } from './palette';
  */
 
 export const RAIL_SOURCES = ['rails', 'stations'] as const;
-export const RAIL_LAYERS = ['rail-platform', 'rail-base', 'rail-ties', 'stations', 'station-names'] as const;
+export const RAIL_LAYERS = ['rail-platform', 'rail-base', 'rail-ties', 'rail-metro', 'rail-metro-tunnel', 'stations', 'station-names'] as const;
 /** Layers that take clicks: tracks and platforms like roads, stations like nodes. */
-export const RAIL_HIT_LINES = ['rail-base', 'rail-platform'] as const;
+export const RAIL_HIT_LINES = ['rail-base', 'rail-metro', 'rail-metro-tunnel', 'rail-platform'] as const;
 export const RAIL_HIT_POINTS = ['stations'] as const;
 
 const IS_TRAM = ['in', ['get', 'kind'], ['literal', ['tram', 'light_rail']]];
 const IS_SIDE = ['!=', ['get', 'service'], ''];
 const IS_PLATFORM = ['==', ['get', 'kind'], 'platform'];
-const IS_TRACK = ['!=', ['get', 'kind'], 'platform'];
+const IS_METRO = ['==', ['get', 'kind'], 'subway'];
+const IS_TRACK = ['all', ['!=', ['get', 'kind'], 'platform'], ['!', IS_METRO]];
 
 const zoomWidth = (z13: unknown, z18: unknown) => ['interpolate', ['linear'], ['zoom'], 13, z13, 18, z18] as never;
 
@@ -46,7 +47,7 @@ function nameImage(name: string, dark: boolean): ImageData | null {
   return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 
-function stationIcon(kind: 'station' | 'halt' | 'tram_stop'): ImageData | null {
+function stationIcon(kind: 'station' | 'halt' | 'tram_stop' | 'subway' | 'subway_entrance'): ImageData | null {
   const ratio = 2;
   const canvas = document.createElement('canvas');
   canvas.width = ICON_SIZE * ratio;
@@ -57,6 +58,19 @@ function stationIcon(kind: 'station' | 'halt' | 'tram_stop'): ImageData | null {
   const c = ICON_SIZE / 2;
   ctx.lineWidth = 2;
   ctx.strokeStyle = '#FFFFFF';
+  if (kind === 'subway' || kind === 'subway_entrance') {
+    // The metro «М»: a red disc for a station, a smaller rounded square for an entrance.
+    ctx.fillStyle = '#D7261E';
+    ctx.beginPath();
+    if (kind === 'subway') ctx.arc(c, c, 10.5, 0, Math.PI * 2); else ctx.roundRect(c - 7.5, c - 7.5, 15, 15, 3);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = `bold ${kind === 'subway' ? 13 : 10}px Arial, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('М', c, c + 1);
+    return ctx.getImageData(0, 0, canvas.width, canvas.height);
+  }
   if (kind === 'tram_stop') {
     ctx.fillStyle = '#7A4FA0';
     ctx.beginPath(); ctx.arc(c, c, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
@@ -85,11 +99,18 @@ export function addRailLines(map: MapLibreMap): void {
   // Ties: light dashes along railway tracks; tram tracks stay a plain line.
   map.addLayer({ id: 'rail-ties', type: 'line', source: 'rails', minzoom: 14, filter: ['all', IS_TRACK, ['!', IS_TRAM]] as never, layout: { 'line-cap': 'butt' },
     paint: { 'line-width': zoomWidth(1, 3), 'line-dasharray': [2, 2.5] } });
+  // Metro: a line in the colour of its line on the scheme (tag colour, red without one), no ties;
+  // under the ground it is dashed, as metro maps draw the tunnels.
+  const metroColor = ['case', ['==', ['get', 'colour'], ''], '#D7261E', ['to-color', ['get', 'colour'], '#D7261E']];
+  map.addLayer({ id: 'rail-metro', type: 'line', source: 'rails', filter: ['all', IS_METRO, ['!', ['get', 'tunnel']]] as never, layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': metroColor as never, 'line-width': zoomWidth(2.5, 7) } });
+  map.addLayer({ id: 'rail-metro-tunnel', type: 'line', source: 'rails', filter: ['all', IS_METRO, ['get', 'tunnel']] as never, layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: { 'line-color': metroColor as never, 'line-width': zoomWidth(2.5, 7), 'line-opacity': 0.8, 'line-dasharray': [1.6, 1] } });
 }
 
 /** Station symbols and names, on top of the roads. */
 export function addStationLayers(map: MapLibreMap): void {
-  (['station', 'halt', 'tram_stop'] as const).forEach((k) => {
+  (['station', 'halt', 'tram_stop', 'subway', 'subway_entrance'] as const).forEach((k) => {
     const img = stationIcon(k);
     if (img && !map.hasImage(`station-${k}`)) map.addImage(`station-${k}`, img, { pixelRatio: 2 });
   });

@@ -20,6 +20,8 @@ import { useSettledDoc } from '../state/settled';
 import { BusLaneFields } from './BusParts';
 import { isolatePiece } from '../osm/pieces';
 import { LaneEditor } from './LaneEditor';
+import { SidewalkSection } from './SidewalkSection';
+import { useUi } from '../state/ui';
 
 export const HIGHWAY_LABELS: Readonly<Record<string, string>> = {
   motorway: 'Автомагистраль', trunk: 'Скоростная', primary: 'Магистральная', secondary: 'Районная', tertiary: 'Улица местного значения',
@@ -63,6 +65,7 @@ export function WayInspector({ way }: { way: OsmWay }) {
     if (piece) select({ type: 'way', id: way.id });
   };
   const select = useEditor((s) => s.select);
+  const sidewalksOnly = useUi((s) => s.lens === 'walk');
   const doc = useSettledDoc();
   const t = way.tags;
   const streetParts = t.name ? streetWays(doc, t.name).length : 0;
@@ -88,6 +91,9 @@ export function WayInspector({ way }: { way: OsmWay }) {
         {piece && <button className="link" onClick={() => select({ type: 'way', id: way.id })}>Править всю линию</button>}
         {streetParts > 1 && <button className="link" onClick={() => select({ type: 'street', id: t.name })}>Вся улица: {streetParts} участков, править разом</button>}
       </header>
+      {/* In the walking view the road is picked for its sidewalks only. */}
+      {sidewalksOnly && <SidewalkSection way={way} apply={apply} />}
+      {!sidewalksOnly && <>
       <Section title="Свойства">
         <SelectField label="Класс" value={t.highway ?? ''} options={DRIVABLE_HIGHWAYS.map((h) => [h, HIGHWAY_LABELS[h] ?? h] as const)} onChange={set('highway')} />
         <TextField label="Название" value={t.name ?? ''} onCommit={set('name')} />
@@ -150,6 +156,7 @@ export function WayInspector({ way }: { way: OsmWay }) {
           <SelectField label="Автобусная полоса" value={t['lanes:bus'] ? 'yes' : ''} options={BUS_OPTIONS} onChange={(v) => apply((d) => setWayTag(d, way.id, 'lanes:bus', v ? '1' : null))} />
         </div>
       </Section>
+      <SidewalkSection way={way} apply={apply} />
       <Section title="Высота">
         <RoadLevelFields ids={[way.id]} tags={t} />
         <p className={`hint${webotsElevation(t) === null ? ' warn' : ''}`}>{elevationHint(t)}</p>
@@ -160,6 +167,7 @@ export function WayInspector({ way }: { way: OsmWay }) {
       <div className="insp-foot">
         <button className="btn btn-danger" onClick={deleteSelection} title="Delete"><Icon name="trash" /> Удалить дорогу</button>
       </div>
+      </>}
     </div>
   );
 }

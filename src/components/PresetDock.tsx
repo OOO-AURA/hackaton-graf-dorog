@@ -4,7 +4,7 @@ import { BUILDING_TEMPLATES } from '../osm/buildingShape';
 import { SIGN_GROUPS, SIGNS, signDef } from '../osm/trafficSigns';
 import { NODE_FEATURES } from '../map/features';
 import { signUrl } from '../map/signArt';
-import { TOOLS_IN } from '../map/editScope';
+import { PRESETS, TOOLS_IN } from '../map/editScope';
 import { useBuildingTool } from '../map/buildingTool';
 import { useEditor } from '../state/store';
 import { useUi } from '../state/ui';
@@ -27,16 +27,20 @@ const TABS: ReadonlyArray<{ id: Tab; label: string; icon: IconName; tool: string
   { id: 'stations', label: 'Станции', icon: 'node', tool: 'signal' },
 ];
 
-const STATION_IDS = new Set(['station', 'halt', 'tram_stop']);
+/** The roads tab is named after what it holds in each view mode. */
+const ROADS_LABEL: Partial<Record<string, string>> = { walk: 'Тротуары и дорожки', transit: 'Трамвайные пути', rail: 'Пути', metro: 'Пути метро' };
+
+const STATION_IDS = new Set(['station', 'halt', 'tram_stop', 'subway_station', 'subway_entrance']);
 
 function RoadCards({ close }: { close: () => void }) {
   const template = useEditor((s) => s.templateIndex);
   const mode = useEditor((s) => s.mode);
+  const lens = useUi((s) => s.lens);
   const groups = useMemo(() => {
     const m = new Map<string, number[]>();
-    ROAD_TEMPLATES.forEach((t, i) => m.set(t.group, [...(m.get(t.group) ?? []), i]));
+    ROAD_TEMPLATES.forEach((t, i) => { if (PRESETS[lens].road(t.tags)) m.set(t.group, [...(m.get(t.group) ?? []), i]); });
     return [...m.entries()];
-  }, []);
+  }, [lens]);
   return (
     <>
       {groups.map(([group, ids]) => (
@@ -90,14 +94,15 @@ function BuildingCards({ close }: { close: () => void }) {
 function SignCards({ close }: { close: () => void }) {
   const kind = useUi((s) => s.featureKind);
   const mode = useEditor((s) => s.mode);
+  const lens = useUi((s) => s.lens);
   const pick = (id: string) => { useUi.getState().setFeatureKind(id); useEditor.getState().setMode('signal'); close(); };
   return (
     <>
-      {SIGN_GROUPS.map((g) => (
+      {SIGN_GROUPS.filter((g) => SIGNS.some((s) => s.group === g && PRESETS[lens].sign(s.code))).map((g) => (
         <div key={g} className="pd-group">
           <span className="pd-group-title">{g}</span>
           <div className="pd-cards">
-            {SIGNS.filter((s) => s.group === g).map((s) => {
+            {SIGNS.filter((s) => s.group === g && PRESETS[lens].sign(s.code)).map((s) => {
               const id = `ts:${s.code}`;
               const on = mode === 'signal' && kind === id;
               return (
@@ -111,7 +116,7 @@ function SignCards({ close }: { close: () => void }) {
           </div>
         </div>
       ))}
-      <div className="pd-group pd-rules"><RuleSigns /></div>
+      {(lens === 'all' || lens === 'signs') && <div className="pd-group pd-rules"><RuleSigns /></div>}
     </>
   );
 }
@@ -119,11 +124,12 @@ function SignCards({ close }: { close: () => void }) {
 function StationCards({ close }: { close: () => void }) {
   const kind = useUi((s) => s.featureKind);
   const mode = useEditor((s) => s.mode);
+  const lens = useUi((s) => s.lens);
   return (
     <div className="pd-group">
-      <span className="pd-group-title">Железная дорога и трамвай</span>
+      <span className="pd-group-title">Станции и остановки</span>
       <div className="pd-cards">
-        {NODE_FEATURES.filter((f) => STATION_IDS.has(f.id)).map((f) => {
+        {NODE_FEATURES.filter((f) => STATION_IDS.has(f.id) && PRESETS[lens].station(f.id)).map((f) => {
           const on = mode === 'signal' && kind === f.id;
           return (
             <button key={f.id} className={`pd-card pd-sign${on ? ' on' : ''}`} aria-pressed={on} title={f.hint}
@@ -163,7 +169,14 @@ export function PresetDock() {
   const [open, setOpen] = useState<Tab | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const picked = usePicked();
-  const tabs = TABS.filter((t) => TOOLS_IN[lens].has(t.tool) && (t.id !== 'stations' || ['all', 'rail', 'transit'].includes(lens)));
+  // A tab is offered when the mode allows its tool and has at least one piece in it.
+  const has: Record<Tab, boolean> = {
+    roads: ROAD_TEMPLATES.some((t) => PRESETS[lens].road(t.tags)),
+    buildings: lens === 'all',
+    signs: SIGNS.some((s) => PRESETS[lens].sign(s.code)),
+    stations: NODE_FEATURES.some((f) => STATION_IDS.has(f.id) && PRESETS[lens].station(f.id)),
+  };
+  const tabs = TABS.filter((t) => TOOLS_IN[lens].has(t.tool) && has[t.id]);
   useEffect(() => {
     if (!open) return undefined;
     const onDown = (e: PointerEvent) => { if (root.current && !root.current.contains(e.target as Node)) setOpen(null); };
@@ -188,7 +201,7 @@ export function PresetDock() {
       <div className="pd-bar">
         {tabs.map((t) => (
           <button key={t.id} className={`pd-tab${open === t.id ? ' on' : ''}`} aria-expanded={open === t.id} title={t.label} onClick={() => setOpen(open === t.id ? null : t.id)}>
-            <Icon name={t.icon} size={18} /><span>{t.label}</span>
+            <Icon name={t.icon} size={18} /><span>{t.id === 'roads' ? ROADS_LABEL[lens] ?? t.label : t.label}</span>
           </button>
         ))}
         {picked && (

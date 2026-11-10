@@ -54,6 +54,8 @@ export const SIGN_SVG: Record<string, string> = {
   tram_stop: service(tram('#fff', BLUE)),
   // Railway station and halt (map symbols, not road signs).
   station: `<rect x="2" y="2" width="44" height="44" rx="8" fill="#fff"/><rect x="4" y="4" width="40" height="40" rx="7" fill="#B3261E"/>${train('#fff', '#B3261E')}`,
+  subway_station: `<circle cx="24" cy="24" r="22" fill="#fff"/><circle cx="24" cy="24" r="20" fill="${RED}"/><text x="24" y="31" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="22" fill="#fff">М</text>`,
+  subway_entrance: `<rect x="5" y="5" width="38" height="38" rx="7" fill="#fff"/><rect x="7" y="7" width="34" height="34" rx="6" fill="${RED}"/><text x="24" y="31" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="19" fill="#fff">М</text>`,
   halt: `<circle cx="24" cy="24" r="22" fill="#fff"/><circle cx="24" cy="24" r="20" fill="#C9503F"/>${train('#fff', '#C9503F')}`,
 };
 

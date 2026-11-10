@@ -31,9 +31,9 @@ export const TOOLS_IN: Readonly<Record<Lens, ReadonlySet<string>>> = {
   car: new Set(['view', 'select', 'draw', 'insert']),
   signs: new Set(['view', 'select', 'signal']),
   walk: new Set(['view', 'select', 'draw', 'insert', 'signal']),
-  transit: new Set(['view', 'select', 'draw', 'insert']),
-  rail: new Set(['view', 'select', 'draw', 'insert']),
-  metro: new Set(['view', 'select']),
+  transit: new Set(['view', 'select', 'draw', 'insert', 'signal']),
+  rail: new Set(['view', 'select', 'draw', 'insert', 'signal']),
+  metro: new Set(['view', 'select', 'draw', 'insert', 'signal']),
   load: new Set(['view']),
 };
 
@@ -96,5 +96,25 @@ export const canPickWay = (doc: OsmDoc, lens: Lens, id: string): boolean => {
   if (!w) return false;
   const k = wayKind(w);
   // Tram tracks are public transport too.
+  // In the walking view a road is picked for its sidewalks (the inspector shows only those).
+  if (lens === 'walk' && k === 'road') return true;
   return EDITABLE[lens].has(k) || (k === 'rail' && w.tags.railway === 'tram' && EDITABLE[lens].has('transit'));
+};
+
+const WALK_TEMPLATE = new Set(['footway', 'pedestrian', 'cycleway', 'steps']);
+
+/** Ready-made pieces each view mode offers in the capsule: only what that job needs. */
+export const PRESETS: Readonly<Record<Lens, {
+  road: (tags: Readonly<Record<string, string>>) => boolean;
+  sign: (code: string) => boolean;
+  station: (id: string) => boolean;
+}>> = {
+  all: { road: () => true, sign: () => true, station: () => true },
+  car: { road: (t) => isDrivable(t), sign: () => false, station: () => false },
+  signs: { road: () => false, sign: () => true, station: () => false },
+  walk: { road: (t) => WALK_TEMPLATE.has(t.highway ?? ''), sign: (c) => c === '5.19' || c === 'signal_ped', station: (id) => id === 'subway_entrance' },
+  transit: { road: (t) => t.railway === 'tram', sign: (c) => c === '5.16', station: (id) => id === 'tram_stop' },
+  rail: { road: (t) => t.railway === 'rail', sign: () => false, station: (id) => id === 'station' || id === 'halt' },
+  metro: { road: (t) => t.railway === 'subway', sign: () => false, station: (id) => id === 'subway_station' || id === 'subway_entrance' },
+  load: { road: () => false, sign: () => false, station: () => false },
 };

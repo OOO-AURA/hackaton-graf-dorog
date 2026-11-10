@@ -90,5 +90,7 @@ export const ROAD_TEMPLATES: readonly RoadTemplate[] = [
   { label: 'Тротуар', group: 'Пешеходы и велосипеды', tags: { highway: 'footway', footway: 'sidewalk' } },
   { label: 'Пешеходная улица', group: 'Пешеходы и велосипеды', tags: { highway: 'pedestrian' } },
   { label: 'Велодорожка', group: 'Пешеходы и велосипеды', tags: { highway: 'cycleway' } },
+  { label: 'Дорожка', group: 'Пешеходы и велосипеды', tags: { highway: 'footway' } },
+  { label: 'Лестница', group: 'Пешеходы и велосипеды', tags: { highway: 'steps' } },
   { label: 'Метро', group: 'Рельсовые', tags: { railway: 'subway', gauge: '1520', electrified: 'rail', tunnel: 'yes', layer: '-2' } },
 ];

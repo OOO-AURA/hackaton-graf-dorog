@@ -10,6 +10,7 @@ import { pxPerMetreZ17 } from './lanesGeo';
 import { cumulative, frame, slice } from './polyline';
 import { sectionAt, sectionOf, taperBreaks, type Taper } from './section';
 import { drawnRoads, roadShifts, wayPoints } from './shift';
+import { SIDEWALK_W, sidewalkWidth } from '../osm/sidewalks';
 
 /** How far road pieces reach into their neighbours, metres. */
 const OVERLAP = 0.3;
@@ -29,8 +30,6 @@ const lanesOf = (w: OsmWay) => Number.parseInt(w.tags.lanes ?? '', 10) || (direc
  * (a two-way road with more lanes one way is off-centre).
  */
 /** Sidewalk width and the distance of its middle from the carriageway edge, metres. */
-const SIDEWALK_W = 2.25;
-const SIDEWALK_GAP = 0.4 + SIDEWALK_W / 2;
 const URBAN = new Set(['primary', 'secondary', 'tertiary', 'residential', 'unclassified', 'living_street']);
 
 /**
@@ -71,12 +70,15 @@ function roadFeatures(doc: OsmDoc, w: OsmWay, tapers: readonly Taper[] | undefin
   const lonLat = roadShifts(doc).has(w.id) ? pts.map(f.back) : raw;
   const total = cumulative(pts)[pts.length - 1] ?? 0;
   const base = sectionOf(w.tags);
+  // Sidewalks as wide as tagged (sidewalk:*:width), else the usual 2.25 m.
+  const walkW = sidewalkWidth(w.tags) ?? SIDEWALK_W;
+  const walkGap = 0.4 + walkW / 2;
   const feature = (from: number, to: number, taper: boolean): Feature<LineString, Props> => {
     const sec = sectionAt(base, tapers, (from + to) / 2, total);
     return {
       type: 'Feature',
       id: Number(w.id),
-      properties: { ...props, w17: (sec.left + sec.right) * px, o17: ((sec.right - sec.left) / 2) * px, sl17: -(sec.left + SIDEWALK_GAP) * px, sr17: (sec.right + SIDEWALK_GAP) * px, s17: SIDEWALK_W * px, taper },
+      properties: { ...props, w17: (sec.left + sec.right) * px, o17: ((sec.right - sec.left) / 2) * px, sl17: -(sec.left + walkGap) * px, sr17: (sec.right + walkGap) * px, s17: walkW * px, taper },
       // Pieces overlap a little: square-ended bridge pieces would show hairline seams between them.
       geometry: { type: 'LineString', coordinates: taper || from > 0 || to < total ? slice(pts, Math.max(0, from - OVERLAP), Math.min(total, to + OVERLAP)).map(f.back) : lonLat },
     };
@@ -152,7 +154,7 @@ export function railGeoJson(doc: OsmDoc) {
       type: 'Feature',
       properties: {
         id: w.id, kind: isRailLine(w.tags) ? (w.tags.railway as string) : 'platform', service: w.tags.service ?? '',
-        bridge: isYes(w.tags.bridge), tunnel: isYes(w.tags.tunnel),
+        bridge: isYes(w.tags.bridge), tunnel: isYes(w.tags.tunnel), colour: w.tags.colour ?? '',
       },
       geometry: { type: 'LineString', coordinates: coords(doc, w) },
     });
@@ -164,7 +166,9 @@ export function railGeoJson(doc: OsmDoc) {
 export function stationGeoJson(doc: OsmDoc) {
   const features: Feature<Point, Props>[] = [];
   Object.values(doc.nodes).forEach((n) => {
-    const kind = stationKind(n.tags);
+    // Metro stations and entrances have symbols of their own.
+    const metro = n.tags.station === 'subway' || n.tags.subway === 'yes';
+    const kind = n.tags.railway === 'subway_entrance' ? 'subway_entrance' : stationKind(n.tags) && metro ? 'subway' : stationKind(n.tags);
     if (!kind) return;
     features.push({ type: 'Feature', properties: { id: n.id, kind, name: n.tags.name ?? '' }, geometry: { type: 'Point', coordinates: [n.lon, n.lat] } });
   });

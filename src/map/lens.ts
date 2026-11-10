@@ -98,8 +98,9 @@ export function applyLens(map: MapLibreMap, lens: Lens): void {
   highlightWalking(map, lens === 'walk');
   (Object.keys(GROUPS) as Group[]).forEach((g) => {
     GROUPS[g].forEach((layer) => {
-      if (lens === 'metro' && g === 'rail' && (layer === 'rail-base' || layer === 'rail-ties' || layer === 'rail-platform')) {
-        setOpacity(map, layer, ['case', ['==', ['get', 'kind'], 'subway'], 1, FADED]);
+      if (lens === 'metro' && g === 'rail') {
+        // Metro only: its lines and its stations, the railway faded.
+        setOpacity(map, layer, layer === 'rail-metro' || layer === 'rail-metro-tunnel' ? 1 : layer === 'stations' || layer === 'station-names' ? ['case', ['in', ['get', 'kind'], ['literal', ['subway', 'subway_entrance']]], 1, FADED] : FADED);
       } else setOpacity(map, layer, keep.has(g) ? 1 : (lens === 'load' || lens === 'signs') && g === 'road' ? 0.45 : FADED);
     });
   });
