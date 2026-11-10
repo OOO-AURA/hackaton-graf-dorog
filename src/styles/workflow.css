@@ -223,6 +223,17 @@
 .stage:has(.preset-dock) .float-hint { bottom: 68px; }
 @media (prefers-reduced-motion: reduce) { .preset-dock, .pd-body, .pd-card, .pd-tab { transition: none; } }
 
-/* In Micro the SUMO bar takes the top middle: the view island moves to the bottom left and opens upwards. */
-.float-view.is-micro { top: auto; bottom: 12px; left: 12px; transform: none; justify-items: start; }
-.float-view.is-micro .island { display: flex; flex-direction: column-reverse; }
+/* In Micro the SUMO capsule stands at the top middle and the view island right under it. */
+.micro-top { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: calc(100% - 120px); }
+.micro-top > .sim-bar, .micro-top > .float-view { position: static; transform: none; animation: none; }
+.micro-top .island { width: 300px; }
+.micro-top .island.open { width: 460px; }
+/* The SUMO bar is a capsule like the island: the same glass, the same round ends; it does not open. */
+.micro-top > .sim-bar {
+  max-width: none; padding: 6px 14px 6px 8px; border-radius: 22px; background: var(--glass);
+  border: 1px solid var(--glass-line); box-shadow: var(--shadow-glass);
+  backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3);
+}
+.micro-top > .sim-bar .sim-group + .sim-group { border-left-color: var(--line); }
+.micro-top > .sim-bar select, .micro-top > .sim-bar .btn { border-radius: 14px; }
+.micro-top > .sim-bar .tool { border-radius: 50%; }

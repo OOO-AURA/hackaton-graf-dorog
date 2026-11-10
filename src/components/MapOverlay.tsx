@@ -164,9 +164,10 @@ export function MapOverlay({ map }: { map: MapLibreMap | null }) {
   if (empty) return <EmptyState />;
   return (
     <>
-      {micro ? <SimBar /> : <FloatingTools />}
+      {/* In Micro the SUMO capsule stands on top and the view island right under it, one column. */}
+      {micro ? <div className="micro-top"><SimBar /><ViewNote /></div> : <FloatingTools />}
       {!micro && <HeightHandle map={map} />}
-      <ViewNote />
+      {!micro && <ViewNote />}
       <LoadLegend />
       <ZoomControls map={map} />
       {!micro && <MapHint />}
