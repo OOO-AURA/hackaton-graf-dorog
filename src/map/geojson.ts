@@ -9,6 +9,7 @@ import type { OsmDoc, OsmWay } from '../osm/types';
 import { pxPerMetreZ17 } from './lanesGeo';
 import { cumulative, frame, slice } from './polyline';
 import { roadTapers, sectionAt, sectionOf, taperBreaks, type Taper } from './section';
+import { roadShifts, wayPoints } from './shift';
 
 /** How far road pieces reach into their neighbours, metres. */
 const OVERLAP = 0.3;
@@ -61,10 +62,12 @@ function roadFeatures(doc: OsmDoc, w: OsmWay, tapers: readonly Taper[] | undefin
     sw: sidewalkSides(w.tags),
     ...thematicProps(w.tags),
   };
-  const lonLat = coords(doc, w) as Array<[number, number]>;
-  const px = pxPerMetreZ17(lonLat[0]?.[1] ?? 52);
-  const f = frame(lonLat[0]?.[1] ?? 52);
-  const pts = lonLat.map(([lon, lat]) => f.to(lon, lat));
+  const raw = coords(doc, w) as Array<[number, number]>;
+  const px = pxPerMetreZ17(raw[0]?.[1] ?? 52);
+  const f = frame(raw[0]?.[1] ?? 52);
+  // Drawn where it runs alongside a greater road, not on top of it (shift.ts).
+  const pts = wayPoints(doc, w, f);
+  const lonLat = roadShifts(doc).has(w.id) ? pts.map(f.back) : raw;
   const total = cumulative(pts)[pts.length - 1] ?? 0;
   const base = sectionOf(w.tags);
   const feature = (from: number, to: number, taper: boolean): Feature<LineString, Props> => {
@@ -99,7 +102,7 @@ export function roadsGeoJson(doc: OsmDoc) {
   const tapers = roadTapers(doc);
   return collection(Object.values(doc.ways).filter((w) => isDrivable(w.tags) && w.refs.length > 1).flatMap((w) => {
     const t = tapers.get(w.id);
-    return roadCache.get(doc, w, [sig(t)], () => roadFeatures(doc, w, t));
+    return roadCache.get(doc, w, [sig(t), sig(roadShifts(doc).get(w.id))], () => roadFeatures(doc, w, t));
   }));
 }
 

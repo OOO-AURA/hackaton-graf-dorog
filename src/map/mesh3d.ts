@@ -3,6 +3,8 @@ import { isDrivable } from '../osm/tags';
 import type { OsmDoc, OsmWay } from '../osm/types';
 import { buildingHeight, LAYER_STEP } from '../osm/height';
 import { roadTapers, sectionAt, sectionOf, widthOf, type CrossSection, type Taper } from './section';
+import { roadShifts } from './shift';
+import { offsetLine } from './polyline';
 import { isLifted, nodeElevations } from './elevation';
 import { signPoints } from '../osm/signs';
 import { addStreetProps } from './props3d';
@@ -592,8 +594,11 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
   // A bridge end that only the bridge itself touches comes down on a ramp; others meet an embankment.
   const joined = (id: string | undefined) => (id ? (openAir.get(id) ?? 0) > 1 : false);
   Object.values(doc.ways).forEach((w) => {
-    const pts = pointsOf(w);
-    if (pts.length < 2 || w.tags.building) return;
+    const raw = pointsOf(w);
+    if (raw.length < 2 || w.tags.building) return;
+    // Alongside a greater road, not on top of it (shift.ts); y points south here, so left is negative.
+    const shift = roadShifts(doc).get(w.id);
+    const pts = shift && shift.length === raw.length ? offsetLine(raw, shift.map((o) => -o)) : raw;
     if (!isDrivable(w.tags)) return;
     if (isBridge(w)) {
       const start = structures.length;

@@ -7,6 +7,7 @@ import { isLifted, isLiftedNode } from './elevation';
 import type { OsmDoc, Tags } from '../osm/types';
 import { along, cumulative, densify, frame, lengthOf, offsetLine, slice, type V } from './polyline';
 import { laneOffsetIn, plainSection, roadTapers, sectionAt, sectionOf, widthOf, type Travel } from './section';
+import { roadShifts, wayPoints } from './shift';
 
 /**
  * Geometry of lanes for the map: every lane as a thin line along its road, cut back at
@@ -83,11 +84,11 @@ export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<Line
     const wayTapers = tapers.get(w.id);
     const radii = w.refs.map((r) => radius.get(r) ?? -1);
     const color = style.color(vc);
-    features.push(...laneCache.get(doc, w, [sig(wayTapers), sig(radii), color, vc !== null, raised], () => {
+    features.push(...laneCache.get(doc, w, [sig(wayTapers), sig(radii), color, vc !== null, raised, sig(roadShifts(doc).get(w.id))], () => {
     const features: Feature<LineString, Props>[] = [];
     const base = sectionOf(w.tags);
     const f = frame(nodes[0].lat);
-    const pts = nodes.map((n) => f.to(n.lon, n.lat));
+    const pts = wayPoints(doc, w, f);
     const dist = cumulative(pts);
     const total = dist[dist.length - 1];
     // Pieces of the way between junctions, each cut back by the junction radius at its ends.
@@ -135,8 +136,8 @@ export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<Line
 /** Where the lane `index` of an arm meets the edge of the junction, and the arm's outward direction. */
 function laneEnd(doc: OsmDoc, arm: Arm, coming: boolean, index: number, r: number, f: ReturnType<typeof frame>): { p: V; out: V } {
   const way = doc.ways[arm.wayId];
-  const refs = arm.step === 1 ? way.refs.slice(arm.index) : way.refs.slice(0, arm.index + 1).reverse();
-  const pts = refs.map((id) => doc.nodes[id]).filter(Boolean).map((n) => f.to(n.lon, n.lat));
+  const all = wayPoints(doc, way, f);
+  const pts = arm.step === 1 ? all.slice(arm.index) : all.slice(0, arm.index + 1).reverse();
   const { p, t } = along(pts, Math.min(r, lengthOf(pts) * 0.45));
   // Coming in along an arm laid out with the way (+1) is travel against the way, and so on;
   // offsets are to the left of the way, which is the arm's own left only when step is +1.

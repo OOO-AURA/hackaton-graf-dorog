@@ -132,9 +132,11 @@ function wayLength(doc: OsmDoc, refs: readonly string[]): number {
 
 /** Most a road may turn at a node and still count as going on into the next one, degrees. */
 const MAX_BEND = 35;
+/** Roads leaving a node closer together than this run side by side from it, degrees. */
+export const SIDE_BY_SIDE = 35;
 
 /** Slip roads and driveways: a road goes on into one of them only when there is nothing else. */
-const isMinor = (tags: Tags) => /_link$/.test(tags.highway ?? '') || tags.highway === 'service';
+export const isMinor = (tags: Tags) => /_link$/.test(tags.highway ?? '') || tags.highway === 'service';
 
 /**
  * Tapers of every way that goes on into a narrower road: at every node, junctions included,
@@ -195,6 +197,11 @@ export function roadTapers(doc: OsmDoc): Map<string, Taper[]> {
       // Seen in this way's direction: the other road runs on with it when they leave the node opposite ways.
       const narrow = (other.step === 1) !== atStart ? sectionOf(doc.ways[other.wayId].tags) : reverse(sectionOf(doc.ways[other.wayId].tags));
       if (!narrowsTo(base, narrow)) return;
+      // A fork, not a narrowing: the roads that go on side by side with the best one take all
+      // the lanes between them (a dual carriageway splitting, slip roads leaving at a bridge end).
+      const sideBySide = (k: number) => Boolean(dirs[k] && dirs[j]) && dirs[k]![0] * dirs[j]![0] + dirs[k]![1] * dirs[j]![1] >= Math.cos((SIDE_BY_SIDE * Math.PI) / 180);
+      const fork = arms.filter((b, k) => k !== i && b.wayId !== arm.wayId && sideBySide(k));
+      if (fork.length > 1 && fork.reduce((sum, b) => sum + widthOf(sectionOf(doc.ways[b.wayId].tags)), 0) >= widthOf(base) - 0.05) return;
       const [ew, en] = [edgesOf(base), edgesOf(narrow)];
       const shift = Math.max(ew.left - en.left, ew.right - en.right, 0.1);
       const length = Math.min(Math.max(MIN_TAPER, TAPER_RATIO * shift), MAX_SHARE * wayLength(doc, way.refs));
