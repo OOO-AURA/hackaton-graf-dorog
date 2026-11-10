@@ -17,39 +17,13 @@ import { NODE_FEATURES } from '../map/features';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { finishDrawing } from '../state/actions';
 
-/** First things to do, as buttons: what the editor is for when nothing is selected yet. */
-const STARTS = [
-  { mode: 'draw', icon: 'road', title: 'Нарисовать дорогу', text: 'Точки кликами, Enter заканчивает', key: 'D' },
-  { mode: 'signal', icon: 'signal', title: 'Светофор или знак', text: 'Клик по узлу ставит объект ОДД', key: 'T' },
-  { mode: 'building', icon: 'building', title: 'Поставить здание', text: 'Само встаёт вдоль дороги', key: 'B' },
-  { mode: 'insert', icon: 'node', title: 'Узел на дороге', text: 'Для изгиба или перекрёстка', key: 'N' },
-] as const;
-
+/** Nothing selected: one line on what to do and the way to the reference, where the first steps are. */
 function Nothing() {
-  const setMode = useEditor((s) => s.setMode);
-  const openBottom = useUi((s) => s.openBottom);
   const setHelpOpen = useUi((s) => s.setHelpOpen);
-  const errors = useEditor((s) => s.report?.issues.filter((i) => i.severity === 'error').length ?? 0);
   return (
     <div className="insp-empty">
-      <h3 className="insp-start-title">С чего начать</h3>
-      <p className="hint">Кликните дорогу, перекрёсток или здание на карте, и здесь появятся его свойства. Или выберите действие:</p>
-      <div className="insp-starts">
-        {STARTS.map((s) => (
-          <button key={s.mode} className="insp-start" onClick={() => setMode(s.mode)}>
-            <Icon name={s.icon} size={18} />
-            <span><b>{s.title}</b><span className="hint">{s.text}</span></span>
-            <kbd>{s.key}</kbd>
-          </button>
-        ))}
-      </div>
-      {errors > 0 && (
-        <button className="insp-start insp-start-warn" onClick={() => openBottom('issues')}>
-          <Icon name="check" size={18} />
-          <span><b>Исправить ошибки графа: {errors}</b><span className="hint">Вкладка внизу, многие чинятся одной кнопкой</span></span>
-        </button>
-      )}
-      <button className="link insp-help" onClick={() => setHelpOpen(true)}>Как работать и горячие клавиши <kbd>?</kbd></button>
+      <p className="hint">Кликните дорогу, перекрёсток или здание на карте, и здесь появятся его свойства.</p>
+      <button className="link insp-help" onClick={() => setHelpOpen(true, 'welcome')}>С чего начать и горячие клавиши <kbd>?</kbd></button>
     </div>
   );
 }

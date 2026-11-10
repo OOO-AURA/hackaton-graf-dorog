@@ -69,7 +69,7 @@ export function Header() {
             <SaveStatus />
           </div>
         )}
-        <button className="icon-btn help-btn" onClick={() => setHelpOpen(true)} title="Как работать и горячие клавиши (?)" aria-label="Справка">?</button>
+        <button className="icon-btn help-btn" onClick={() => setHelpOpen(true, 'start')} title="Справочник (?)" aria-label="Справочник">?</button>
         <ThemeToggle />
         <SaveMenu />
       </div>

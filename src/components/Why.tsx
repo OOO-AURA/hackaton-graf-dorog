@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useUi } from '../state/ui';
 import { Icon } from './icons';
 
 /** What a panel is for, in plain words; one short paragraph. */
@@ -16,17 +19,33 @@ export const WHY = {
 
 export type WhyId = keyof typeof WHY;
 
-/** Compact contextual help. Native tooltips cannot overflow or be clipped by a panel. */
+/** A short line on hover, the full section of the reference on click. */
 export function Why({ id, align = 'end' }: { id: WhyId; align?: 'start' | 'end' }) {
+  const setHelpOpen = useUi((s) => s.setHelpOpen);
+  const [tip, setTip] = useState<DOMRect | null>(null);
+  const W = 300;
+  const left = tip ? Math.max(8, Math.min(window.innerWidth - W - 8, align === 'end' ? tip.right - W : tip.left)) : 0;
+  const below = tip ? tip.bottom + 8 + 140 < window.innerHeight : true;
   return (
-    <span
-      className={`why why-${align}`}
-      tabIndex={0}
-      role="note"
-      aria-label={`Справка: ${WHY[id]}`}
-      title={WHY[id]}
-    >
-      <Icon name="info" size={15} />
-    </span>
+    <>
+      <button
+        type="button"
+        className={`why why-${align}`}
+        aria-label={`Справка: ${WHY[id]}`}
+        onClick={() => { setTip(null); setHelpOpen(true, id); }}
+        onPointerEnter={(e) => setTip(e.currentTarget.getBoundingClientRect())}
+        onPointerLeave={() => setTip(null)}
+        onFocus={(e) => setTip(e.currentTarget.getBoundingClientRect())}
+        onBlur={() => setTip(null)}
+      >
+        <Icon name="info" size={15} />
+      </button>
+      {tip && createPortal(
+        <div className="why-tip" role="tooltip" style={{ left, width: W, ...(below ? { top: tip.bottom + 8 } : { bottom: window.innerHeight - tip.top + 8 }) }}>
+          {WHY[id]}<span className="why-more">Нажмите, чтобы открыть раздел справочника</span>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }

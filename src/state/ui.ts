@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { GuideId } from '../components/guide/sections';
 import type { RoadColorMode } from '../map/thematic';
 import type { DrawTarget } from '../map/drawSnap';
 import type { Lens } from '../map/lens';
@@ -52,14 +53,16 @@ interface UiState {
   /** Step of the work shown in the header (see state/steps.ts). */
   step: Step;
   setStep: (step: Step) => void;
-  /** Help with the steps and hotkeys, over the map. */
+  /** The reference (components/guide), over the map, and the section it shows. */
   helpOpen: boolean;
+  helpSection: GuideId;
   navTab: NavTab;
   /** The line at the bottom of the map that says what the tool and the selection let you do. */
   mapHints: boolean;
   setMapHints: (on: boolean) => void;
   setNavTab: (tab: NavTab) => void;
-  setHelpOpen: (open: boolean) => void;
+  /** Opens the reference on a section (the current one if none) or shuts it. */
+  setHelpOpen: (open: boolean, section?: GuideId) => void;
   bottomTab: BottomTab;
   bottomOpen: boolean;
   layers: Record<LayerId, boolean>;
@@ -132,6 +135,7 @@ export const useUi = create<UiState>((set, get) => ({
     set({ step, workspace: info.workspace, bottomTab: tab, bottomOpen: info.opens !== null });
   },
   helpOpen: false,
+  helpSection: 'start',
   navTab: 'objects',
   mapHints: readHints(),
   setMapHints: (mapHints) => {
@@ -139,7 +143,7 @@ export const useUi = create<UiState>((set, get) => ({
     set({ mapHints });
   },
   setNavTab: (navTab) => set({ navTab }),
-  setHelpOpen: (helpOpen) => set({ helpOpen }),
+  setHelpOpen: (helpOpen, section) => set(section ? { helpOpen, helpSection: section } : { helpOpen }),
   bottomTab: 'issues',
   bottomOpen: false,
   layers: Object.fromEntries(LAYER_IDS.map((id) => [id, !OFF_BY_DEFAULT.has(id)])) as Record<LayerId, boolean>,

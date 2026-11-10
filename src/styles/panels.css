@@ -275,20 +275,14 @@
 .panel-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .nav-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .nav-head h2 { margin: 0; }
-.why { display: inline-grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 50%; color: var(--ink-2); cursor: help; }
+.why { display: inline-grid; place-items: center; width: 24px; height: 24px; flex: none; padding: 0; border: 0; background: none; border-radius: 50%; color: var(--ink-2); cursor: pointer; }
+.why-tip { position: fixed; z-index: 70; padding: 10px 12px; display: grid; gap: 6px; background: var(--panel); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-pop); font-size: 12px; line-height: 1.45; pointer-events: none; animation: toast-in 120ms var(--ease-out); }
+.why-more { font-size: 11px; color: var(--ink-2); }
 .why:hover, .why:focus-visible { color: var(--ink); background: var(--hover); }
 .why:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
 .dock-tabs .why { margin-left: auto; align-self: center; }
 .dock-tabs .why + .dock-toggle { margin-left: 8px; }
 
-/* First-run tour */
-.tour { position: fixed; z-index: 60; padding: 12px 14px; background: var(--panel); border: 1.5px solid var(--ink); border-radius: var(--r-md); box-shadow: 4px 4px 0 var(--ink); font-size: var(--fs-sm); color: var(--ink); animation: rise 220ms var(--ease-out); }
-.tour p { margin: 0 0 8px; line-height: 1.45; }
-.tour .micro { color: var(--ink-2); margin-bottom: 4px; }
-.tour-actions { display: flex; justify-content: flex-end; gap: 6px; }
-.tour::after { content: ''; position: absolute; width: 10px; height: 10px; background: var(--panel); border: 1.5px solid var(--ink); transform: rotate(45deg); }
-.tour-left::after { right: -7px; top: 22px; border-left: 0; border-bottom: 0; }
-.tour-bottom::after { top: -7px; left: calc(50% - 5px); border-right: 0; border-bottom: 0; }
 .approach { padding: 6px 0; border-top: 1px solid var(--line, rgba(0,0,0,0.1)); }
 .approach:first-of-type { border-top: 0; }
 .approach-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 4px; }
