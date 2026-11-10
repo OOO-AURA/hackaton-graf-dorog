@@ -83,6 +83,125 @@ MATSim 2026.0 берётся архивом с [matsim.org](https://matsim.org/d
 
 Без правок `example.osm` → редактор → `.osm` даёт идентичный набор данных (это проверяется тестом).
 
+## Интерфейс: что где и какая кнопка что делает
+
+Окно делится на пять частей: шапка сверху, навигатор слева, карта в центре, инспектор справа, нижняя панель с вкладками. Края панелей тянутся мышью, панели сворачиваются, размеры запоминаются (`src/state/panels.ts`).
+
+### Шапка (`src/components/Header.tsx`)
+
+| Элемент | Что делает |
+|---|---|
+| «Граф дорог» | Название приложения. |
+| Открыть (⌘O) | Открыть `.osm` с диска (`src/state/actions.ts` → `openFile`). |
+| Пример | Открыть фрагмент из задания (`loadExample`). |
+| «Из OSM» | Скачать любой район или город через Overpass (`src/components/AreaMenu.tsx`, `src/state/area.ts`, `src/osm/overpass.ts`). |
+| Имя файла | Под этим именем файл уйдёт на сервер проверки, сервер ждёт имя команды. |
+| Отменить / Повторить (⌘Z, ⌘⇧Z) | История правок, каждая правка один шаг, перетаскивание узла тоже один шаг. |
+| Сохранить (⌘S, ⌘⇧S) | Записать `.osm`. Перед записью идёт проверка, точка рядом показывает «Есть изменения» или «Сохранено». |
+| Экспорт | Сеть SUMO `.net.xml`, сеть MATSim `network.xml`, отчёт HTML (`src/components/ExportMenu.tsx`). |
+| Проверить как на сервере | Прогон через MATSim, SUMO и Webots (`src/components/CheckPanel.tsx`, `src-tauri/src/check.rs`). |
+| Макро / Микро | Уровень модели: потоки по зонам или микросимуляция SUMO. |
+| Тема | Светлая или тёмная, по умолчанию как в системе. |
+
+### Навигатор слева (`src/components/Navigator.tsx`)
+
+Три вкладки:
+- **Объекты.** Поиск по названию и списки:
+  - улицы, клик выделяет всю улицу;
+  - перекрёстки;
+  - ТСОДД: светофоры, переходы, знаки.
+  - Кнопка «Показать первый на карте» перелетает к объекту.
+- **Слои.** Включение групп слоёв:
+  - «Улично-дорожная сеть»: проезжая часть, полосы, светофоры и знаки;
+  - «Транспорт»: маршруты, остановки и трамвайные пути;
+  - «Железная дорога»: станции и платформы;
+  - «Метро»;
+  - «Окружение и анализ».
+- **Легенда.** Что значит каждый цвет и значок на карте.
+
+### Инструменты на карте (`src/components/tools.ts`, `src/components/MapOverlay.tsx`)
+
+| Кнопка | Клавиша | Что делает |
+|---|---|---|
+| Выбор | V | Клик выбирает **участок дороги между двумя ближайшими перекрёстками**, узел или здание. Узел можно тащить. Брошенный на другой узел, он делает перекрёсток. Рамка с зажатым Shift выбирает несколько дорог. |
+| Дорога | D | Рисование новой дороги, подробно в разделе «Рисование дороги». |
+| Узел | N | Клик по дороге добавляет точку: для изгиба или будущего перекрёстка. |
+| Здание | B | Ставит здание по шаблону (1–3), оно само встаёт вдоль ближней дороги. R поворачивает на 90°, Shift+R на 15°. |
+| ОДД | T | Объекты организации движения. Это светофор, пешеходный переход, «Уступи дорогу», «Стоп», лежачий полицейский, остановка ОТ, трамвайная остановка, ж/д станция и остановочный пункт. Клик по узлу ставит или снимает объект, клик по дороге ставит его в новой точке. Внизу каталога кнопка «Расставить знаки по ПДД». |
+
+Над картой есть ещё переключатели:
+- **Подложка**: Схема OSM или Спутник, рядом её прозрачность.
+- **Вид дорог**:
+  - **Инженерия**: полосы, разметка, стрелки;
+  - **Схема**: главные дороги жёлтые и толстые, районные светлее, местные белые, как на картах города;
+  - **Граф**: только линии и узлы.
+- **Линза**: Все, Авто, Пешеходы, ОТ, ЖД, Метро, Загруженность. Линза приглушает всё лишнее. В «Пешеходах» тротуары и дорожки становятся светлыми и в полтора раза шире.
+- **Раскраска** по атрибуту: класс, полосы, скорость, пропускная способность, пропуски тегов.
+- **Видимость слоёв**: Дороги, Здания, Тротуары, Перекрёстки, Светофоры, Переходы, Знаки, Мосты, Тоннели, Ж/д и трамвай, Изменения.
+- **2D / 3D** (P): наклон камеры и здания по высоте.
+
+На карте всегда видно:
+- выделенный участок, он подсвечен оранжевой полосой с обводкой;
+- дороги с ошибками проверки, у них красное свечение под дорогой;
+- стрелки направления движения на каждой дороге;
+- стрелки поворотов на полосах перед перекрёстком.
+
+### Инспектор справа (`src/components/Inspector.tsx`)
+
+Показывает свойства выбранного. Содержимое зависит от того, что выбрано:
+
+- **Дорога** (`WayInspector.tsx`). Заголовок «участок между точками», рядом ссылка «Править всю линию». Правка участка сначала отрезает его от линии, поэтому соседние участки не меняются. Блоки:
+  - «Свойства»: класс, название, главная дорога (`priority_road`);
+  - «Полосы и направление»: всего, туда и обратно, полоса для автобусов и такси с буквой «А», лента полос (клик по полосе открывает редактор одной полосы);
+  - «Профиль по СП» с кнопкой «Привести к норме»;
+  - «Ограничения»;
+  - «Высота»: мост, тоннель, уровень;
+  - «Как прочитают симуляторы»;
+  - «Все теги OSM».
+- **Редактор одной полосы** (`LaneEditor.tsx`). Разрешённые манёвры (налево, прямо, направо, разворот), полоса для маршрутных ТС и такси, ширина полосы, ограничение скорости на полосе. Пишет стандартные теги `turn:lanes`, `psv:lanes`, `width:lanes` и `maxspeed:lanes`.
+- **Узел** (`NodeInspector.tsx`). Блоки:
+  - «Дороги через узел», у каждой кнопка **«Отсоединить»**: дорога получает свою точку в 2 м, и её можно увести;
+  - «Организация движения»;
+  - маршрут «Отсюда / Сюда»;
+  - ссылка «Открыть карточку перекрёстка»;
+  - «Все теги OSM».
+- **Улица целиком** (`StreetInspector.tsx`), **несколько дорог** (`MultiInspector.tsx`), **здание** (`BuildingInspector.tsx`), **ж/д путь и станция** (`RailInspector.tsx`).
+- В режимах «Дорога» и «ОДД» инспектор показывает каталог шаблонов дорог с поперечным профилем и палитру знаков (`ToolCatalog.tsx`).
+
+### Карточка перекрёстка (`src/components/JunctionCard.tsx`)
+
+Карточка открывается рядом с выбранным перекрёстком, вкладки такие:
+- **Полосы**: полосы каждого въезда, кнопки «Добавить полосу» и «Убрать полосу», шаблоны разметки, связи полос на карте;
+- **Светофор**: программа светофора, а если светофора нет, кнопка «Поставить светофор»;
+- **Пропускная**: пропускная способность въездов и сколько машин прошло в последнем прогоне SUMO;
+- **Сведения**: регулирование, число дорог и въездов, полос на въездах, переходы рядом, улицы, координаты.
+
+✕ закрывает только карточку, перекрёсток остаётся выбранным, инспектор справа не закрывается.
+
+### Нижняя панель (`src/components/BottomDock.tsx`)
+
+| Вкладка | Что там |
+|---|---|
+| Валидация | Ошибки графа с кнопками «Исправить» (`IssuesPanel.tsx`). |
+| Проверка как на сервере | Отчёт MATSim, SUMO, Webots, рядом цифры исходного файла (`CheckPanel.tsx`). |
+| Журнал | Что поменялось по сравнению с открытым файлом, выгрузка в Markdown (`Journal.tsx`). |
+| Ошибки | **Журнал ошибок**: ошибки правок, проверки, симуляции и самой программы со временем, у ошибок графа отметка «исправлено» или «не исправлено», выгрузка в `.txt` и кнопка «Очистить» (`ErrorLogPanel.tsx`). |
+| Потоки | Макромодель: зоны, матрица, распределение, изохроны (`FlowsPanel.tsx`). |
+| Транспорт | Маршруты ОТ и их интервалы (`TransitPanel.tsx`). |
+| Сценарии | Версии графа с показателями и сравнение (`ScenariosPanel.tsx`). |
+
+В Микро на нижней панели стоят полоса симуляции и панель Микро:
+- **полоса симуляции** (`sim/SimBar.tsx`):
+  - Пуск и Пауза, Шаг, Стоп, Пересчитать;
+  - скорость проигрывания и длительность модели;
+  - спрос: «Случайный», «Час пик», «Из макромодели», «Свои потоки»;
+  - пешеходы.
+- **панель Микро** (`sim/MicroPanel.tsx`):
+  - показатели и графики;
+  - «Свои потоки»;
+  - тепловая карта задержек;
+  - узкие места.
+
 ## Возможности
 
 **Открыть.** Загрузка `.osm` с диска или встроенный пример из задания (фрагмент от «Госуниверситета» до «Жуковского»).
@@ -97,7 +216,7 @@ MATSim 2026.0 берётся архивом с [matsim.org](https://matsim.org/d
 **Править.**
 - Выбор дороги или узла, панель свойств: класс, название, направление, полосы (всего / туда / обратно), разметка поворотов `turn:lanes`, скорость, мост/тоннель и уровень, покрытие, а также таблица всех тегов OSM.
 - Перетаскивание узлов мышью. Если бросить узел на другой, они объединятся в перекрёсток.
-- Рисование новой дороги. Клик по существующей дороге создаёт общий узел (перекрёсток), шаблоны дорог переключаются клавишами 1–6.
+- Рисование новой дороги. Клик по существующей дороге создаёт общий узел (перекрёсток), шаблоны дорог переключаются клавишами 1–9.
 - Вставка узла в дорогу, разрезание дорог в узле (чтобы атрибуты по разные стороны перекрёстка различались).
 - Смена направления одностороннего движения, разворот линии с сохранением смысла (теги `:forward`/`:backward` меняются местами).
 - Объекты ОДД на узле (клавиша T): светофор, нерегулируемый пешеходный переход, искусственная неровность.
@@ -156,33 +275,364 @@ MATSim 2026.0 берётся архивом с [matsim.org](https://matsim.org/d
 
 **Подложка.** Схема OSM или спутниковый снимок Esri World Imagery для сверки с реальной УДС.
 
+### Рисование дороги
+
+Код рисования лежит в `src/osm/drawGeometry.ts`, `src/map/drawSnap.ts` и `src/osm/draw.ts`.
+
+**Прилипание и углы.**
+- **Магнит.** Курсор прилипает к узлу ближе 18 px и к дороге ближе 12 px. Клик по дороге ставит общий узел, то есть перекрёсток.
+- **Сети не смешиваются.** Автодорога прилипает только к дорогам, трамвайный и ж/д путь только к путям. Машинная дорога не может соединиться с рельсами ни при рисовании, ни при перетаскивании узла (`mayJoin` в `src/osm/pieces.ts`).
+- **Углы.** Направление тянется к шагу 15°, если отличается от него меньше чем на 4°. С зажатым Shift угол всегда идёт ровно по шагу 15°. Подсказка у курсора показывает длину и угол поворота.
+
+**Форма дороги.**
+- **Прямая или Кривая.** Переключатель формы дороги на панели. В режиме «Кривая» точки соединяются плавной дугой с шагом 6 м: так рисуются развороты и съезды под 45–60°.
+- **Скругление углов.** Угол между отрезками скругляется радиусом по классу дороги. Тротуары на изгибе идут без разрыва.
+
+**Дорога и здания.** Если новая дорога задевает здание, панель «Дорога задевает здание» предлагает три варианта: «Снести», «Срезать по дороге» или «Построить поверх» (`src/osm/clearance.ts`).
+
+### Участок дороги, отсоединение
+
+- Клик выбирает не всю линию OSM, а только участок между ближайшими перекрёстками. Его можно править или удалить отдельно, соседние участки не меняются (`src/osm/pieces.ts`: `pieceAround`, `isolatePiece`). Ссылка «Править всю линию» возвращает выбор всей линии.
+- После объединения двух дорог в один узел каждую можно снова увести. Для этого в инспекторе узла есть кнопка «Отсоединить» у нужной дороги (`detachWay`).
+
+### Полосы и общественный транспорт
+
+- **Редактор одной полосы.** Клик по полосе на ленте в инспекторе дороги. Модуль `src/osm/laneTags.ts` пишет значение одной полосы в теги `*:lanes`, остальные полосы остаются как были.
+- **Полоса для маршрутных ТС и такси** (знаки 5.11.1, 5.14 ПДД). Полоса пишется как `psv:lanes=…|designated`. На карте это терракотовая полоса с буквой «А», как разметка 1.23.1. SUMO читает её с ключом `--osm.lane-access` и пускает по ней только автобусы и такси (`src/osm/busLanes.ts`).
+- **Остановки ОТ.** Ставятся инструментом ОДД, это `highway=bus_stop` и `public_transport=platform`. Автобусы в SUMO останавливаются на ближайшей к остановке полосе.
+
+### Главные и второстепенные дороги, знаки по ПДД
+
+- В инспекторе дороги есть флажок «Главная дорога» (`priority_road=designated`). На перекрёстке без светофора въезды с второстепенной дороги получают знак 2.4 «Уступите дорогу» или 2.5 «Стоп», главная получает знак 2.1.
+- Кнопка «Расставить знаки по ПДД» в каталоге ОДД расставляет приоритетные знаки на всех нерегулируемых перекрёстках по классу дорог. Знак 5.19 у пешеходных переходов рисуется сам по `highway=crossing` (`src/osm/signs.ts`: `placeRuleSigns`). Знаки нарисованы по ГОСТ Р 52290 (`src/map/signArt.ts`).
+- Вид дорог «Схема» показывает главные и районные дороги цветом, как на картах города.
+
+### Проверка потоков по ПДД
+
+Модуль `src/osm/flowRules.ts` проверяет потоки при каждой правке:
+- **встречные потоки в лоб**: две односторонние дороги ведут друг в друга и упираются в узел;
+- **неверный разворот**: съезд разворачивает машины на встречную проезжую часть.
+
+У каждой проблемы есть кнопка «Исправить»: сменить направление или сделать дорогу односторонней.
+
+### Дорога под зданиями
+
+Проверка «проезжая часть заходит под здания» находит дороги, у которых явно заданы `lanes` или `width` и которые по реальной ширине заходят на дом больше чем на 10 м². Например, 8-полосная магистраль во дворе даст такую ошибку. Мосты, тоннели и проезды под домами (`tunnel=building_passage`) не считаются (`roadBuildingOverlaps` в `src/osm/clearance.ts`). На файле из задания проверка находит один такой участок Объездной.
+
+### Пропускная способность перекрёстков
+
+Модуль `src/osm/capacity.ts` считает пропускную способность каждого въезда по числу полос и роли въезда: главная, второстепенная или со светофором. После прогона SUMO рядом встаёт фактический поток. Узкие места собраны в список в Микро и на вкладке «Пропускная» карточки перекрёстка.
+
+### Светофоры: секции и пешеходная фаза
+
+В программе светофора (`SignalPlanSection.tsx`) задаются:
+- цикл и доля зелёного;
+- адаптивный режим.
+
+Блок «Дополнительные секции» включает:
+- **стрелку направо**: правый поворот едет в зелёную фазу поперечного направления;
+- **стрелку налево**: защищённая левая фаза 12 с и 3 с жёлтого перед основной фазой;
+- **пешеходную фазу**: все машины стоят, люди идут, длительность задаётся, после неё 2 с «всем красный».
+
+Программу собирает `program()` в `src-tauri/src/py/netinfo.py`, в SUMO она уходит как `tlLogic`.
+
+### Спрос в Микро: час пик и свои потоки
+
+- **Час пик.** Втрое больше машин, транзит по главным улицам, на перекрёстках появляются очереди.
+- **Свои потоки.** В панели Микро нажмите «Добавить поток», затем два клика по карте: откуда и куда. Число машин в час задаётся в списке. Поток показан на карте линией со стрелкой. SUMO ведёт каждый поток по самому быстрому пути, а потоки хранятся между запусками (`src/sim/customFlows.ts`).
+
+### Журнал ошибок
+
+Вкладка «Ошибки» внизу (`src/state/errorLog.ts`, `ErrorLogPanel.tsx`) пишет в журнал:
+- новые ошибки графа после правки с отметкой, когда их исправили. Ошибки, которые пришли с открытым файлом, помечены отдельно;
+- сбои проверки на сервере и симуляции;
+- ошибки самой программы: `console.error`, необработанные исключения.
+
+Журнал выгружается в `.txt`.
+
+### Подсветка
+
+- Выбранный участок, узел или здание подсвечены поверх дорог.
+- Дороги с ошибками проверки светятся красным.
+- На всех дорогах нарисованы стрелки направления движения.
+
+### Настоящие знаки этого района
+
+Мы искали открытые данные о реальных знаках фрагмента:
+- в OSM у этого района нет ни одного знака (`traffic_sign`);
+- Mapillary отдаёт распознанные знаки только по личному токену API;
+- данные 2ГИС и Яндекса закрыты, их условия запрещают выгрузку.
+
+Поэтому знаки расставляются по ПДД из классов дорог, а не копируются с карты.
+
 ## Горячие клавиши
 
-Буквенные клавиши работают и в русской раскладке.
+Буквенные клавиши работают и в русской раскладке. Список задан в `HOTKEYS` (`src/state/useHotkeys.ts`).
 
 | Клавиша | Действие |
 |---|---|
-| V / D / N / T | Выбор / Рисовать дорогу / Узел на дороге / Светофор, переход или лежачий полицейский |
+| V / D / N / T / B | Выбор / Рисовать дорогу / Узел на дороге / Объект ОДД / Здание |
 | Enter, двойной клик | Завершить дорогу |
 | Esc | Отменить рисование / снять выделение |
-| 1–6 | Шаблон новой дороги |
-| R | Развернуть линию |
-| F | Сменить направление одностороннего движения |
+| 1–9 | Шаблон новой дороги |
+| R | Развернуть порядок узлов (смысл сохраняется) |
+| B, затем 1–3, R, Shift+R | Здание: шаблон, поворот на 90° и на 15° |
+| ⌘/Ctrl+D, ⌘/Ctrl+C, ⌘/Ctrl+V | Копия здания рядом / скопировать / вставить под курсором |
+| Alt при перетаскивании угла | Без прилипания к прямому углу |
+| F | Поменять направление одностороннего движения |
 | S | Светофор в выбранном узле |
 | X | Разрезать дороги в выбранном узле |
-| Delete | Удалить выбранное |
+| P | Переключить 2D и 3D |
+| Delete / Backspace | Удалить выбранное |
 | ⌘/Ctrl+Z, ⌘/Ctrl+Shift+Z | Отменить / Повторить |
 | ⌘/Ctrl+O | Открыть файл |
 | ⌘/Ctrl+S, ⌘/Ctrl+Shift+S | Сохранить / Сохранить как |
+| Shift при рисовании дороги | Угол строго с шагом 15° |
+| Shift + рамка мышью | Выбрать несколько дорог |
+| Правый клик по зоне (Потоки) | Удалить зону |
 
-## Структура
+## Структура: какой файл за что отвечает
 
-```
-src/osm/        модель OSM: чтение, запись, правки, проверка графа (без React, покрыто тестами)
-src/map/        слои MapLibre, GeoJSON, попадание кликов, взаимодействие с картой
-src/state/      состояние редактора (zustand), история, действия, горячие клавиши
-src/components/ панель инструментов, инспекторы дороги и узла, панели проверки
-src/platform.ts работа с файлами через Tauri или браузер
-src-tauri/      оболочка Tauri: чтение и запись файлов, проверка на SUMO, MATSim, Webots
-tools/          обёртка над MATSim OsmNetworkReader для проверки
-```
+Для каждого исходного файла: за что он отвечает и что из него экспортируется (функции, компоненты, типы). Рядом с файлом `x.ts` лежит его тест `x.test.ts`. Тесты: `npm test` (vitest), `cargo test` в `src-tauri/`.
+
+Как идут данные: файл читает `osm/parse.ts` в неизменяемый документ, и он лежит в `state/store.ts`. Каждая правка (`osm/edit.ts` и соседние модули) возвращает новый документ, это один шаг отмены. Карта (`components/MapView.tsx`, `map/layers.ts`) и проверка (`osm/validate.ts` в фоновом потоке) пересчитываются от документа. Сохранение пишет его через `osm/serialize.ts`. SUMO и проверка сервера вызываются из Rust (`src-tauri/src`).
+
+### Корень `src/`
+
+| Файл | За что отвечает | Что внутри |
+|---|---|---|
+| [App.tsx](src/App.tsx) | Корень приложения: раскладка окна, тема, автосохранение, подписка журнала ошибок | `App` |
+| [check.ts](src/check.ts) | Типы отчёта «Проверки как на сервере» (зеркало Rust `check::Report`) | `StageStatus`, `CheckStage`, `CheckReport` |
+| [checkCompare.ts](src/checkCompare.ts) | Сравнение показателей проверки с исходным файлом, колонки «до/после» | `MetricRow`, `compareStage` |
+| [main.tsx](src/main.tsx) | Точка входа React |  |
+| [platform.ts](src/platform.ts) | Файлы, диалоги и вызовы Tauri; в браузере те же функции через Web API | `isDesktop`, `askUser`, `OpenedFile`, `openOsmFile`, `saveOsmFile`, `saveTextFile`, `exportSumoNet`, `downloadText`, `runServerCheck`, `mapDataFetch` |
+
+### `src/components/sim/` — панели Микро
+
+| Файл | За что отвечает | Что внутри |
+|---|---|---|
+| [CustomFlowsSection.tsx](src/components/sim/CustomFlowsSection.tsx) | Блок «Свои потоки» в Микро | `CustomFlowsSection` |
+| [DelayHeatmap.tsx](src/components/sim/DelayHeatmap.tsx) | Тепловая карта задержек время × дорога | `DelayHeatmap` |
+| [MicroPanel.tsx](src/components/sim/MicroPanel.tsx) | Панель Микро: показатели, графики, сравнение с базой | `wayLabel`, `MicroPanel` |
+| [SimBar.tsx](src/components/sim/SimBar.tsx) | Полоса симуляции: пуск, шаг, скорость, спрос, пешеходы | `SimBar` |
+| [SumoMissing.tsx](src/components/sim/SumoMissing.tsx) | Сообщение и команды установки, если SUMO не найден | `SumoMissing` |
+
+### `src/components/` — интерфейс
+
+| Файл | За что отвечает | Что внутри |
+|---|---|---|
+| [AreaMenu.tsx](src/components/AreaMenu.tsx) | Меню «Из OSM»: город, видимая область, готовые районы | `AreaMenu` |
+| [BottomDock.tsx](src/components/BottomDock.tsx) | Нижняя панель и её вкладки | `BottomDock` |
+| [BuildingInspector.tsx](src/components/BuildingInspector.tsx) | Инспектор здания: размеры, поворот, форма, высота | `BuildingInspector` |
+| [BundleSection.tsx](src/components/BundleSection.tsx) | Кнопка «Кто едет по…» и список пар зон пучка | `BundleSection` |
+| [BusParts.tsx](src/components/BusParts.tsx) | Поля полосы для маршрутных ТС и блок остановки | `BusLaneFields`, `StopSection` |
+| [CapacityParts.tsx](src/components/CapacityParts.tsx) | Пропускная способность перекрёстка и список узких мест | `JunctionCapacitySection`, `Bottlenecks` |
+| [ChangesSummary.tsx](src/components/ChangesSummary.tsx) | Короткая сводка изменений против открытого файла | `ChangesSummary` |
+| [CheckPanel.tsx](src/components/CheckPanel.tsx) | Кнопка и отчёт «Проверка как на сервере» | `useCheck`, `CheckButton`, `CheckPanel` |
+| [EmptyState.tsx](src/components/EmptyState.tsx) | Стартовый экран без открытого файла | `Ribbon`, `Petals`, `EmptyState` |
+| [ErrorLogPanel.tsx](src/components/ErrorLogPanel.tsx) | Вкладка «Ошибки»: журнал ошибок, выгрузка, очистка | `ErrorLogPanel` |
+| [ExportMenu.tsx](src/components/ExportMenu.tsx) | Меню «Экспорт»: SUMO, MATSim, отчёт HTML | `ExportMenu` |
+| [FlowsPanel.tsx](src/components/FlowsPanel.tsx) | Вкладка «Потоки»: зоны, матрица, β, распределение, изохроны | `FlowsPanel` |
+| [Header.tsx](src/components/Header.tsx) | Шапка: открыть, пример, имя файла, отмена, сохранение, Макро/Микро, тема | `Header` |
+| [HeightFields.tsx](src/components/HeightFields.tsx) | Поля высоты здания и уровня дороги (мост, тоннель, layer) | `applyTags`, `BuildingHeightFields`, `RoadLevelFields` |
+| [HeightHandle.tsx](src/components/HeightHandle.tsx) | Ручка высоты здания в 3D | `HeightHandle` |
+| [Inspector.tsx](src/components/Inspector.tsx) | Правая панель: выбирает нужный инспектор или каталог инструмента | `Inspector` |
+| [IssuesPanel.tsx](src/components/IssuesPanel.tsx) | Вкладка «Валидация»: группы ошибок, «Исправить», «Замкнуть кордон», «Проставить по ПДД всем» | `IssuesPanel` |
+| [Journal.tsx](src/components/Journal.tsx) | Вкладка «Журнал»: изменения и выгрузка в Markdown | `Journal` |
+| [JunctionCard.tsx](src/components/JunctionCard.tsx) | Карточка перекрёстка: вкладки Полосы, Светофор, Пропускная, Сведения | `JunctionCard` |
+| [LaneEditor.tsx](src/components/LaneEditor.tsx) | Редактор одной полосы: манёвры, А-полоса, ширина, скорость | `LaneEditor` |
+| [LaneStrip.tsx](src/components/LaneStrip.tsx) | Лента полос дороги, клик выбирает полосу | `LanePick`, `LaneStrip` |
+| [LaneTurnsSection.tsx](src/components/LaneTurnsSection.tsx) | Куда можно ехать с каждой полосы въезда | `TURN_GLYPHS`, `LaneTurnsSection` |
+| [MapOverlay.tsx](src/components/MapOverlay.tsx) | Кнопки поверх карты: инструменты, подложка, вид дорог, линза, слои, масштаб, подсказки рисования и зданий | `LAYER_LABELS`, `pickLens`, `MapOverlay` |
+| [MapView.tsx](src/components/MapView.tsx) | Карта MapLibre: источники данных, слои, подсветка, 3D | `MapView` |
+| [MultiInspector.tsx](src/components/MultiInspector.tsx) | Инспектор нескольких выбранных рамкой дорог | `MultiInspector` |
+| [Navigator.tsx](src/components/Navigator.tsx) | Левая панель: Объекты, Слои, Легенда, поиск | `Navigator` |
+| [NodeInspector.tsx](src/components/NodeInspector.tsx) | Инспектор узла: дороги через узел, «Отсоединить», ОДД, маршрут | `NodeInspector` |
+| [RailInspector.tsx](src/components/RailInspector.tsx) | Инспектор ж/д пути, платформы и станции | `RailInspector`, `withStationKind`, `StationInspector` |
+| [RouteSection.tsx](src/components/RouteSection.tsx) | Кнопки «Отсюда» и «Сюда» и найденный маршрут | `RouteSection` |
+| [ScenariosPanel.tsx](src/components/ScenariosPanel.tsx) | Вкладка «Сценарии»: версии графа и сравнение | `ScenariosPanel` |
+| [Section.tsx](src/components/Section.tsx) | Сворачиваемый блок инспектора | `Section` |
+| [SidePanel.tsx](src/components/SidePanel.tsx) | Боковая панель с ручкой изменения ширины | `Splitter`, `SidePanel` |
+| [SignalPlanSection.tsx](src/components/SignalPlanSection.tsx) | Программа светофора: цикл, доля, адаптив, секции-стрелки, пешеходная фаза | `SignalPlanSection` |
+| [SimulatorsSection.tsx](src/components/SimulatorsSection.tsx) | Таблица «Как прочитают симуляторы» | `SimulatorsSection` |
+| [StreetInspector.tsx](src/components/StreetInspector.tsx) | Инспектор улицы целиком | `StreetInspector` |
+| [TagTable.tsx](src/components/TagTable.tsx) | Таблица всех тегов OSM с правкой | `TagTable` |
+| [ToolCatalog.tsx](src/components/ToolCatalog.tsx) | Каталог шаблонов дорог с профилем и палитра знаков, «Расставить знаки по ПДД» | `RoadCatalog`, `SignPalette` |
+| [Tour.tsx](src/components/Tour.tsx) | Три подсказки при первом запуске | `TOUR`, `useTour`, `Tour` |
+| [TransitPanel.tsx](src/components/TransitPanel.tsx) | Вкладка «Транспорт»: маршруты и интервалы | `TransitPanel` |
+| [TripTimeChart.tsx](src/components/TripTimeChart.tsx) | Гистограмма времени поездок | `TripTimeChart` |
+| [TurnsSection.tsx](src/components/TurnsSection.tsx) | Таблица манёвров узла и запреты поворотов | `TurnsSection` |
+| [VirtualList.tsx](src/components/VirtualList.tsx) | Длинный список, который рисует только видимые строки | `VirtualList` |
+| [WayInspector.tsx](src/components/WayInspector.tsx) | Инспектор дороги и участка: свойства, полосы, профиль, ограничения, высота, теги | `HIGHWAY_LABELS`, `WayInspector` |
+| [Why.tsx](src/components/Why.tsx) | Кнопка «Зачем» с пояснением панели | `WHY`, `WhyId`, `Why` |
+| [fields.tsx](src/components/fields.tsx) | Поля ввода, которые пишут правку по Enter или потере фокуса | `TextField`, `SelectField` |
+| [fileActions.ts](src/components/fileActions.ts) | Открытие примера и файла с экраном загрузки | `withLoading`, `openExample`, `openBrowserFile` |
+| [icons.tsx](src/components/icons.tsx) | Иконки интерфейса | `IconName`, `Icon` |
+| [tools.ts](src/components/tools.ts) | Список инструментов, клавиши и подсказки | `TOOLS` |
+
+### `src/macro/` — макромодель потоков
+
+| Файл | За что отвечает | Что внутри |
+|---|---|---|
+| [bundle.ts](src/macro/bundle.ts) | Пучок потоков через выбранную дорогу | `BundlePair`, `FlowBundle`, `flowBundle`, `loadedTimes`, `bundleFor`, `bundleFeatures` |
+| [bundleStore.ts](src/macro/bundleStore.ts) | Состояние пучка потоков | `useBundle` |
+| [compute.ts](src/macro/compute.ts) | Расчёт потоков и изохрон, цвета загрузки V/C | `VC_BANDS`, `vcColor`, `ISO_BANDS`, `Fc`, `MacroResult`, `FlowsOptions`, `computeFlows`, `computeIsochrone` |
+| [flows.worker.ts](src/macro/flows.worker.ts) | Фоновый поток для расчёта потоков | `FlowsJob` |
+| [model.ts](src/macro/model.ts) | Сеть макромодели, Дейкстра, зоны, гравитационная модель, BPR, Франк-Вульф | `Link`, `Network`, `metres`, `buildNetwork`, `dijkstra`, `Zone`, `gridZones`, `gravityOd`, `bpr`, `Assignment` … |
+| [purposes.ts](src/macro/purposes.ts) | Цели поездок, подбор β, гистограмма времени | `PURPOSES`, `DEFAULT_BETA`, `purposeMatrices`, `PurposeId`, `skim`, `purposeOd`, `meanTime`, `solveBeta`, `timeHistogram`, `roundOd` … |
+| [route.ts](src/macro/route.ts) | Кратчайший путь между узлами | `Route`, `NoRoute`, `fastestRoute` |
+| [store.ts](src/macro/store.ts) | Состояние макромодели | `useMacro` |
+| [useZoneEditing.ts](src/macro/useZoneEditing.ts) | Ручная расстановка зон на карте | `zoneEditingActive`, `useZoneEditing` |
+
+### `src/map/` — карта, слои, взаимодействие, 3D
+
+| Файл | За что отвечает | Что внутри |
+|---|---|---|
+| [buildingTool.ts](src/map/buildingTool.ts) | Инструмент «Здание»: призрак под курсором и постановка | `Ghost`, `useBuildingTool`, `ghostAt`, `placeGhost`, `useBuildingGhost` |
+| [camera.ts](src/map/camera.ts) | Запоминание положения камеры по файлу | `SavedCamera`, `loadCamera`, `saveCamera` |
+| [drawSnap.ts](src/map/drawSnap.ts) | Куда встанет следующая точка дороги: магнит к узлу и дороге, шаг угла | `DrawSnap`, `DrawTarget`, `drawTarget` |
+| [elevation.ts](src/map/elevation.ts) | Высоты дорог у мостов для 3D | `APPROACH_LENGTH`, `deckHeight`, `nodeElevations`, `isLifted`, `isLiftedNode` |
+| [features.ts](src/map/features.ts) | Объекты ОДД на узлах и их теги | `NodeFeature`, `NODE_FEATURES`, `featureById`, `hasFeature`, `toggleNodeFeature`, `nodeSymbol` |
+| [geojson.ts](src/map/geojson.ts) | GeoJSON дорог, тротуаров, зданий, рельсов, узлов для карты | `sidewalkSides`, `roadsGeoJson`, `buildingHeight`, `contextGeoJson`, `railGeoJson`, `stationGeoJson`, `nodesGeoJson`, `docBounds` |
+| [hit.ts](src/map/hit.ts) | Что под курсором: узел, дорога, здание | `WayHit`, `hitNode`, `hitWay`, `hitBuilding` |
+| [instance.ts](src/map/instance.ts) | Доступ к живой карте (снимок для отчёта) | `setMapInstance`, `mapSnapshot`, `mapViewBbox` |
+| [junctionLayers.ts](src/map/junctionLayers.ts) | Слои перекрёстков: полосы, связи, знаки | `JUNCTION_SOURCES`, `JUNCTION_LAYERS`, `UNDER_DECK_LAYERS`, `SIGN_LAYER`, `TURN_COLORS`, `addJunctionLayers` |
+| [lanesGeo.ts](src/map/lanesGeo.ts) | Геометрия полос, разделителей, зебр, стрелок | `pxPerMetreZ17`, `laneOffset`, `dividerOffsets`, `roadWidthMetres`, `junctionRadius`, `LaneStyle`, `laneLines`, `TurnGroup`, `turnGroup`, `arrowIcon` … |
+| [layers.ts](src/map/layers.ts) | Все слои редактора: дороги, вид «Схема», подсветка выбора и ошибок, стрелки, А-полосы, свои потоки | `SOURCES`, `SourceId`, `HIT_LAYERS`, `sceneOf`, `sceneColors`, `addEditorLayers`, `applyPalette`, `applyRoadColors`, `applyLayerVisibility` |
+| [lens.ts](src/map/lens.ts) | Линзы карты (Авто, Пешеходы, ОТ и т.д.) | `Lens`, `LENSES`, `applyLens` |
+| [mesh3d.ts](src/map/mesh3d.ts) | Геометрия 3D: здания, мосты, тоннели | `Rgb`, `Scene3dColors`, `STRIDE`, `Scene3dMesh`, `LANE_WIDTH`, `LAYER_HEIGHT`, `mercatorX`, `mercatorY`, `metersPerMercatorUnit`, `isBridge` … |
+| [palette.ts](src/map/palette.ts) | Цвета карты в светлой и тёмной теме, легенда классов | `ROAD_CLASSES`, `RoadClassId`, `MapPalette`, `MAP_PALETTE`, `roadColorExpression` |
+| [polyline.ts](src/map/polyline.ts) | Операции с ломаными в метрах: длина, отрезок, смещение | `V`, `frame`, `cumulative`, `lengthOf`, `along`, `slice`, `densify`, `offsetLine` |
+| [props3d.ts](src/map/props3d.ts) | 3D-модели знаков, светофоров и машин | `P2`, `Sink`, `VEHICLE_BODY`, `VehicleKind`, `VEHICLE_SIZE`, `VEHICLE_MIN_ZOOM`, `VEHICLE_KINDS`, `addVehicle`, `addSign`, `addTrafficLight` … |
+| [railLayers.ts](src/map/railLayers.ts) | Слои железной дороги и станций | `RAIL_SOURCES`, `RAIL_LAYERS`, `RAIL_HIT_LINES`, `RAIL_HIT_POINTS`, `addRailLines`, `addStationLayers`, `applyRailPalette` |
+| [roadSigns.ts](src/map/roadSigns.ts) | Картинки знаков для карты | `signImageId`, `addRoadSignImages` |
+| [scene3d.ts](src/map/scene3d.ts) | Свой WebGL-слой 3D с вырезом зданий перед дорогой | `SCENE3D_LAYER`, `CUT_MARGIN`, `lightPosition`, `cutLines`, `Scene3dLayer` |
+| [section.ts](src/map/section.ts) | Поперечный профиль дороги и переходы ширины | `LANE_WIDTH`, `Travel`, `Section`, `sectionOf`, `reverse`, `laneOffsetIn`, `edgesOf`, `widthOf`, `LaneDivider`, `CrossSection` … |
+| [sidewalks.ts](src/map/sidewalks.ts) | Линии тротуаров | `sidewalkLines` |
+| [signArt.ts](src/map/signArt.ts) | SVG знаков по ГОСТ Р 52290 | `SIGN_SVG`, `signSvg`, `signUrl`, `signBitmap` |
+| [style.ts](src/map/style.ts) | Подложки OSM и спутник | `OSM_TILES`, `SATELLITE_TILES`, `BASE_STYLE`, `applyBasemapTone` |
+| [thematic.ts](src/map/thematic.ts) | Раскраска дорог по атрибуту | `RoadColorMode`, `Band`, `THEMATIC`, `speedOf`, `lanesOfTag`, `thematicProps`, `thematicExpression`, `bandOf` |
+| [turnArrows.ts](src/map/turnArrows.ts) | Стрелки поворотов на полосах | `turnArrowImage`, `TURN_ARROW_HEIGHT`, `provideTurnArrows` |
+| [useBoxSelect.ts](src/map/useBoxSelect.ts) | Выбор дорог рамкой с Shift | `waysInRect`, `useBoxSelect` |
+| [useBuildingEditing.ts](src/map/useBuildingEditing.ts) | Правка формы здания на карте | `HANDLE_LAYERS`, `useBuildingCorner`, `selectedBuilding`, `removePickedCorner`, `buildingHandles`, `useBuildingEditing` |
+| [useLaneEditing.ts](src/map/useLaneEditing.ts) | Связи полос на перекрёстке мышью | `laneLinkAt`, `useLaneEditing` |
+| [useMapInteractions.ts](src/map/useMapInteractions.ts) | Клики и перетаскивание: выбор участка, рисование, слияние узлов, точки своих потоков | `useMapInteractions` |
+| [wayCache.ts](src/map/wayCache.ts) | Кэш построений по дороге | `WayCache`, `sig` |
+
+### `src/osm/` — модель OSM, правки и проверки (без React)
+
+| Файл | За что отвечает | Что внутри |
+|---|---|---|
+| [building.ts](src/osm/building.ts) | Теги зданий для 3D Webots | `LEVEL_HEIGHT_M`, `webotsDefaults`, `isBuilding`, `isBuildingWay`, `ROOF_SHAPES`, `BUILDING_TYPES`, `WALL_MATERIALS`, `ROOF_MATERIALS`, `HeightSource`, `buildingHeight` … |
+| [buildingEdit.ts](src/osm/buildingEdit.ts) | Создание, форма, копия и удаление зданий | `LonLat`, `templateTags`, `metres`, `outlineOf`, `addBuilding`, `placeTemplate`, `templateRing`, `setOutline`, `localOutline`, `reshape` … |
+| [buildingShape.ts](src/osm/buildingShape.ts) | Геометрия контуров зданий | `P`, `BuildingTemplate`, `BUILDING_TEMPLATES`, `centroid`, `area`, `rectangle`, `translate`, `rotate`, `Box`, `orientedBox` … |
+| [busLanes.ts](src/osm/busLanes.ts) | Полосы для маршрутных ТС (psv) | `Travel`, `psvLanes`, `hasPsvLane`, `canHavePsvLane`, `setPsvLane`, `travels` |
+| [capacity.ts](src/osm/capacity.ts) | Пропускная способность перекрёстка и узкие места | `ApproachRole`, `LANE_CAPACITY`, `ROLE_LABEL`, `ApproachCapacity`, `JunctionCapacity`, `junctionCapacity`, `WayFlow`, `JunctionLoad`, `junctionLoad`, `bottlenecks` |
+| [clearance.ts](src/osm/clearance.ts) | Здания на пути новой дороги; дороги, которые заходят под здания | `CLEARANCE_MARGIN`, `BuildingConflict`, `buildingConflicts`, `demolishBuildings`, `cutBuildings`, `RoadOverlap`, `roadBuildingOverlaps` |
+| [components.ts](src/osm/components.ts) | Компоненты связности графа | `weakComponents`, `strongComponents`, `largestGroup` |
+| [cordon.ts](src/osm/cordon.ts) | Граница фрагмента и кордонные связи | `CORDON_EDGE_M`, `CORDON_PAIR_M`, `CORDON_NOTE`, `CordonEnd`, `CordonPair`, `cordonEnds`, `cordonPairs`, `addCordonConnector`, `addAllCordonConnectors`, `reachable` |
+| [diff.ts](src/osm/diff.ts) | Разница между открытым файлом и текущим графом | `ChangeKind`, `TagChange`, `WayChange`, `NodeChange`, `DocDiff`, `tagChanges`, `docDiff`, `isEmptyDiff`, `diffMarkdown`, `diffFeatures` |
+| [draw.ts](src/osm/draw.ts) | Запись нарисованной дороги в документ | `DrawPoint`, `commitDrawing` |
+| [drawGeometry.ts](src/osm/drawGeometry.ts) | Углы, шаг 15°, кривые и скругление углов | `LonLatPoint`, `ANGLE_STEP_DEG`, `ANGLE_PULL_DEG`, `CURVE_STEP_M`, `bearingDeg`, `distanceM`, `turnDeg`, `snapAngle`, `curvePoints`, `roundCorners` |
+| [edit.ts](src/osm/edit.ts) | Базовые правки: узлы, теги, удаление, разрез, слияние | `waysOfNode`, `addNode`, `moveNode`, `setNodeTags`, `setWayTags`, `setWayTag`, `toggleSignal`, `deleteWay`, `deleteNode`, `createWay` … |
+| [flowRules.ts](src/osm/flowRules.ts) | Проверка потоков по ПДД: встречные в лоб, неверный разворот | `FlowRuleKind`, `FlowFix`, `FlowIssue`, `flowRuleIssues` |
+| [geo.ts](src/osm/geo.ts) | Расстояния и проекция в метры | `LonLat`, `haversine`, `projector`, `segmentIntersection`, `projectOnSegment` |
+| [height.ts](src/osm/height.ts) | Высоты зданий и уровни дорог в тегах OSM | `LEVEL_HEIGHT`, `LAYER_STEP`, `MAX_BUILDING_HEIGHT`, `MIN_LAYER`, `MAX_LAYER`, `formatMetres`, `BuildingHeight`, `buildingHeight`, `withBuildingHeight`, `withBuildingLevels` … |
+| [laneTags.ts](src/osm/laneTags.ts) | Теги одной полосы (`*:lanes`) | `Travel`, `laneCount`, `laneKey`, `laneValue`, `setLaneValue`, `LaneInfo`, `laneInfo`, `setLaneTurns`, `setLanePsv` |
+| [lanes.ts](src/osm/lanes.ts) | Полосы на перекрёстках, въезды, шаблоны разметки | `Turn`, `TURNS`, `classifyTurn`, `turnSide`, `Arm`, `armKey`, `armsAt`, `junctions`, `turnDelta`, `Approach` … |
+| [matsim.ts](src/osm/matsim.ts) | Экспорт сети MATSim | `toMatsimNetwork` |
+| [overpass.ts](src/osm/overpass.ts) | Загрузка района через Overpass и Nominatim | `Bbox`, `OVERPASS_URL`, `OVERPASS_MIRRORS`, `NOMINATIM_URL`, `LARGE_AREA_DEG2`, `MAX_AREA_DEG2`, `AreaScope`, `defaultScope`, `AreaError`, `Fetcher` … |
+| [parse.ts](src/osm/parse.ts) | Чтение `.osm` с починкой битых файлов | `OsmParseError`, `OsmRepairs`, `hasRepairs`, `parseOsm`, `parseOsmChecked` |
+| [pieces.ts](src/osm/pieces.ts) | Участок между перекрёстками, отсоединение, запрет дорога↔рельсы | `Piece`, `pieceAround`, `isolatePiece`, `detachWay`, `mayJoin`, `isTrackOnlyNode` |
+| [pipelineSafety.ts](src/osm/pipelineSafety.ts) | Значения, на которых падает Webots, и их починка | `UnsafeTag`, `positiveInteger`, `unsafeTags`, `sanitizeWay`, `sanitizeDoc`, `safeInput` |
+| [profile.ts](src/osm/profile.ts) | Профиль улицы по СП, полосы по направлениям | `RoadProfile`, `roadProfile`, `lanesByDirection`, `capacity`, `normTags`, `withLaneCount` |
+| [rail.ts](src/osm/rail.ts) | Теги железной дороги | `RAIL_LINE_KINDS`, `isRailLine`, `isPlatform`, `isRailWay`, `StationKind`, `stationKind`, `RAIL_TYPES`, `RAIL_SERVICES`, `RAIL_USAGES`, `ELECTRIFIED` … |
+| [roads.ts](src/osm/roads.ts) | Направленные дуги графа | `drivableWays`, `Arc`, `directedArcs` |
+| [serialize.ts](src/osm/serialize.ts) | Запись `.osm` | `escapeXml`, `serializeOsm` |
+| [signs.ts](src/osm/signs.ts) | Знаки приоритета по ПДД и их расстановка | `ApproachControl`, `SignKind`, `approachControl`, `placeRuleSigns`, `signPoints` |
+| [simulators.ts](src/osm/simulators.ts) | Как дорогу прочитают MATSim, SUMO, Webots | `lanesPerDirection`, `SimulatorView`, `howSimulatorsRead` |
+| [speeds.ts](src/osm/speeds.ts) | Скорости по ПДД, одинаковые для всех симуляторов | `SimSpeeds`, `simulatorSpeeds`, `legalSpeed`, `legalSpeedTags`, `SpeedMismatch`, `speedMismatches`, `applyLegalSpeeds` |
+| [street.ts](src/osm/street.ts) | Улица как один объект | `streetWays`, `commonValue`, `streetLengthM`, `setStreetTag`, `setStreetLanes`, `normaliseStreet` |
+| [structures.ts](src/osm/structures.ts) | Мосты и тоннели для Webots, ложные тоннели | `FALSE_TUNNEL_MAX_M`, `FalseTunnel`, `falseTunnels`, `groundTags`, `webotsElevation` |
+| [tags.ts](src/osm/tags.ts) | Классы дорог, направление, шаблоны новых дорог | `DRIVABLE_HIGHWAYS`, `isDrivable`, `Direction`, `direction`, `reverseWayTags`, `flipOneway`, `withTag`, `HIGHWAY_COLORS`, `highwayColor`, `TemplateGroup` … |
+| [turns.ts](src/osm/turns.ts) | Манёвры и запреты поворотов (`type=restriction`) | `TurnKind`, `Arm`, `Turn`, `compass`, `junctionArms`, `turnKind`, `restrictionsAt`, `turnAllowed`, `junctionTurns`, `setTurnAllowed` … |
+| [types.ts](src/osm/types.ts) | Типы документа OSM | `Tags`, `Attrs`, `OsmNode`, `OsmWay`, `OsmMember`, `OsmRelation`, `OsmDoc`, `EMPTY_DOC` |
+| [validate.ts](src/osm/validate.ts) | Вся проверка графа и список видов ошибок | `IssueKind`, `IssueFix`, `Issue`, `ValidationReport`, `validate` |
+| [validate.worker.ts](src/osm/validate.worker.ts) | Фоновый поток проверки |  |
+
+### `src/report/` — отчёт
+
+| Файл | За что отвечает | Что внутри |
+|---|---|---|
+| [report.ts](src/report/report.ts) | Отчёт HTML | `ReportInput`, `docStats`, `buildReport` |
+
+### `src/scenarios/` — сценарии
+
+| Файл | За что отвечает | Что внутри |
+|---|---|---|
+| [store.ts](src/scenarios/store.ts) | Сценарии и их показатели | `MacroKpi`, `MicroKpi`, `Scenario`, `macroKpi`, `microKpi`, `defaultName`, `useScenarios` |
+
+### `src/sim/` — микросимуляция
+
+| Файл | За что отвечает | Что внутри |
+|---|---|---|
+| [customFlows.ts](src/sim/customFlows.ts) | Свои потоки: точки, машин в час, хранение, перевод в OD | `FlowEnd`, `CustomFlow`, `FlowPick`, `DEFAULT_VPH`, `MAX_VPH`, `useCustomFlows`, `flowsDemand` |
+| [overlay.ts](src/sim/overlay.ts) | Цвета LOS и сигналов на карте | `LOS_COLORS`, `heatCell`, `SIGNAL_COLORS`, `statsByWay`, `losFeatures`, `simSpan`, `stateAt`, `signalFeatures`, `junctionDelay` |
+| [poses.ts](src/sim/poses.ts) | Положение машин в момент модели | `VehiclePose`, `kindOf`, `vehiclePoses`, `unitOutlines`, `vehicleShapes` |
+| [store.ts](src/sim/store.ts) | Состояние Микро: спрос, программы светофоров, запуск SUMO | `SPEEDS`, `SignalPlan`, `ADAPTIVE_DEFAULTS`, `planForSim`, `PED_SECONDS`, `SumoStatus`, `useSim`, `simEnd`, `checkSumo`, `runSimulation` … |
+| [types.ts](src/sim/types.ts) | Типы результата симуляции | `SimFrame`, `WayStat`, `Signal`, `DemandKind`, `SimResult`, `STRIDE` |
+
+### `src/state/` — состояние и действия
+
+| Файл | За что отвечает | Что внутри |
+|---|---|---|
+| [actions.ts](src/state/actions.ts) | Действия: открыть, сохранить, закончить рисование, удалить, развернуть, разрезать | `loadXml`, `repairText`, `loadExample`, `BROWSER_FILE_INPUT`, `openFile`, `saveOsm`, `drawWidth`, `cornerRadius`, `builtPoints`, `drawingConflicts` … |
+| [area.ts](src/state/area.ts) | Загрузка района по названию или рамке | `areaFileName`, `loadArea`, `loadPlace` |
+| [buildingActions.ts](src/state/buildingActions.ts) | Действия со зданием: размер, угол, копия | `setPointer`, `selectedBuildingId`, `setBuildingSize`, `setBuildingAngle`, `squareUpSelected`, `duplicateSelected`, `copySelected`, `pasteBuilding` |
+| [draft.ts](src/state/draft.ts) | Черновик несохранённых правок и восстановление | `Draft`, `DraftStore`, `AUTOSAVE_MS`, `indexedDbStore`, `useDraft`, `autosaveTick`, `restoreDraft`, `dropDraft`, `startAutosave` |
+| [errorLog.ts](src/state/errorLog.ts) | Журнал ошибок: запись, отметка «исправлено», перехват ошибок программы | `LogKind`, `LogEntry`, `useErrorLog`, `startErrorLog`, `logText` |
+| [laneActions.ts](src/state/laneActions.ts) | Связи полос перекрёстка | `parseArm`, `removePickedLink`, `connectLanes` |
+| [panels.ts](src/state/panels.ts) | Размеры и свёрнутость панелей | `PanelsState`, `LIMITS`, `usePanels` |
+| [route.ts](src/state/route.ts) | Состояние маршрута | `useRoute` |
+| [settled.ts](src/state/settled.ts) | Документ без пересчёта во время перетаскивания | `useSettledDoc` |
+| [store.ts](src/state/store.ts) | Главное состояние: документ, история, выбор, режим | `Mode`, `Selection`, `Basemap`, `useEditor`, `currentSelection`, `currentMulti`, `isDirty` |
+| [ui.ts](src/state/ui.ts) | Состояние интерфейса: тема, вкладка, вид дорог, линза, слои | `Theme`, `ThemeChoice`, `Workspace`, `RoadLook`, `BottomTab`, `LayerId`, `LAYER_IDS`, `resolveTheme`, `LaneLinkRef`, `FlyRequest` … |
+| [useCloseGuard.ts](src/state/useCloseGuard.ts) | Вопрос при закрытии с несохранёнными правками | `useCloseGuard` |
+| [useHotkeys.ts](src/state/useHotkeys.ts) | Горячие клавиши | `HOTKEYS`, `useHotkeys` |
+| [validation.ts](src/state/validation.ts) | Запуск проверки в фоне | `validateInBackground`, `refreshReport` |
+
+### `src/test/` — тестовые данные
+
+| Файл | За что отвечает | Что внутри |
+|---|---|---|
+| [docs.ts](src/test/docs.ts) | Маленькая сеть для тестов | `SMALL_OSM`, `smallDoc` |
+| [setup.ts](src/test/setup.ts) | Настройка тестов |  |
+
+### `src/transit/` — общественный транспорт
+
+| Файл | За что отвечает | Что внутри |
+|---|---|---|
+| [routes.ts](src/transit/routes.ts) | Маршруты ОТ из отношений OSM | `DEFAULT_INTERVAL_MIN`, `TransitRoute`, `parseInterval`, `transitRoutes`, `setRouteInterval`, `transitGeoJson`, `transitDemand` |
+| [store.ts](src/transit/store.ts) | Выбранный маршрут ОТ | `useTransit` |
+
+### `src-tauri/src/` — настольная оболочка (Rust)
+
+| Файл | За что отвечает | Что внутри |
+|---|---|---|
+| [check.rs](src-tauri/src/check.rs) | Локальная копия конвейера организаторов: MATSim, SUMO, Webots | `matsim_source`, `run_all` |
+| [lib.rs](src-tauri/src/lib.rs) | Команды Tauri: файлы, проверка, симуляция, сеть | `run` |
+| [main.rs](src-tauri/src/main.rs) | Запуск настольного приложения |  |
+| [net.rs](src-tauri/src/net.rs) | Загрузка данных карты через curl | `request` |
+| [sim.rs](src-tauri/src/sim.rs) | Микросимуляция: netconvert, спрос, SUMO, разбор результатов, экспорт сети | `parse_fcd`, `crossing_stats`, `simulate`, `parse_edgedata`, `parse_timeline`, `parse_tls_states`, `sumo_status`, `export_net` |
+
+### `src-tauri/src/py/` — скрипты для SUMO
+
+| Файл | За что отвечает | Что внутри |
+|---|---|---|
+| [netinfo.py](src-tauri/src/py/netinfo.py) | Светофоры и зоны из сети SUMO, программы светофоров с секциями и пешеходной фазой | `to_xy`, `to_lonlat`, `drivable`, `nearest`, `stop_lane`, `tls_centre`, `link_kinds`, `with_sections`, `program` |
+
+### `tools/` — проверка MATSim
+
+| Файл | За что отвечает | Что внутри |
+|---|---|---|
+| [OsmCheck.java](tools/matsim-check/OsmCheck.java) | Сборка сети MATSim как на сервере проверки |  |
