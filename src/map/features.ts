@@ -17,6 +17,8 @@ export interface NodeFeature {
 export const NODE_FEATURES: readonly NodeFeature[] = [
   { id: 'signal', label: 'Светофор', hint: 'highway=traffic_signals. SUMO строит по нему светофорный объект, MATSim снижает пропускную способность.', tags: { highway: 'traffic_signals' } },
   { id: 'crossing', label: 'Пешеходный переход', hint: 'highway=crossing, crossing=uncontrolled. SUMO ставит переход на перекрёстке, Webots рисует зебру.', tags: { highway: 'crossing', crossing: 'uncontrolled' } },
+  { id: 'give_way', label: 'Уступи дорогу', hint: 'Знак 2.4, highway=give_way на узле перед перекрёстком. Ставьте на второстепенной дороге; на карте у въезда появится пунктирная линия 1.13.', tags: { highway: 'give_way' } },
+  { id: 'stop', label: 'Стоп', hint: 'Знак 2.5, highway=stop на узле перед перекрёстком: движение без остановки запрещено, на карте у въезда появится стоп-линия.', tags: { highway: 'stop' } },
   { id: 'bump', label: 'Лежачий полицейский', hint: 'traffic_calming=bump. Отмечает искусственную неровность, машины перед ней сбрасывают скорость.', tags: { traffic_calming: 'bump' } },
 ];
 
@@ -37,8 +39,7 @@ export function toggleNodeFeature(doc: OsmDoc, nodeId: string, f: NodeFeature): 
 export function nodeSymbol(tags: Tags): string {
   if (tags.highway === 'traffic_signals') return 'signal';
   if (tags.highway === 'crossing' || tags.crossing) return 'crossing';
-  if (tags.highway === 'stop') return 'stop';
-  if (tags.highway === 'give_way') return 'give_way';
+  // STOP and give way are drawn as road signs beside the approach (roadSigns.ts).
   if (tags.highway === 'bus_stop') return 'bus_stop';
   if (tags.traffic_calming) return 'bump';
   return '';

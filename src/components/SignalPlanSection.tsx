@@ -1,11 +1,27 @@
 import type { OsmNode, OsmWay } from '../osm/types';
 import { junctionDelay } from '../sim/overlay';
-import { useSim, type SignalPlan } from '../sim/store';
+import { ADAPTIVE_DEFAULTS, useSim, type SignalPlan } from '../sim/store';
 import { Section } from './Section';
 
-const DEFAULT_PLAN: SignalPlan = { cycle: 90, mainShare: 0.6 };
+const FIXED_PLAN: SignalPlan = { mode: 'fixed', cycle: 90, mainShare: 0.6 };
+const ADAPTIVE_PLAN: SignalPlan = { mode: 'adaptive', cycle: 90, mainShare: 0.6, ...ADAPTIVE_DEFAULTS };
 
-/** Signal timing for the micro run and the junction's delay before and after the change. */
+function NumberField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (v: number) => void }) {
+  return (
+    <label className="field">
+      <span className="micro">{label}</span>
+      <input type="number" min={min} max={max} step={1} defaultValue={value} key={value}
+        onBlur={(e) => onChange(Math.min(max, Math.max(min, Math.round(Number(e.target.value)) || value)))}
+        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
+    </label>
+  );
+}
+
+/**
+ * How the traffic light works in the micro run. Adaptive (the default, SUMO actuated): green
+ * stays on while cars keep coming and switches once the flow thins out, so a busy direction is
+ * cleared first. Fixed: a set cycle, to check one's own program.
+ */
 export function SignalPlanSection({ node, ways }: { node: OsmNode; ways: readonly OsmWay[] }) {
   const plan = useSim((s) => s.plans[node.id]);
   const setPlan = useSim((s) => s.setPlan);
@@ -15,14 +31,33 @@ export function SignalPlanSection({ node, ways }: { node: OsmNode; ways: readonl
   const ids = ways.map((w) => w.id);
   const now = junctionDelay(result, ids);
   const before = baseline && baseline !== result ? junctionDelay(baseline, ids) : null;
-  const p = plan ?? DEFAULT_PLAN;
-  const update = (patch: Partial<SignalPlan>) => setPlan(node.id, { ...p, ...patch });
+  const mode = plan?.mode ?? (plan ? 'fixed' : 'adaptive');
+  const p = plan ?? ADAPTIVE_PLAN;
+  const update = (patch: Partial<SignalPlan>) => setPlan(node.id, { ...p, mode, ...patch });
   return (
-    <Section title="Цикл светофора" aside={plan ? <span className="mono count">{plan.cycle} с</span> : undefined}>
-      {!plan ? (
+    <Section title="Светофор" aside={<span className="mono count">{mode === 'adaptive' ? 'адаптивный' : `${p.cycle} с`}</span>}>
+      <div className="seg seg-wide" role="radiogroup" aria-label="Режим светофора">
+        <button role="radio" aria-checked={mode === 'adaptive'} className={mode === 'adaptive' ? 'on' : ''}
+          onClick={() => setPlan(node.id, plan?.mode === 'adaptive' ? plan : null)}>Адаптивный</button>
+        <button role="radio" aria-checked={mode === 'fixed'} className={mode === 'fixed' ? 'on' : ''}
+          onClick={() => setPlan(node.id, { ...FIXED_PLAN, ...(plan && plan.mode !== 'adaptive' ? plan : {}), mode: 'fixed' })}>Фиксированный цикл</button>
+      </div>
+      {mode === 'adaptive' ? (
         <>
-          <p className="hint">Сейчас SUMO сам подбирает фазы (адаптивный светофор). Задайте цикл, чтобы проверить свою программу.</p>
-          <button className="btn" onClick={() => setPlan(node.id, DEFAULT_PLAN)}>Задать цикл</button>
+          <p className="hint">Зелёный горит, пока к стоп-линии подъезжают машины, и переключается, когда поток редеет. Загруженное направление разгружается первым, пустое не держит перекрёсток.</p>
+          {plan ? (
+            <>
+              <div className="row">
+                <NumberField label="Мин. зелёный, с" value={p.minGreen ?? ADAPTIVE_DEFAULTS.minGreen} min={3} max={60} onChange={(minGreen) => update({ minGreen })} />
+                <NumberField label="Макс. зелёный, с" value={p.maxGreen ?? ADAPTIVE_DEFAULTS.maxGreen} min={10} max={120} onChange={(maxGreen) => update({ maxGreen })} />
+              </div>
+              <NumberField label="Разрыв в потоке, с" value={p.maxGap ?? ADAPTIVE_DEFAULTS.maxGap} min={1} max={10} onChange={(maxGap) => update({ maxGap })} />
+              <p className="hint">Если между машинами дольше «разрыва», зелёный заканчивается раньше максимума. Уходит в SUMO как светофор типа actuated.</p>
+              <button className="btn" onClick={() => setPlan(node.id, null)}>Как у SUMO по умолчанию</button>
+            </>
+          ) : (
+            <button className="btn" onClick={() => setPlan(node.id, ADAPTIVE_PLAN)}>Настроить</button>
+          )}
         </>
       ) : (
         <>
@@ -37,7 +72,6 @@ export function SignalPlanSection({ node, ways }: { node: OsmNode; ways: readonl
             <input type="range" min={0.2} max={0.8} step={0.05} value={p.mainShare} onChange={(e) => update({ mainShare: Number(e.target.value) })} />
           </label>
           <p className="hint">Жёлтый и общий красный остаются как есть, остаток цикла делится между зелёными фазами. Главными считаются фазы с наибольшим числом зелёных потоков. Программа уходит в SUMO как tlLogic при следующем пересчёте.</p>
-          <button className="btn" onClick={() => setPlan(node.id, null)}>Вернуть адаптивный</button>
         </>
       )}
       {applied && <p className="hint">В последнем прогоне: цикл {applied.cycle_s.toFixed(0)} с.</p>}

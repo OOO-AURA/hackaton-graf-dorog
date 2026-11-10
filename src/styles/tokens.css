@@ -26,6 +26,12 @@
   --r-sm: 3px; --r-md: 5px; --r-lg: 8px;
   --shadow-float: 0 1px 0 rgba(58, 37, 22, 0.08), 0 6px 18px -6px rgba(58, 37, 22, 0.28);
   --shadow-pop: 0 12px 32px -8px rgba(58, 37, 22, 0.35);
+  /* Frosted panels over the map: mostly opaque, so text stays easy to read. */
+  --glass: color-mix(in srgb, var(--panel) 80%, transparent);
+  --glass-line: rgba(58, 37, 22, 0.18);
+  --glass-blur: blur(18px) saturate(150%);
+  --shadow-glass: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 10px 30px -12px rgba(58, 37, 22, 0.4);
+  --r-xl: 12px;
   --header-h: 48px; --nav-w: 264px; --insp-w: 320px; --dock-h: clamp(132px, 24vh, 240px);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --dur: 160ms;
@@ -49,6 +55,9 @@
   --red-wash: rgba(240, 80, 63, 0.16); --orange-wash: rgba(245, 160, 74, 0.16); --green-wash: rgba(85, 180, 95, 0.16); --blue-wash: rgba(95, 163, 214, 0.16);
   --shadow-float: 0 1px 0 rgba(0, 0, 0, 0.3), 0 8px 22px -6px rgba(0, 0, 0, 0.6);
   --shadow-pop: 0 14px 36px -8px rgba(0, 0, 0, 0.7);
+  --glass: color-mix(in srgb, var(--panel) 76%, transparent);
+  --glass-line: rgba(241, 230, 203, 0.12);
+  --shadow-glass: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 12px 34px -10px rgba(0, 0, 0, 0.75);
   color-scheme: dark;
 }
 

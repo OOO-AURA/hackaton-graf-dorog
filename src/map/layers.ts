@@ -2,15 +2,17 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { LayerId } from '../state/ui';
 import { ROAD_CLASSES, roadColorExpression, type MapPalette } from './palette';
 import { Scene3dLayer, SCENE3D_LAYER } from './scene3d';
+import { addJunctionLayers, JUNCTION_LAYERS, JUNCTION_SOURCES, SIGN_LAYER, UNDER_DECK_LAYERS } from './junctionLayers';
 import type { Rgb, Scene3dColors } from './mesh3d';
 import { thematicExpression, type RoadColorMode } from './thematic';
+import type { RoadLook } from '../state/ui';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', 'turns', 'changes', 'route'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, 'turns', 'changes', 'route'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
-export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'], buildings: ['buildings'], laneEnds: ['lane-ends'], laneLinks: ['lane-links'] } as const;
+export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'], buildings: ['buildings'], laneEnds: ['lane-ends'], laneLinks: ['lane-links', 'lane-ribbons'] } as const;
 
 function arrowImage(color: string): ImageData | null {
   const size = 24;
@@ -34,18 +36,7 @@ const SIGN_ICONS: Record<string, (c: CanvasRenderingContext2D) => void> = {
     c.fillStyle = '#FFFFFF'; for (let x = 8; x < 26; x += 5) c.fillRect(x, 18, 3, 7);
     c.beginPath(); c.arc(16, 9, 2.5, 0, Math.PI * 2); c.fill(); c.fillRect(15, 11, 2, 6);
   },
-  // Road signs 2.5 «STOP», 2.4 «Уступи дорогу» and 5.16 «Место остановки автобуса».
-  stop: (c) => {
-    c.fillStyle = '#D7262B'; c.strokeStyle = '#FFFFFF'; c.lineWidth = 2;
-    c.beginPath();
-    for (let i = 0; i < 8; i += 1) { const a = Math.PI / 8 + (i * Math.PI) / 4; c.lineTo(16 + 13.5 * Math.cos(a), 16 + 13.5 * Math.sin(a)); }
-    c.closePath(); c.fill(); c.stroke();
-    c.fillStyle = '#FFFFFF'; c.fillRect(8, 14, 16, 4);
-  },
-  give_way: (c) => {
-    c.fillStyle = '#FFFFFF'; c.strokeStyle = '#D7262B'; c.lineWidth = 4;
-    c.beginPath(); c.moveTo(3, 5); c.lineTo(29, 5); c.lineTo(16, 28); c.closePath(); c.fill(); c.stroke();
-  },
+  // Sign 5.16 «Место остановки автобуса».
   bus_stop: (c) => {
     c.fillStyle = '#3F8BC4'; c.fillRect(3, 3, 26, 26); c.strokeStyle = '#FFFFFF'; c.lineWidth = 2; c.strokeRect(4, 4, 24, 24);
     c.fillStyle = '#FFFFFF'; c.fillRect(8, 9, 16, 12); c.fillStyle = '#3F8BC4'; c.fillRect(10, 11, 12, 4);
@@ -146,14 +137,15 @@ export const sceneOf = (map: MapLibreMap) => scenes.get(map) ?? null;
 
 const rgb = (hex: string): Rgb => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16) / 255) as unknown as Rgb;
 
-/** Colours of the 3D scene: one flat tone for buildings, bridge decks in their road class colour. */
-export function sceneColors(p: MapPalette): Scene3dColors & { selection: Rgb } {
+/** Colours of the 3D scene: one flat tone for buildings, bridge decks like the roads (class colour or asphalt). */
+export function sceneColors(p: MapPalette, look: RoadLook = 'graph'): Scene3dColors & { selection: Rgb } {
   const byHighway = new Map<string, Rgb>();
   ROAD_CLASSES.forEach((c) => c.match.forEach((h) => byHighway.set(h, rgb(p.roads[c.id]))));
   const service = rgb(p.roads.service);
+  const asphalt = rgb(p.asphalt);
   return {
-    building: rgb(p.building3d), deck: (h) => byHighway.get(h) ?? service,
-    deckSide: rgb(p.bridgeSide), parapet: rgb(p.bridgeParapet), mark: rgb(p.laneMark), markCasing: rgb(p.laneMarkCasing), pier: rgb(p.bridgeSide), portal: rgb(p.bridgeSide), selection: rgb(p.selection),
+    building: rgb(p.building3d), deck: (h) => (look === 'engineering' ? asphalt : byHighway.get(h) ?? service),
+    deckSide: rgb(p.bridgeSide), parapet: rgb(p.bridgeParapet), embankment: rgb(p.embankment), mark: rgb(p.laneMark), markCasing: rgb(p.laneMarkCasing), pier: rgb(p.bridgeSide), portal: rgb(p.bridgeSide), selection: rgb(p.selection),
   };
 }
 
@@ -196,19 +188,7 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-width': markWidth(0.7, 1.3, 3.5), 'line-dasharray': [3, 3] } });
   map.addLayer({ id: 'lane-marks-solid', type: 'line', source: 'lanes', minzoom: LANE_MARK_MINZOOM, filter: SOLID_MARKS as never,
     layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-width': markWidth(0.8, 1.5, 4) } });
-  map.addLayer({ id: 'lane-links', type: 'line', source: 'lane-links', minzoom: 17, layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: {
-      'line-color': ['get', 'color'],
-      'line-width': ['case', ['get', 'picked'], 4, ['get', 'edit'], 2.4, 1.1],
-      'line-opacity': ['case', ['get', 'edit'], 0.95, 0.5],
-    } });
-  map.addLayer({ id: 'lane-ends', type: 'circle', source: 'lane-ends', minzoom: 16,
-    paint: {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 16, 4, 19, 8],
-      'circle-color': ['case', ['get', 'hot'], ['match', ['get', 'kind'], 'in', '#E5392A', '#3F8BC4'], '#FBF6EA'],
-      'circle-stroke-width': 2.5,
-      'circle-stroke-color': ['match', ['get', 'kind'], 'in', '#E5392A', '#3F8BC4'],
-    } });
+  addJunctionLayers(map);
   const scene = new Scene3dLayer();
   scenes.set(map, scene);
   map.addLayer(scene);
@@ -220,7 +200,7 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   });
   const signLayout = (size: number) => ({ 'icon-image': ['concat', 'sign-', ['get', 'symbol']], 'icon-allow-overlap': true, 'icon-size': ['interpolate', ['linear'], ['zoom'], 14, size * 0.7, 18, size] }) as never;
   map.addLayer({ id: 'crossings', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['==', ['get', 'symbol'], 'crossing'], layout: signLayout(1) });
-  map.addLayer({ id: 'signs', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['in', ['get', 'symbol'], ['literal', ['bump', 'stop', 'give_way', 'bus_stop']]], layout: signLayout(1) });
+  map.addLayer({ id: 'signs', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['in', ['get', 'symbol'], ['literal', ['bump', 'bus_stop']]], layout: signLayout(1) });
   map.addLayer({ id: 'signals', type: 'circle', source: 'nodes', minzoom: 13, filter: ['==', ['get', 'kind'], 'signal'], paint: { 'circle-radius': 6, 'circle-stroke-width': 2 } });
   // Junctions with turn bans: a dashed-looking double ring around the node.
   map.addLayer({ id: 'turn-bans', type: 'circle', source: 'turns', minzoom: 14, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 6, 18, 13], 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 2.5, 'circle-stroke-opacity': 0.9 } });
@@ -313,13 +293,19 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
 }
 
 /** Road colour by class or by one attribute; bridges keep the same colour as the road they carry. */
-export function applyRoadColors(map: MapLibreMap, p: MapPalette, mode: RoadColorMode): void {
-  const color = mode === 'class' ? roadColorExpression(p) : thematicExpression(mode);
+export function applyRoadColors(map: MapLibreMap, p: MapPalette, mode: RoadColorMode, look: RoadLook = 'graph'): void {
+  // An attribute colouring wins over the look: it is asked for on purpose.
+  const asphalt = mode === 'class' && look === 'engineering';
+  const color = mode !== 'class' ? thematicExpression(mode) : asphalt ? p.asphalt : roadColorExpression(p);
   map.setPaintProperty('roads', 'line-color', color as never);
   map.setPaintProperty('roads-bridge', 'line-color', color as never);
+  // On asphalt the casing is the edge line of the carriageway.
+  map.setPaintProperty('roads-casing', 'line-color', (asphalt ? p.asphaltEdge : p.casing) as never);
+  // On a plan the arrows painted on the lanes show the direction; the graph arrows would clutter it.
+  map.setPaintProperty('roads-arrows', 'icon-opacity', asphalt ? 0 : 1);
 }
 
-const ROAD_LAYERS = ['roads-casing', 'bridge-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line', 'lanes', 'lane-marks-casing', 'lane-marks-dash', 'lane-marks-solid', 'lane-links', 'lane-ends'];
+const ROAD_LAYERS = ['roads-casing', 'bridge-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line', 'lanes', 'lane-marks-casing', 'lane-marks-dash', 'lane-marks-solid', ...JUNCTION_LAYERS];
 
 /** Applies the layer toggles from the bottom bar. Bridges and tunnels are filters on the road layers. */
 export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boolean>, view3d = false): void {
@@ -357,4 +343,9 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   map.setFilter('lane-marks-casing', flat(['==', ['get', 'kind'], 'divider']));
   map.setFilter('lane-marks-dash', flat(DASHED_MARKS));
   map.setFilter('lane-marks-solid', flat(SOLID_MARKS));
+  Object.entries(UNDER_DECK_LAYERS).forEach(([id, base]) => {
+    const ground = ['!=', ['get', 'raised'], true];
+    map.setFilter(id, (view3d ? (base ? ['all', base, ground] : ground) : base) as never);
+  });
+  show(SIGN_LAYER, on.signs && !view3d);
 }

@@ -4,14 +4,12 @@ import { direction, highwayColor, isDrivable } from '../osm/tags';
 import { nodeSymbol } from './features';
 import { thematicProps } from './thematic';
 import type { OsmDoc, OsmWay } from '../osm/types';
+import { pxPerMetreZ17 } from './lanesGeo';
 import { cumulative, frame, slice } from './polyline';
 import { roadTapers, sectionAt, sectionOf, taperBreaks, type Taper } from './section';
 
 /** How far road pieces reach into their neighbours, metres. */
 const OVERLAP = 0.3;
-
-/** Screen pixels per metre at zoom 17 on MapLibre's 512 px tiles. */
-const pxPerMetreZ17 = (lat: number) => 2 ** 17 / (78271.517 * Math.cos((lat * Math.PI) / 180));
 
 type Props = Record<string, string | number | boolean>;
 

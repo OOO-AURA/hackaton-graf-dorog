@@ -60,7 +60,20 @@ pub struct SignalPlan {
     pub lat: f64,
     pub cycle_s: f64,
     pub main_share: f64,
+    /// SUMO actuated program: green between min and max, ended by a gap in the traffic.
+    #[serde(default)]
+    pub adaptive: bool,
+    #[serde(default = "default_min_green")]
+    pub min_green_s: f64,
+    #[serde(default = "default_max_green")]
+    pub max_green_s: f64,
+    #[serde(default = "default_max_gap")]
+    pub max_gap_s: f64,
 }
+
+fn default_min_green() -> f64 { 8.0 }
+fn default_max_green() -> f64 { 50.0 }
+fn default_max_gap() -> f64 { 3.0 }
 
 #[derive(Deserialize, Clone)]
 struct TlsProgram {
@@ -498,7 +511,11 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
     let mut cmd = command(&python);
     cmd.env("SUMO_HOME", &sh).arg(&script).arg(&net);
     let stop_points: Vec<[f64; 2]> = extras.transit.iter().flat_map(|l| l.stops.iter().copied()).collect();
-    let plans: Vec<[f64; 4]> = extras.signals.iter().map(|p| [p.lon, p.lat, p.cycle_s.clamp(20.0, 240.0), p.main_share.clamp(0.1, 0.9)]).collect();
+    let plans: Vec<[f64; 8]> = extras.signals.iter().map(|p| {
+        let min = p.min_green_s.clamp(3.0, 60.0);
+        [p.lon, p.lat, p.cycle_s.clamp(20.0, 240.0), p.main_share.clamp(0.1, 0.9),
+         if p.adaptive { 1.0 } else { 0.0 }, min, p.max_green_s.clamp(min, 120.0), p.max_gap_s.clamp(1.0, 10.0)]
+    }).collect();
     if demand.is_some() || !stop_points.is_empty() || !plans.is_empty() {
         let request = dir.join("request.json");
         let zones = demand.map(|d| d.zones.clone()).unwrap_or_default();
@@ -753,7 +770,7 @@ mod local_run {
         println!("persons {} walked {} loss {:.1} crossings {:?}", r.persons, r.ped_finished, r.ped_mean_time_loss_s, r.crossings.iter().take(3).collect::<Vec<_>>());
         assert!(r.persons > 10);
         let tl = r.signals.first().map(|s| (s.lon, s.lat)).unwrap();
-        let plan = super::SignalPlan { node: "n".into(), lon: tl.0, lat: tl.1, cycle_s: 60.0, main_share: 0.7 };
+        let plan = super::SignalPlan { node: "n".into(), lon: tl.0, lat: tl.1, cycle_s: 60.0, main_share: 0.7, adaptive: false, min_green_s: 8.0, max_green_s: 50.0, max_gap_s: 3.0 };
         let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: false, signals: vec![plan] })).unwrap();
         println!("plans {:?} loss {:.1}", r.plans.iter().map(|p| (&p.tls, p.cycle_s)).collect::<Vec<_>>(), r.mean_time_loss_s);
         assert_eq!(r.plans.len(), 1);

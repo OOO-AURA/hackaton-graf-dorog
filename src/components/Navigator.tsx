@@ -9,6 +9,7 @@ import { VirtualList } from './VirtualList';
 import { Why } from './Why';
 import { TOOLS } from './tools';
 import { NODE_FEATURES } from '../map/features';
+import { placeRuleSigns } from '../osm/signs';
 
 interface Street { name: string; wayIds: string[]; bounds: [number, number, number, number] }
 
@@ -81,7 +82,30 @@ function FeaturePalette() {
         ))}
       </ul>
       {current && <p className="hint">{current.hint}</p>}
+      <RuleSigns />
     </>
+  );
+}
+
+/** Places priority signs by the traffic rules on every junction without a light. */
+function RuleSigns() {
+  const apply = useEditor((s) => s.apply);
+  const notify = useEditor((s) => s.notify);
+  const run = () => {
+    let counts = { giveWay: 0, mainRoads: 0 };
+    apply((d) => {
+      const r = placeRuleSigns(d);
+      counts = r;
+      return r.doc;
+    });
+    notify(counts.giveWay || counts.mainRoads
+      ? `Знаки по ПДД: «Уступи дорогу» на ${counts.giveWay} въездах, главная дорога на ${counts.mainRoads} участках`
+      : 'Новых знаков не нужно: на перекрёстках уже есть светофоры или знаки, либо дороги равнозначны');
+  };
+  return (
+    <button className="btn btn-sm rule-signs" onClick={run} title="На перекрёстках без светофора дороги старшего класса становятся главными, второстепенные въезды получают «Уступи дорогу». Равнозначные дороги не трогаются: там правило правой руки.">
+      Расставить знаки по ПДД
+    </button>
   );
 }
 

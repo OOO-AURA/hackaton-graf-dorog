@@ -6,8 +6,9 @@ import maplibregl, { type GeoJSONSource, type Map as MapLibreMap } from 'maplibr
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { addEditorLayers, applyLayerVisibility, applyPalette, applyRoadColors, sceneColors, sceneOf, type SourceId } from '../map/layers';
 import { buildScene3d } from '../map/mesh3d';
-import { junctionGeometry, laneLines, type LaneStyle } from '../map/lanesGeo';
+import { junctionGeometry, laneLines, zebras, type LaneStyle } from '../map/lanesGeo';
 import { junctions } from '../osm/lanes';
+import { signPoints } from '../osm/signs';
 import { vcColor } from '../macro/compute';
 import { loadCamera, saveCamera } from '../map/camera';
 import { applyBasemapTone, BASE_STYLE } from '../map/style';
@@ -158,9 +159,11 @@ function useLanes(map: MapLibreMap | null): void {
   const nodes = useMemo(() => junctions(doc), [doc]);
   const editing = selection?.type === 'node' && nodes.includes(selection.id) ? selection.id : null;
   useEffect(() => { if (map) setData(map, 'lanes', laneLines(doc, style)); }, [map, doc, style]);
+  useEffect(() => { if (map) setData(map, 'zebras', zebras(doc)); }, [map, doc]);
+  useEffect(() => { if (map) setData(map, 'road-signs', signPoints(doc)); }, [map, doc]);
   useEffect(() => {
     if (!map) return;
-    const { ends, links } = junctionGeometry(doc, nodes, editing, style);
+    const { ends, links, areas, stops, arrows } = junctionGeometry(doc, nodes, editing, style);
     const same = (p: Record<string, unknown>) => Boolean(picked && p.node === picked.node && p.from === picked.from && p.lane === picked.lane && p.turn === picked.turn);
     links.features.forEach((f) => { f.properties.picked = same(f.properties); });
     ends.features.forEach((f) => {
@@ -169,6 +172,9 @@ function useLanes(map: MapLibreMap | null): void {
     });
     setData(map, 'lane-links', links);
     setData(map, 'lane-ends', ends);
+    setData(map, 'junction-areas', areas);
+    setData(map, 'stop-lines', stops);
+    setData(map, 'lane-arrows', arrows);
   }, [map, doc, nodes, editing, style, picked]);
 }
 
@@ -180,7 +186,8 @@ function useMapLook(map: MapLibreMap | null): void {
   const view3d = useUi((s) => s.view3d);
   useEffect(() => { if (alive(map)) applyPalette(map, MAP_PALETTE[theme]); }, [map, theme]);
   const colorMode = useUi((s) => s.roadColorMode);
-  useEffect(() => { if (alive(map)) applyRoadColors(map, MAP_PALETTE[theme], colorMode); }, [map, theme, colorMode]);
+  const look = useUi((s) => s.roadLook);
+  useEffect(() => { if (alive(map)) applyRoadColors(map, MAP_PALETTE[theme], colorMode, look); }, [map, theme, colorMode, look]);
   useEffect(() => { if (alive(map)) applyBasemapTone(map, theme, opacity); }, [map, theme, opacity]);
   const view3dOn = useUi((s) => s.view3d);
   useEffect(() => { if (alive(map)) applyLayerVisibility(map, layers, view3dOn); }, [map, layers, view3dOn]);
@@ -188,8 +195,8 @@ function useMapLook(map: MapLibreMap | null): void {
   const doc3d = useEditor((s) => s.doc);
   useEffect(() => {
     if (!alive(map)) return;
-    sceneOf(map)?.setMesh(view3dOn ? buildScene3d(doc3d, sceneColors(MAP_PALETTE[theme])) : null);
-  }, [map, doc3d, theme, view3dOn]);
+    sceneOf(map)?.setMesh(view3dOn ? buildScene3d(doc3d, sceneColors(MAP_PALETTE[theme], look)) : null);
+  }, [map, doc3d, theme, view3dOn, look]);
   const simResult = useSim((s) => s.result);
   const simTime = useSim((s) => s.time);
   const workspace = useUi((s) => s.workspace);
@@ -269,6 +276,30 @@ function useCameraPerFile(map: MapLibreMap | null): void {
   }, [map]);
 }
 
+/**
+ * The map reaches under the floating panels, so its padding is the free stage between them:
+ * fitting a file or flying to an object centres it where it can be seen, not under a panel.
+ */
+function useStagePadding(map: MapLibreMap | null): void {
+  useEffect(() => {
+    if (!map) return undefined;
+    const wrap = map.getContainer().parentElement;
+    const stage = wrap?.querySelector<HTMLElement>('.stage');
+    if (!wrap || !stage) return undefined;
+    const sync = () => {
+      const w = wrap.getBoundingClientRect();
+      const s = stage.getBoundingClientRect();
+      if (!alive(map)) return;
+      map.setPadding({ top: s.top - w.top, left: s.left - w.left, right: w.right - s.right, bottom: w.bottom - s.bottom });
+    };
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(stage);
+    observer.observe(wrap);
+    return () => observer.disconnect();
+  }, [map]);
+}
+
 export function MapView() {
   const container = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<MapLibreMap | null>(null);
@@ -303,6 +334,7 @@ export function MapView() {
   useZoneEditing(map);
   useSyncedSources(map, drawingActive ? pointer : null);
   useCameraPerFile(map);
+  useStagePadding(map);
   useLanes(map);
   useMapLook(map);
 
@@ -314,7 +346,7 @@ export function MapView() {
   return (
     <div className="map-wrap">
       <div ref={container} className="map" />
-      <MapOverlay map={map} />
+      <div className="stage"><MapOverlay map={map} /></div>
     </div>
   );
 }

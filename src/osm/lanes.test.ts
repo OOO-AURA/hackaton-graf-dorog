@@ -1,5 +1,5 @@
 import { parseOsm } from './parse';
-import { applyJunctionTemplate, classifyTurn, junctionLanes, junctions, toggleLaneTurn } from './lanes';
+import { applyJunctionTemplate, classifyTurn, junctionLanes, junctions, setApproachLanes, toggleLaneTurn } from './lanes';
 
 /**
  * A crossroads at node 0. Ways come in from the south (1), west (2), north (3) and east (4) and
@@ -64,6 +64,27 @@ describe('lanes at junctions', () => {
     const doc = toggleLaneTurn(cross(), '0', { wayId: '10', step: -1 }, 0, 'through');
     expect(doc.ways['10'].tags['turn:lanes:forward']).toBe('left|through;right');
     expect(fromSouth(doc).explicit).toBe(true);
+  });
+
+  test('adding a lane to an approach changes only that direction and resets its rules', () => {
+    const doc = setApproachLanes(cross('<tag k="turn:lanes:forward" v="left|through;right"/>'), '0', { wayId: '10', step: -1 }, 3);
+    expect(doc.ways['10'].tags).toMatchObject({ 'lanes:forward': '3', 'lanes:backward': '2', lanes: '5' });
+    expect(doc.ways['10'].tags['turn:lanes:forward']).toBeUndefined();
+    expect(fromSouth(doc).turns).toHaveLength(3);
+  });
+
+  test('an approach keeps at least one lane, and a one-way road changes its lanes', () => {
+    expect(setApproachLanes(cross(), '0', { wayId: '10', step: -1 }, 0).ways['10'].tags['lanes:forward']).toBe('1');
+    const oneway = setApproachLanes(cross('<tag k="oneway" v="yes"/>'), '0', { wayId: '10', step: -1 }, 3);
+    expect(oneway.ways['10'].tags.lanes).toBe('3');
+  });
+
+  test('changing the lanes of a road passing through changes only the piece before the junction', () => {
+    const doc = setApproachLanes(cross('', true), '0', { wayId: '13', step: -1 }, 3);
+    expect(doc.ways['13'].refs).toEqual(['1', '0']);
+    expect(doc.ways['13'].tags['lanes:forward']).toBe('3');
+    const north = Object.values(doc.ways).find((w) => w.refs[0] === '0' && w.refs[1] === '3')!;
+    expect(north.tags.lanes).toBe('4');
   });
 
   test('a road passing through is split so the rule applies at this junction', () => {
