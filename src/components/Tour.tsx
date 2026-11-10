@@ -9,8 +9,8 @@ const KEY = 'graf-tour';
 /** First-run path through the three things the app is for: edit, see flows, check in SUMO. */
 export const TOUR = [
   { anchor: 'inspector', title: 'Правка', text: 'Кликните дорогу на карте. Справа появятся её полосы, класс и скорость: поменяйте что-нибудь, например число полос.', side: 'left' },
-  { anchor: 'flows-tab', title: 'Потоки', text: 'Откройте «Потоки» и нажмите «Распределить потоки». Цвет дорог покажет загрузку в час пик уже с вашей правкой.', side: 'top' },
-  { anchor: 'micro-toggle', title: 'Микро', text: 'Переключитесь в «Микро» и запустите SUMO: машины поедут по полосам, а панель покажет задержку и уровень обслуживания.', side: 'bottom' },
+  { anchor: 'flows-tab', title: 'Потоки', text: 'Перейдите к шагу 3 «Потоки» и нажмите «Распределить потоки». Цвет дорог покажет загрузку в час пик уже с вашей правкой.', side: 'bottom' },
+  { anchor: 'micro-toggle', title: 'Симуляция', text: 'Перейдите к шагу 4 «Симуляция» и запустите SUMO: машины поедут по полосам, а панель покажет задержку и уровень обслуживания.', side: 'bottom' },
 ] as const;
 
 function readStep(): number | null {
@@ -76,9 +76,7 @@ export function Tour() {
   const gap = 12;
   const pos = current.side === 'left'
     ? { left: Math.max(8, rect.left - W - gap), top: Math.max(8, rect.top + 40) }
-    : current.side === 'top'
-      ? { left: Math.min(window.innerWidth - W - 8, Math.max(8, rect.left)), bottom: window.innerHeight - rect.top + gap }
-      : { left: Math.min(window.innerWidth - W - 8, Math.max(8, rect.left + rect.width / 2 - W / 2)), top: rect.bottom + gap };
+    : { left: Math.min(window.innerWidth - W - 8, Math.max(8, rect.left + rect.width / 2 - W / 2)), top: rect.bottom + gap };
   return (
     <div className={`tour tour-${current.side}`} role="dialog" aria-label="Подсказка" style={{ ...pos, width: W }}>
       <p className="micro">Шаг {step! + 1} из {TOUR.length} · {current.title}</p>

@@ -1,12 +1,10 @@
-import { LENSES, type Lens } from '../map/lens';
 import { useMacro, VC_BANDS } from '../macro/store';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { useEffect, useMemo, useState } from 'react';
 import { docBounds } from '../map/geojson';
-import { useEditor, type Basemap } from '../state/store';
+import { useEditor } from '../state/store';
 import { builtPoints, drawingConflicts, finishDrawing } from '../state/actions';
-import { LAYER_IDS, useUi, type LayerId } from '../state/ui';
-import { THEMATIC, type RoadColorMode } from '../map/thematic';
+import { useUi } from '../state/ui';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { Icon } from './icons';
 import { TOOLS } from './tools';
@@ -16,13 +14,8 @@ import { HeightHandle } from './HeightHandle';
 import { JunctionCard } from './JunctionCard';
 import { useBuildingTool } from '../map/buildingTool';
 import { BUILDING_TEMPLATES } from '../osm/buildingShape';
-
-const BASEMAPS: ReadonlyArray<[Basemap, string]> = [['osm', 'Схема'], ['satellite', 'Спутник'], ['none', 'Нет']];
-
-export const LAYER_LABELS: Readonly<Record<LayerId, string>> = {
-  sidewalks: 'Тротуары', roads: 'Дороги', junctions: 'Перекрёстки', signals: 'Светофоры', crossings: 'Переходы',
-  bridges: 'Мосты', tunnels: 'Тоннели', buildings: 'Здания', tram: 'Ж/д и трамвай', signs: 'Знаки', transit: 'Маршруты ОТ', changes: 'Изменения',
-};
+import { MapHint } from './MapHint';
+import { ViewNote } from './ViewNote';
 
 /** Template picker and hints of the building tool, next to the tools. */
 function BuildingBar() {
@@ -30,7 +23,7 @@ function BuildingBar() {
   const setTemplate = useBuildingTool((s) => s.setTemplate);
   const ghost = useBuildingTool((s) => s.ghost);
   return (
-    <div className="float-draw float-building">
+    <div className="float float-draw float-building">
       <div className="seg" role="radiogroup" aria-label="Шаблон здания">
         {BUILDING_TEMPLATES.map((t, i) => (
           <button key={t.id} role="radio" aria-checked={template === i} className={template === i ? 'on' : ''} onClick={() => setTemplate(i)}
@@ -61,20 +54,20 @@ function FloatingTools() {
   }, [mode, drawing, doc, template]);
   return (
     <>
-      <div className="float float-tools" role="toolbar" aria-label="Инструменты">
+      <div className="float float-tools" role="toolbar" aria-label="Инструменты" aria-orientation="vertical">
         {TOOLS.map((t) => (
-          <button key={t.mode} className={`tool${mode === t.mode ? ' on' : ''}`} onClick={() => setMode(t.mode)} title={`${t.label} (${t.key})`} aria-pressed={mode === t.mode}>
-            <Icon name={t.icon} size={18} />
+          <button key={t.mode} className={`tool tool-labelled${mode === t.mode ? ' on' : ''}`} onClick={() => setMode(t.mode)} title={t.hint} aria-pressed={mode === t.mode}>
+            <Icon name={t.icon} size={18} /><span>{t.label}</span><kbd>{t.key}</kbd>
           </button>
         ))}
-        {mode === 'building' && <BuildingBar />}
-        {mode === 'draw' && (
-          <div className="float-draw">
-            <DrawShape />
-            <button className="btn btn-ink" onClick={() => finishDrawing()} disabled={points < 2 || conflicts.length > 0}>Готово <kbd>Enter</kbd></button>
-          </div>
-        )}
       </div>
+      {mode === 'building' && <BuildingBar />}
+      {mode === 'draw' && (
+        <div className="float float-draw">
+          <DrawShape />
+          <button className="btn btn-ink" onClick={() => finishDrawing()} disabled={points < 2 || conflicts.length > 0}>Готово <kbd>Enter</kbd></button>
+        </div>
+      )}
       {conflicts.length > 0 && (
         <div className="float float-conflict" role="group" aria-label="Здания на пути дороги">
           <b>{conflicts.length === 1 ? 'Дорога задевает здание' : `Дорога задевает здания: ${conflicts.length}`}</b>
@@ -143,80 +136,6 @@ function ZoomControls({ map }: { map: MapLibreMap | null }) {
   );
 }
 
-function BasemapSwitch() {
-  const basemap = useEditor((s) => s.basemap);
-  const setBasemap = useEditor((s) => s.setBasemap);
-  const opacity = useUi((s) => s.basemapOpacity);
-  const setOpacity = useUi((s) => s.setBasemapOpacity);
-  return (
-    <div className="float float-basemap">
-      <div className="seg" role="radiogroup" aria-label="Подложка">
-        {BASEMAPS.map(([v, l]) => (
-          <button key={v} role="radio" aria-checked={basemap === v} className={basemap === v ? 'on' : ''} onClick={() => setBasemap(v)}>{l}</button>
-        ))}
-      </div>
-      <label className="blend" title="Насколько видна подложка под графом">
-        <span>граф</span>
-        <input type="range" min={0} max={1} step={0.05} value={opacity} disabled={basemap === 'none'} onChange={(e) => setOpacity(Number(e.target.value))} aria-label="Прозрачность подложки" />
-        <span>карта</span>
-      </label>
-    </div>
-  );
-}
-
-const COLOR_MODES: ReadonlyArray<readonly [RoadColorMode, string]> = [
-  ['class', 'Цвет: класс дороги'], ['lanes', 'Цвет: полосы'], ['speed', 'Цвет: скорость'], ['capacity', 'Цвет: пропускная'], ['missing', 'Цвет: пропуски атрибутов'],
-];
-
-/** Road colour by one attribute, with its legend; makes lane jumps and gaps in the data visible. */
-function ColorModeSwitch() {
-  const mode = useUi((s) => s.roadColorMode);
-  const setMode = useUi((s) => s.setRoadColorMode);
-  const bands = mode === 'class' ? null : THEMATIC[mode].bands;
-  return (
-    <div className="float float-colormode">
-      <select value={mode} onChange={(e) => setMode(e.target.value as RoadColorMode)} aria-label="Чем красить дороги">
-        {COLOR_MODES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-      </select>
-      {bands && <ul className="thematic-legend">{bands.map((b) => <li key={b.label}><i style={{ background: b.color }} />{b.label}</li>)}</ul>}
-    </div>
-  );
-}
-
-const LOOKS = [['engineering', 'Инженерия'], ['scheme', 'Схема'], ['graph', 'Граф']] as const;
-
-/** Engineering plan (asphalt, markings, turn ribbons) or a graph coloured by road class. */
-function LookSwitch() {
-  const look = useUi((s) => s.roadLook);
-  const setLook = useUi((s) => s.setRoadLook);
-  return (
-    <div className="float float-look seg" role="radiogroup" aria-label="Вид дорог">
-      {LOOKS.map(([v, label]) => (
-        <button key={v} role="radio" aria-checked={look === v} className={look === v ? 'on' : ''} onClick={() => setLook(v)}>{label}</button>
-      ))}
-    </div>
-  );
-}
-
-/** Lens switch: the same map for drivers, pedestrians, public transport, rail or metro. */
-function LensSwitch() {
-  const lens = useUi((s) => s.lens);
-  return (
-    <div className="float float-lens seg" role="radiogroup" aria-label="Линза карты">
-      {LENSES.map(([v, label]) => (
-        <button key={v} role="radio" aria-checked={lens === v} className={lens === v ? 'on' : ''} onClick={() => pickLens(v)}>{label}</button>
-      ))}
-    </div>
-  );
-}
-
-/** Lens pick; the load lens works out the flows first if there are none yet. */
-export function pickLens(v: Lens): void {
-  useUi.getState().setLens(v);
-  const macro = useMacro.getState();
-  if (v === 'load' && !macro.result && !macro.busy) void macro.run();
-}
-
 /** Legend of the load lens: v/c bands, and a note while the assignment runs. */
 function LoadLegend() {
   const on = useUi((s) => s.lens === 'load');
@@ -235,20 +154,6 @@ function LoadLegend() {
   );
 }
 
-function LayerBar() {
-  const layers = useUi((s) => s.layers);
-  const toggle = useUi((s) => s.toggleLayer);
-  return (
-    <div className="float float-layers" role="group" aria-label="Видимость слоёв">
-      {LAYER_IDS.map((id) => (
-        <button key={id} className={`layer-chip l-${id}${layers[id] ? ' on' : ''}`} aria-pressed={layers[id]} onClick={() => toggle(id)}>
-          <i aria-hidden="true" />{LAYER_LABELS[id]}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export function MapOverlay({ map }: { map: MapLibreMap | null }) {
   const empty = useEditor((s) => !Object.keys(s.doc.nodes).length);
   const micro = useUi((s) => s.workspace === 'micro');
@@ -257,14 +162,11 @@ export function MapOverlay({ map }: { map: MapLibreMap | null }) {
     <>
       {micro ? <SimBar /> : <FloatingTools />}
       {!micro && <HeightHandle map={map} />}
-      {!micro && <LookSwitch />}
-      <LensSwitch />
+      <ViewNote />
       <LoadLegend />
       {!micro && <JunctionCard />}
       <ZoomControls map={map} />
-      <BasemapSwitch />
-      <ColorModeSwitch />
-      <LayerBar />
+      {!micro && <MapHint />}
     </>
   );
 }
