@@ -119,6 +119,9 @@ export const useEditor = create<EditorState>((set, get) => ({
   notify: (message) => set({ message }),
 }));
 
+// Headless checks in dev builds drive the editor through this, like the map through window.__map.
+if (import.meta.env.DEV) (window as unknown as { __editor: unknown }).__editor = useEditor;
+
 /** Selected way/node with existence check (it may have been deleted by undo). */
 export function currentSelection(state: Pick<EditorState, 'doc' | 'selection'>): Selection {
   const { doc, selection } = state;
