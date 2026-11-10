@@ -59,16 +59,29 @@ describe('tapers', () => {
     expect(t.to).toMatchObject({ forward: 3, backward: 1 });
   });
 
-  test('where a slip road joins, but not at a crossing', () => {
+  test('at junctions too, into the road that goes on straight ahead', () => {
     const slip = `<way id="12"><nd ref="2"/><nd ref="4"/>${tag({ highway: 'primary_link', oneway: 'yes' })}</way>`;
     expect(roadTapers(joint(oneway(3), oneway(2), slip)).has('10')).toBe(true);
     const crossing = `<way id="12"><nd ref="2"/><nd ref="4"/>${tag({ highway: 'residential' })}</way>`;
-    expect(roadTapers(joint(oneway(3), oneway(2), crossing)).size).toBe(0);
+    expect(roadTapers(joint(oneway(3), oneway(2), crossing)).has('10')).toBe(true);
   });
 
-  test('not where lanes would appear out of nowhere', () => {
-    expect(roadTapers(joint({ highway: 'primary', lanes: '4' }, oneway(2))).size).toBe(0);
+  test('not into a road that turns off sharply, nor between roads of one width', () => {
+    const doc = parseOsm(`<osm version="0.6">
+      <node id="1" lat="52.0" lon="104.000"/><node id="2" lat="52.0" lon="104.003"/><node id="4" lat="52.002" lon="104.003"/>
+      <way id="10"><nd ref="1"/><nd ref="2"/>${tag(oneway(3))}</way>
+      <way id="11"><nd ref="2"/><nd ref="4"/>${tag(oneway(2))}</way></osm>`);
+    expect(roadTapers(doc).size).toBe(0);
     expect(roadTapers(joint(oneway(2), oneway(2))).size).toBe(0);
+  });
+
+  test('a two-way road going on as a one-way one: the other direction and the centre line end at the taper', () => {
+    const doc = joint({ highway: 'primary', lanes: '4' }, oneway(2));
+    const [t] = roadTapers(doc).get('10')!;
+    const end = sectionAt(sectionOf({ highway: 'primary', lanes: '4' }), [t], 205, 205);
+    expect(end.lanes.map((l) => l.travel)).toEqual(['forward', 'forward']);
+    expect(end.dividers.map((m) => m.key)).toEqual(['forward:0']);
+    expect(end.left + end.right).toBeCloseTo(7);
   });
 
   test('the map gets the road in pieces of shrinking width, and the merging lane bends over', () => {

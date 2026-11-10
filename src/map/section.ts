@@ -72,7 +72,9 @@ export interface CrossSection {
 
 /**
  * The cross-section `k` of the way from `wide` to `narrow` (0 is all `wide`, 1 all `narrow`).
- * Lanes of `wide` beyond the number `narrow` has in their direction merge into the last one.
+ * Lanes of `wide` beyond the number `narrow` has in their direction merge into the last one;
+ * lanes of a direction `narrow` does not have (a two-way road going on as a one-way one) end
+ * where the taper starts, with their markings and the centre line.
  */
 export function blend(wide: Section, narrow: Section, k: number): CrossSection {
   const lerp = (a: number, b: number) => a + (b - a) * k;
@@ -80,15 +82,17 @@ export function blend(wide: Section, narrow: Section, k: number): CrossSection {
   const dividers: LaneDivider[] = [];
   for (const travel of ['forward', 'backward'] as const) {
     const n = wide[travel];
-    const m = narrow[travel] || n;
-    const offs = Array.from({ length: n }, (_, i) => lerp(laneOffsetIn(wide, travel, i), laneOffsetIn(narrow[travel] ? narrow : wide, travel, Math.min(i, m - 1))));
+    const m = narrow[travel];
+    if (k > 0 && !m) continue;
+    const to = (i: number) => (m ? laneOffsetIn(narrow, travel, Math.min(i, m - 1)) : laneOffsetIn(wide, travel, i));
+    const offs = Array.from({ length: n }, (_, i) => lerp(laneOffsetIn(wide, travel, i), to(i)));
     offs.forEach((offset, index) => lanes.push({ travel, index, offset }));
     // A marking stays while the lanes on both its sides go on; on the merging lanes it ends where the taper starts.
     for (let i = 0; i + 1 < n; i += 1) {
       if (k === 0 || i + 1 < m) dividers.push({ key: `${travel}:${i}`, offset: (offs[i] + offs[i + 1]) / 2, solid: false });
     }
   }
-  if (wide.forward && wide.backward) dividers.unshift({ key: 'centre', offset: 0, solid: true });
+  if (wide.forward && wide.backward && (k === 0 || (narrow.forward && narrow.backward))) dividers.unshift({ key: 'centre', offset: 0, solid: true });
   const [a, b] = [edgesOf(wide), edgesOf(narrow)];
   return { left: lerp(a.left, b.left), right: lerp(a.right, b.right), lanes, dividers };
 }
@@ -111,10 +115,9 @@ const MIN_TAPER = 10;
 /** A taper takes at most this share of its way, so one at each end never overlap. */
 const MAX_SHARE = 0.45;
 
-/** Whether `wide` can narrow into `narrow`: no more lanes in either direction, none appearing or vanishing. */
+/** Whether `wide` narrows into `narrow`: it is wider and they share a direction of travel. */
 function narrowsTo(wide: Section, narrow: Section): boolean {
-  if (narrow.forward > wide.forward || narrow.backward > wide.backward) return false;
-  if (Boolean(narrow.forward) !== Boolean(wide.forward) || Boolean(narrow.backward) !== Boolean(wide.backward)) return false;
+  if (!((wide.forward && narrow.forward) || (wide.backward && narrow.backward))) return false;
   return widthOf(narrow) < widthOf(wide) - 0.05;
 }
 
@@ -127,70 +130,79 @@ function wayLength(doc: OsmDoc, refs: readonly string[]): number {
   return d[d.length - 1];
 }
 
-/** Most a road may turn at a joint and still count as going on into the next one, degrees. */
+/** Most a road may turn at a node and still count as going on into the next one, degrees. */
 const MAX_BEND = 35;
 
-/** Slip roads and driveways: a road may change its lanes where one of them joins. */
+/** Slip roads and driveways: a road goes on into one of them only when there is nothing else. */
 const isMinor = (tags: Tags) => /_link$/.test(tags.highway ?? '') || tags.highway === 'service';
 
 /**
- * Tapers of every way that narrows into the next one: where a road ends and goes on into a
- * narrower one, either alone (two roads end to end) or with slip roads or driveways joining at
- * the same node. Not at other junctions: lanes that end there are lanes up to the stop line.
+ * Tapers of every way that goes on into a narrower road: at every node, junctions included,
+ * where a way ends and another road leaves the node nearly straight ahead. Each way end is
+ * paired with the arm that goes on straightest (main roads before slip roads and driveways),
+ * and only when that arm takes it back as its own best match.
  */
 export function roadTapers(doc: OsmDoc): Map<string, Taper[]> {
-  type End = { wayId: string; atStart: boolean };
-  const ends = new Map<string, End[]>();
-  const arms = new Map<string, number>();
-  const links = new Map<string, number>();
+  /** A road leaving a node: along way `wayId` from point `index`, `step` +1 with the way, −1 against it. */
+  type Arm = { wayId: string; index: number; step: 1 | -1 };
+  const atNode = new Map<string, Arm[]>();
   for (const w of Object.values(doc.ways)) {
     if (!isDrivable(w.tags) || w.refs.length < 2) continue;
     const last = w.refs.length - 1;
-    w.refs.forEach((r, i) => {
-      const n = (i > 0 ? 1 : 0) + (i < last ? 1 : 0);
-      arms.set(r, (arms.get(r) ?? 0) + n);
-      if (isMinor(w.tags)) links.set(r, (links.get(r) ?? 0) + n);
+    w.refs.forEach((r, index) => {
+      const list = atNode.get(r) ?? [];
+      if (index < last) list.push({ wayId: w.id, index, step: 1 });
+      if (index > 0) list.push({ wayId: w.id, index, step: -1 });
+      atNode.set(r, list);
     });
-    if (w.refs[0] === w.refs[last]) continue;
-    for (const [r, atStart] of [[w.refs[0], true], [w.refs[last], false]] as const) {
-      const list = ends.get(r);
-      if (list) list.push({ wayId: w.id, atStart }); else ends.set(r, [{ wayId: w.id, atStart }]);
-    }
   }
-  /** Direction from the node along a way end, in local metres. */
-  const heading = (e: End): [number, number] | null => {
-    const refs = doc.ways[e.wayId].refs;
-    const [a, b] = e.atStart ? [refs[0], refs[1]] : [refs[refs.length - 1], refs[refs.length - 2]];
-    const [na, nb] = [doc.nodes[a], doc.nodes[b]];
+  const heading = (a: Arm): [number, number] | null => {
+    const refs = doc.ways[a.wayId].refs;
+    const [na, nb] = [doc.nodes[refs[a.index]], doc.nodes[refs[a.index + a.step]]];
     if (!na || !nb) return null;
     const k = Math.cos((na.lat * Math.PI) / 180);
     const v: [number, number] = [(nb.lon - na.lon) * k, nb.lat - na.lat];
     const l = Math.hypot(v[0], v[1]);
     return l ? [v[0] / l, v[1] / l] : null;
   };
+  const straight = Math.cos((MAX_BEND * Math.PI) / 180);
   const out = new Map<string, Taper[]>();
-  for (const [node, list] of ends) {
-    // The two roads that go on into each other; any other arm must be a slip road ending here.
-    const others = (arms.get(node) ?? 0) - 2;
-    const main = others === 0 ? list : list.filter((e) => !isMinor(doc.ways[e.wayId].tags));
-    if (main.length !== 2 || main[0].wayId === main[1].wayId) continue;
-    if (others > 0 && (links.get(node) ?? 0) !== others) continue;
-    if (others > 0 && list.length !== arms.get(node)) continue;
-    const [ha, hb] = [heading(main[0]), heading(main[1])];
-    if (!ha || !hb || -(ha[0] * hb[0] + ha[1] * hb[1]) < Math.cos((MAX_BEND * Math.PI) / 180)) continue;
-    const [a, b] = main.map((e) => ({ ...e, s: sectionOf(doc.ways[e.wayId].tags) }));
-    for (const [wide, other] of [[a, b], [b, a]] as const) {
-      // The other road runs on in this one's direction when one starts where the other ends.
-      const narrow = wide.atStart !== other.atStart ? other.s : reverse(other.s);
-      if (!narrowsTo(wide.s, narrow)) continue;
-      const [ew, en] = [edgesOf(wide.s), edgesOf(narrow)];
-      const shift = Math.max(ew.left - en.left, ew.right - en.right);
-      const length = Math.min(Math.max(MIN_TAPER, TAPER_RATIO * shift), MAX_SHARE * wayLength(doc, doc.ways[wide.wayId].refs));
-      if (length < 2) continue;
-      const tapers = out.get(wide.wayId) ?? [];
-      tapers.push({ atStart: wide.atStart, length, to: narrow, shift });
-      out.set(wide.wayId, tapers);
-    }
+  for (const arms of atNode.values()) {
+    if (arms.length < 2) continue;
+    const dirs = arms.map(heading);
+    /** The arm that goes on from arm `i` straightest, or -1. */
+    const best = (i: number): number => {
+      let pick = -1;
+      let key = [Infinity, Infinity];
+      arms.forEach((b, j) => {
+        if (j === i || b.wayId === arms[i].wayId || !dirs[i] || !dirs[j]) return;
+        const along = -(dirs[i]![0] * dirs[j]![0] + dirs[i]![1] * dirs[j]![1]);
+        if (along < straight) return;
+        const k = [isMinor(doc.ways[b.wayId].tags) ? 1 : 0, -along];
+        if (k[0] < key[0] || (k[0] === key[0] && k[1] < key[1])) { key = k; pick = j; }
+      });
+      return pick;
+    };
+    arms.forEach((arm, i) => {
+      const way = doc.ways[arm.wayId];
+      // Only a way that ends here can narrow before the node.
+      const atStart = arm.index === 0;
+      if (!atStart && arm.index !== way.refs.length - 1) return;
+      const j = best(i);
+      if (j < 0 || best(j) !== i) return;
+      const other = arms[j];
+      const base = sectionOf(way.tags);
+      // Seen in this way's direction: the other road runs on with it when they leave the node opposite ways.
+      const narrow = (other.step === 1) !== atStart ? sectionOf(doc.ways[other.wayId].tags) : reverse(sectionOf(doc.ways[other.wayId].tags));
+      if (!narrowsTo(base, narrow)) return;
+      const [ew, en] = [edgesOf(base), edgesOf(narrow)];
+      const shift = Math.max(ew.left - en.left, ew.right - en.right, 0.1);
+      const length = Math.min(Math.max(MIN_TAPER, TAPER_RATIO * shift), MAX_SHARE * wayLength(doc, way.refs));
+      if (length < 2) return;
+      const list = out.get(way.id) ?? [];
+      list.push({ atStart, length, to: narrow, shift });
+      out.set(way.id, list);
+    });
   }
   return out;
 }

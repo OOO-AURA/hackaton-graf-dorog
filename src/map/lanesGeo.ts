@@ -84,27 +84,26 @@ export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<Line
       if (wayTapers) line = densify(line, TAPER_STEP);
       const d = cumulative(line).map((x) => from + x);
       const sections = d.map((x) => sectionAt(base, wayTapers, x, total));
-      const geometry = (offs: number[]) => ({ type: 'LineString' as const, coordinates: offsetLine(line, offs).map(f.back) });
-      for (const lane of sections[0].lanes) {
-        const offs = sections.map((sec) => sec.lanes.find((l) => l.travel === lane.travel && l.index === lane.index)!.offset);
-        features.push({ type: 'Feature', properties: { way: w.id, kind: 'lane', color: style.color(vc), loaded: vc !== null, raised }, geometry: geometry(offs) });
-      }
-      // A marking runs while it is in the cross-section: the ones between merging lanes stop at the taper.
-      const keys = new Set(sections.flatMap((sec) => sec.dividers.map((m) => m.key)));
+      // Every lane and marking runs while it is in the cross-section: the ones that end at a
+      // taper stop where it starts.
+      type Item = { key: string; offset: number; props: Props };
+      const items = sections.map((sec) => [
+        ...sec.lanes.map((l): Item => ({ key: `lane:${l.travel}:${l.index}`, offset: l.offset, props: { way: w.id, kind: 'lane', color: style.color(vc), loaded: vc !== null, raised } })),
+        ...sec.dividers.map((m): Item => ({ key: `mark:${m.key}`, offset: m.offset, props: { way: w.id, kind: 'divider', solid: m.solid, raised } })),
+      ]);
+      const keys = [...new Set(items.flatMap((list) => list.map((x) => x.key)))];
       for (const key of keys) {
-        let run: number[] = [];
-        let solid = false;
+        let run: Array<{ i: number; item: Item }> = [];
         const flush = () => {
           if (run.length >= 2) {
-            const sub = run.map((i) => line[i]);
-            const offs = run.map((i) => sections[i].dividers.find((m) => m.key === key)!.offset);
-            features.push({ type: 'Feature', properties: { way: w.id, kind: 'divider', solid, raised }, geometry: { type: 'LineString', coordinates: offsetLine(sub, offs).map(f.back) } });
+            const sub = run.map((r) => line[r.i]);
+            features.push({ type: 'Feature', properties: run[0].item.props, geometry: { type: 'LineString', coordinates: offsetLine(sub, run.map((r) => r.item.offset)).map(f.back) } });
           }
           run = [];
         };
-        sections.forEach((sec, i) => {
-          const m = sec.dividers.find((x) => x.key === key);
-          if (m) { run.push(i); solid = m.solid; } else flush();
+        items.forEach((list, i) => {
+          const item = list.find((x) => x.key === key);
+          if (item) run.push({ i, item }); else flush();
         });
         flush();
       }
