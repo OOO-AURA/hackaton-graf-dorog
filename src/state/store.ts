@@ -6,7 +6,7 @@ import { streetWays } from '../osm/street';
 export type { DrawPoint };
 import { validate, type ValidationReport } from '../osm/validate';
 
-export type Mode = 'select' | 'draw' | 'insert' | 'signal';
+export type Mode = 'select' | 'draw' | 'insert' | 'signal' | 'building';
 /** `street` selects every drivable way named `id` (see osm/street.ts). */
 export type Selection = { type: 'node' | 'way' | 'street'; id: string } | null;
 export type Basemap = 'osm' | 'satellite' | 'none';

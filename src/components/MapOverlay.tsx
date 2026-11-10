@@ -12,6 +12,8 @@ import { EmptyState } from './EmptyState';
 import { SimBar } from './sim/SimBar';
 import { HeightHandle } from './HeightHandle';
 import { JunctionCard } from './JunctionCard';
+import { useBuildingTool } from '../map/buildingTool';
+import { BUILDING_TEMPLATES } from '../osm/buildingShape';
 
 const BASEMAPS: ReadonlyArray<[Basemap, string]> = [['osm', 'Схема'], ['satellite', 'Спутник'], ['none', 'Нет']];
 
@@ -19,6 +21,28 @@ export const LAYER_LABELS: Readonly<Record<LayerId, string>> = {
   roads: 'Дороги', junctions: 'Перекрёстки', signals: 'Светофоры', crossings: 'Переходы',
   bridges: 'Мосты', tunnels: 'Тоннели', buildings: 'Здания', tram: 'Трамвай', signs: 'Знаки', transit: 'Маршруты ОТ', changes: 'Изменения',
 };
+
+/** Template picker and hints of the building tool, next to the tools. */
+function BuildingBar() {
+  const template = useBuildingTool((s) => s.template);
+  const setTemplate = useBuildingTool((s) => s.setTemplate);
+  const ghost = useBuildingTool((s) => s.ghost);
+  return (
+    <div className="float-draw float-building">
+      <div className="seg" role="radiogroup" aria-label="Шаблон здания">
+        {BUILDING_TEMPLATES.map((t, i) => (
+          <button key={t.id} role="radio" aria-checked={template === i} className={template === i ? 'on' : ''} onClick={() => setTemplate(i)}
+            title={`${t.width}×${t.length} м, ${t.levels} эт. (${i + 1})`}>
+            <kbd>{i + 1}</kbd>{t.label}
+          </button>
+        ))}
+      </div>
+      <span className={`building-hint${ghost?.onRoad ? ' warn' : ''}`}>
+        {ghost?.onRoad ? 'На дороге' : ghost?.aligned ? 'Вдоль дороги' : 'Свободно'}
+      </span>
+    </div>
+  );
+}
 
 function FloatingTools() {
   const mode = useEditor((s) => s.mode);
@@ -33,6 +57,7 @@ function FloatingTools() {
           <Icon name={t.icon} size={18} />
         </button>
       ))}
+      {mode === 'building' && <BuildingBar />}
       {mode === 'draw' && (
         <div className="float-draw">
           <select value={template} onChange={(e) => setTemplate(Number(e.target.value))} aria-label="Шаблон дороги">

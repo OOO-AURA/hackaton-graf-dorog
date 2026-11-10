@@ -9,7 +9,7 @@ import type { RoadLook } from '../state/ui';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, 'turns', 'changes', 'route'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, 'turns', 'changes', 'route', 'ghost'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
 export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'], buildings: ['buildings'], laneEnds: ['lane-ends'], laneLinks: ['lane-links', 'lane-ribbons'] } as const;
@@ -256,6 +256,11 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, ['case', ['get', 'big'], 3, 2], 18, ['case', ['get', 'big'], 8, 5]],
     },
   });
+  // The building tool's ghost: the footprint raised to the height the building will get, see-through.
+  map.addLayer({ id: 'ghost-3d', type: 'fill-extrusion', source: 'ghost',
+    paint: { 'fill-extrusion-color': ['case', ['get', 'warn'], '#E5392A', '#E54489'], 'fill-extrusion-height': ['get', 'height'], 'fill-extrusion-opacity': 0.55 } });
+  map.addLayer({ id: 'ghost-line', type: 'line', source: 'ghost',
+    paint: { 'line-color': ['case', ['get', 'warn'], '#E5392A', '#E54489'], 'line-width': 2, 'line-dasharray': [2, 1.5] } });
   map.addLayer({ id: 'draw-line', type: 'line', source: 'draw', paint: { 'line-width': 3, 'line-dasharray': [2, 1] } });
   map.addLayer({ id: 'draw-points', type: 'circle', source: 'draw', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-stroke-width': 2 } });
   applyPalette(map, p);
