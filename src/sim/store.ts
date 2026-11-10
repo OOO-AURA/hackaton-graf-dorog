@@ -142,6 +142,22 @@ export const SPEED_BANDS = [
 export const bandColor = (kmh: number) => SPEED_BANDS.find((b) => kmh >= b.min)?.color ?? SPEED_BANDS[3].color;
 
 /** Vehicle positions at time t, interpolated between the two surrounding FCD frames. */
+/** Which top-view sprite (public/models/*.png) and real length in metres a vehicle type gets. */
+export function vehicleLook(type: string, id: number): { sprite: string; len: number } {
+  switch (type) {
+    case 'ped': return { sprite: 'veh-person', len: 0.9 };
+    case 'truck': return { sprite: 'veh-truck', len: 9 };
+    case 'trailer': return { sprite: 'veh-truck', len: 16.5 };
+    case 'bus': case 'ptbus': return { sprite: 'veh-bus', len: 12 };
+    case 'bus18': return { sprite: 'veh-trolley', len: 18 };
+    case 'tram': return { sprite: 'veh-tram', len: 27 };
+    case 'bike': return { sprite: 'veh-bike', len: 1.8 };
+    case 'scooter': return { sprite: 'veh-scooter', len: 1.1 };
+    case 'van': return { sprite: 'veh-car2', len: 5.5 };
+    default: return { sprite: id % 2 ? 'veh-car2' : 'veh-car1', len: 4.5 };
+  }
+}
+
 export function vehiclesAt(r: SimResult, t: number) {
   const frames = r.frames;
   if (!frames.length) return { type: 'FeatureCollection', features: [] };
@@ -164,9 +180,10 @@ export function vehiclesAt(r: SimResult, t: number) {
       properties: (() => {
         const type = r.types[a.v[j + 5]] ?? 'car';
         // Walking speed would read as a jam on the speed scale, so people get their own colour.
+        const look = vehicleLook(type, id);
         return type === 'ped'
-          ? { angle: a.v[j + 3], color: '#3F8BC4', type, big: false }
-          : { angle: a.v[j + 3], color: bandColor(kmh), type, big: a.v[j + 5] >= 2 };
+          ? { angle: a.v[j + 3], color: '#3F8BC4', type, big: false, ...look }
+          : { angle: a.v[j + 3], color: bandColor(kmh), type, big: a.v[j + 5] >= 2, ...look };
       })(),
       geometry: { type: 'Point', coordinates: [lon, lat] },
     });

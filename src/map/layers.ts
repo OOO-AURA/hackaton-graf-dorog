@@ -40,6 +40,16 @@ function addSignImages(map: MapLibreMap): void {
   });
 }
 
+const VEHICLE_SPRITES = ['car1', 'car2', 'bus', 'trolley', 'tram', 'truck', 'bike', 'scooter', 'person', 'loco', 'railcar'];
+
+function addVehicleSprites(map: MapLibreMap): void {
+  VEHICLE_SPRITES.forEach((name) => {
+    map.loadImage(`${import.meta.env.BASE_URL}models/${name}.png`).then((res) => {
+      if (!map.hasImage(`veh-${name}`)) map.addImage(`veh-${name}`, res.data, { pixelRatio: 2 });
+    }).catch(() => { /* sprite not shipped: the circle layer still shows the vehicle */ });
+  });
+}
+
 /** Zone badge with its name drawn in: the style has no glyphs, so labels are images. */
 function zoneBadge(name: string): ImageData | null {
   const font = '700 22px "Fira Sans Extra Condensed", "Albert Sans", sans-serif';
@@ -231,12 +241,24 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   });
   map.addLayer({ id: 'macro-signal', type: 'circle', source: 'signals', paint: { 'circle-color': ['get', 'color'], 'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 2.5, 18, 6], 'circle-stroke-width': 1.5, 'circle-stroke-color': '#1B110A' } });
   map.addLayer({
-    id: 'vehicles', type: 'circle', source: 'vehicles',
+    id: 'vehicles', type: 'circle', source: 'vehicles', maxzoom: 16,
     paint: {
       'circle-color': ['get', 'color'], 'circle-stroke-width': 1, 'circle-stroke-color': '#1B110A',
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, ['case', ['get', 'big'], 3, 2], 18, ['case', ['get', 'big'], 8, 5]],
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, ['case', ['get', 'big'], 3, 2], 16, ['case', ['get', 'big'], 6, 4]],
     },
   });
+  // Close up, vehicles are top-view sprites of their 3D models, sized to their real length.
+  // Sprites are 256 px at pixelRatio 2 with the model across ~90% of them; ~0.37 m/px at z18 here.
+  const len = ['to-number', ['get', 'len'], 4.5];
+  map.addLayer({
+    id: 'vehicles-sprite', type: 'symbol', source: 'vehicles', minzoom: 16,
+    layout: {
+      'icon-image': ['get', 'sprite'], 'icon-rotate': ['get', 'angle'], 'icon-rotation-alignment': 'map', 'icon-pitch-alignment': 'map',
+      'icon-allow-overlap': true, 'icon-ignore-placement': true,
+      'icon-size': ['interpolate', ['exponential', 2], ['zoom'], 16, ['/', len, 0.37 * 115 * 4], 22, ['/', ['*', len, 16], 0.37 * 115]] as never,
+    },
+  });
+  addVehicleSprites(map);
   map.addLayer({ id: 'draw-line', type: 'line', source: 'draw', paint: { 'line-width': 3, 'line-dasharray': [2, 1] } });
   map.addLayer({ id: 'draw-points', type: 'circle', source: 'draw', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-stroke-width': 2 } });
   applyPalette(map, p);
