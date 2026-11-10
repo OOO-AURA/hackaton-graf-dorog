@@ -1,5 +1,5 @@
 import {
-  applyJunctionTemplate, armKey, classifyTurn, junctionLanes, junctions, setApproachLanes, toggleLaneTurn, turnDelta, TURNS,
+  applyJunctionTemplate, armKey, armsAt, classifyTurn, junctionLanes, junctions, setApproachLanes, toggleLaneTurn, turnDelta, TURNS,
   type Approach, type Arm, type JunctionLanes, type Turn,
 } from '../osm/lanes';
 import { compass } from '../osm/turns';
@@ -13,6 +13,11 @@ import { Icon } from './icons';
 import type { OsmDoc } from '../osm/types';
 import { useSettledDoc } from '../state/settled';
 import { JunctionCapacitySection } from './CapacityParts';
+import { useState } from 'react';
+import { SignalPlanSection } from './SignalPlanSection';
+import { approachControl } from '../osm/signs';
+import { setNodeTags } from '../osm/edit';
+import { withTag } from '../osm/tags';
 
 /**
  * The junction being edited, on the map next to it: every approach with its number of lanes
@@ -86,6 +91,47 @@ function PickedLink() {
   );
 }
 
+type CardTab = 'lanes' | 'signal' | 'capacity' | 'info';
+const CARD_TABS: ReadonlyArray<readonly [CardTab, string]> = [['lanes', 'Полосы'], ['signal', 'Светофор'], ['capacity', 'Пропускная'], ['info', 'Сведения']];
+
+/** What controls the junction and what it is made of, at a glance. */
+function JunctionInfo({ nodeId }: { nodeId: string }) {
+  const doc = useSettledDoc();
+  const node = doc.nodes[nodeId];
+  const arms = armsAt(doc, nodeId);
+  const controls = arms.map((a) => approachControl(doc, nodeId, a));
+  const control = controls.includes('signal') ? 'светофор' : controls.some((c) => c === 'give_way' || c === 'stop') ? 'знаки приоритета' : 'равнозначный, правило правой руки';
+  const ways = [...new Set(arms.map((a) => a.wayId))].map((id) => doc.ways[id]);
+  const crossings = ways.flatMap((w) => w.refs).filter((r, i, all) => all.indexOf(r) === i && doc.nodes[r]?.tags.highway === 'crossing').length;
+  return (
+    <dl className="facts">
+      <dt>Регулирование</dt><dd>{control}</dd>
+      <dt>Дорог / въездов</dt><dd className="mono">{ways.length} / {arms.filter((a) => a.lanesIn > 0).length}</dd>
+      <dt>Полос на въездах</dt><dd className="mono">{arms.reduce((s, a) => s + a.lanesIn, 0)}</dd>
+      <dt>Переходов рядом</dt><dd className="mono">{crossings}</dd>
+      <dt>Улицы</dt><dd>{[...new Set(ways.map((w) => w.tags.name || w.tags.highway))].join(', ')}</dd>
+      <dt>Координаты</dt><dd className="mono">{node.lat.toFixed(6)}, {node.lon.toFixed(6)}</dd>
+    </dl>
+  );
+}
+
+/** Light of the junction: its plan and extra sections, or a button to put one. */
+function JunctionSignal({ nodeId }: { nodeId: string }) {
+  const doc = useSettledDoc();
+  const apply = useEditor((s) => s.apply);
+  const node = doc.nodes[nodeId];
+  const ways = armsAt(doc, nodeId).map((a) => doc.ways[a.wayId]);
+  if (node.tags.highway !== 'traffic_signals') {
+    return (
+      <div className="jc-signal-empty">
+        <p className="jc-hint">Светофора здесь нет.</p>
+        <button className="btn btn-sm" onClick={() => apply((d) => setNodeTags(d, nodeId, withTag(d.nodes[nodeId].tags, 'highway', 'traffic_signals')))}>Поставить светофор</button>
+      </div>
+    );
+  }
+  return <SignalPlanSection node={node} ways={ways} />;
+}
+
 export function JunctionCard() {
   const doc = useSettledDoc();
   const selection = useEditor((s) => currentSelection(s));
@@ -93,6 +139,7 @@ export function JunctionCard() {
   const nodeId = selection?.type === 'node' ? selection.id : null;
   const closed = useUi((s) => s.junctionCardClosed);
   const setClosed = useUi((s) => s.setJunctionCardClosed);
+  const [tab, setTab] = useState<CardTab>('lanes');
   if (!nodeId || !junctions(doc).includes(nodeId) || closed === nodeId) return null;
   const lanes = junctionLanes(doc, nodeId);
   if (!lanes.approaches.length) return null;
@@ -103,17 +150,26 @@ export function JunctionCard() {
         <div><span className="micro">Перекрёсток</span><h3>{names || `узел ${nodeId}`}</h3></div>
         <button className="tool" onClick={() => setClosed(nodeId)} title="Закрыть карточку (перекрёсток остаётся выбранным)"><Icon name="close" /></button>
       </header>
-      <ul className="jc-legend">{LEGEND.map(([g, label]) => <li key={g}><i style={{ background: TURN_COLORS[g] }} />{label}</li>)}</ul>
-      <div className="jc-body">
-        {lanes.approaches.map((a) => <ApproachRow key={armKey(a.arm)} nodeId={nodeId} lanes={lanes} approach={a} />)}
+      <div className="seg seg-wide jc-tabs" role="tablist" aria-label="Разделы перекрёстка">
+        {CARD_TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>)}
       </div>
-      <JunctionCapacitySection nodeId={nodeId} />
-      <PickedLink />
-      <div className="jc-templates">
-        <button className="btn btn-sm" onClick={() => apply((d) => applyJunctionTemplate(d, nodeId, 'usual'))}>Как обычно</button>
-        <button className="btn btn-sm" onClick={() => apply((d) => applyJunctionTemplate(d, nodeId, 'strict'))} title="Налево только с левой полосы, направо только с правой">С крайних</button>
-        <button className="btn btn-sm" onClick={() => apply((d) => applyJunctionTemplate(d, nodeId, 'free'))}>Все направления</button>
-      </div>
+      {tab === 'lanes' && (
+        <>
+          <ul className="jc-legend">{LEGEND.map(([g, label]) => <li key={g}><i style={{ background: TURN_COLORS[g] }} />{label}</li>)}</ul>
+          <div className="jc-body">
+            {lanes.approaches.map((a) => <ApproachRow key={armKey(a.arm)} nodeId={nodeId} lanes={lanes} approach={a} />)}
+          </div>
+          <PickedLink />
+          <div className="jc-templates">
+            <button className="btn btn-sm" onClick={() => apply((d) => applyJunctionTemplate(d, nodeId, 'usual'))}>Как обычно</button>
+            <button className="btn btn-sm" onClick={() => apply((d) => applyJunctionTemplate(d, nodeId, 'strict'))} title="Налево только с левой полосы, направо только с правой">С крайних</button>
+            <button className="btn btn-sm" onClick={() => apply((d) => applyJunctionTemplate(d, nodeId, 'free'))}>Все направления</button>
+          </div>
+        </>
+      )}
+      {tab === 'signal' && <JunctionSignal nodeId={nodeId} />}
+      {tab === 'capacity' && <JunctionCapacitySection nodeId={nodeId} />}
+      {tab === 'info' && <JunctionInfo nodeId={nodeId} />}
     </section>
   );
 }

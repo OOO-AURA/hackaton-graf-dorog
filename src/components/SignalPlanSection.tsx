@@ -1,6 +1,6 @@
 import type { OsmNode, OsmWay } from '../osm/types';
 import { junctionDelay } from '../sim/overlay';
-import { ADAPTIVE_DEFAULTS, useSim, type SignalPlan } from '../sim/store';
+import { ADAPTIVE_DEFAULTS, PED_SECONDS, useSim, type SignalPlan } from '../sim/store';
 import { Section } from './Section';
 
 const FIXED_PLAN: SignalPlan = { mode: 'fixed', cycle: 90, mainShare: 0.6 };
@@ -41,6 +41,20 @@ export function SignalPlanSection({ node, ways }: { node: OsmNode; ways: readonl
           onClick={() => setPlan(node.id, plan?.mode === 'adaptive' ? plan : null)}>Адаптивный</button>
         <button role="radio" aria-checked={mode === 'fixed'} className={mode === 'fixed' ? 'on' : ''}
           onClick={() => setPlan(node.id, { ...FIXED_PLAN, ...(plan && plan.mode !== 'adaptive' ? plan : {}), mode: 'fixed' })}>Фиксированный цикл</button>
+      </div>
+      <div className="signal-sections">
+        <span className="micro">Дополнительные секции</span>
+        <label className="check" title="Перед основной фазой — отдельная фаза: зелёная стрелка налево горит, встречные стоят">
+          <input type="checkbox" checked={Boolean(p.leftArrow)} onChange={(e) => update({ leftArrow: e.target.checked })} /> Стрелка налево: своя фаза поворота
+        </label>
+        <label className="check" title="Дополнительная секция со стрелкой направо: правый поворот разрешён в каждой зелёной фазе">
+          <input type="checkbox" checked={Boolean(p.rightArrow)} onChange={(e) => update({ rightArrow: e.target.checked })} /> Стрелка направо: доп. секция
+        </label>
+        <label className="check" title="Отдельная фаза для пешеходов: все машины стоят, люди переходят во всех направлениях">
+          <input type="checkbox" checked={Boolean(p.pedPhase)} onChange={(e) => update({ pedPhase: e.target.checked })} /> Пешеходная фаза
+        </label>
+        {p.pedPhase && <NumberField label="Пешеходная фаза, с" value={p.pedSeconds ?? PED_SECONDS} min={5} max={60} onChange={(pedSeconds) => update({ pedSeconds })} />}
+        <p className="hint">Секции уходят в программу светофора SUMO при следующем прогоне «Микро». В файле OSM для них нет стандартного тега: это настройки модели.</p>
       </div>
       {mode === 'adaptive' ? (
         <>

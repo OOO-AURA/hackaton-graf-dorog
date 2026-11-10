@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { setWayTag, setWayTags } from '../osm/edit';
 import { direction, DRIVABLE_HIGHWAYS } from '../osm/tags';
 import type { OsmDoc, OsmWay, Tags } from '../osm/types';
@@ -7,7 +8,7 @@ import { SelectField, TextField } from './fields';
 import { TagTable } from './TagTable';
 import { Section } from './Section';
 import { Icon } from './icons';
-import { LaneStrip } from './LaneStrip';
+import { LaneStrip, type LanePick } from './LaneStrip';
 import { capacity, lanesByDirection, normTags, roadProfile, withLaneCount } from '../osm/profile';
 import { RoadLevelFields } from './HeightFields';
 import { streetWays } from '../osm/street';
@@ -18,6 +19,7 @@ import { SimulatorsSection } from './SimulatorsSection';
 import { useSettledDoc } from '../state/settled';
 import { BusLaneFields } from './BusParts';
 import { isolatePiece } from '../osm/pieces';
+import { LaneEditor } from './LaneEditor';
 
 export const HIGHWAY_LABELS: Readonly<Record<string, string>> = {
   motorway: 'Автомагистраль', trunk: 'Скоростная', primary: 'Магистральная', secondary: 'Районная', tertiary: 'Улица местного значения',
@@ -51,6 +53,8 @@ function elevationHint(t: Tags): string {
 
 export function WayInspector({ way }: { way: OsmWay }) {
   const storeApply = useEditor((s) => s.apply);
+  // The lane picked in the strip for editing on its own.
+  const [lane, setLane] = useState<LanePick | null>(null);
   const piece = useEditor((s) => (s.selection?.type === 'way' && s.selection.id === way.id ? s.selection.piece : undefined));
   // With a stretch picked, the first edit cuts it out of its way (it keeps the way's id), so the
   // edit and the ones after it apply to the stretch only.
@@ -94,7 +98,8 @@ export function WayInspector({ way }: { way: OsmWay }) {
       </Section>
       <SpeedNote tags={t} />
       <Section title="Полосы и направление">
-        <LaneStrip tags={t} />
+        <LaneStrip tags={t} selected={lane} onPick={(l) => setLane(lane && lane.travel === l.travel && lane.index === l.index ? null : l)} />
+        {lane && <LaneEditor way={way} travel={lane.travel} index={lane.index} apply={apply} onClose={() => setLane(null)} />}
         <SelectField label="Движение" value={t.oneway === 'yes' || t.oneway === '-1' ? t.oneway : ''} options={ONEWAY_OPTIONS} onChange={set('oneway')} />
         <div className="row">
           <TextField label="Полос всего" type="number" value={t.lanes ?? ''} onCommit={set('lanes')} placeholder={String(split.forward + split.backward)} />
