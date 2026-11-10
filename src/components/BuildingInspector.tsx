@@ -10,6 +10,44 @@ import { SelectField, TextField } from './fields';
 import { Section } from './Section';
 import { TagTable } from './TagTable';
 import { Icon } from './icons';
+import { localOutline } from '../osm/buildingEdit';
+import { area, orientedBox, selfIntersects } from '../osm/buildingShape';
+import { duplicateSelected, setBuildingAngle, setBuildingSize, squareUpSelected } from '../state/buildingActions';
+
+const num = (v: string) => Number.parseFloat(v.replace(',', '.'));
+const fmt = (x: number) => String(Math.round(x * 10) / 10);
+
+/** Size and turn of the outline in numbers, and the shape tools that go with them. */
+function ShapeSection({ way }: { way: OsmWay }) {
+  const doc = useEditor((s) => s.doc);
+  const local = localOutline(doc, way.id);
+  if (!local) return null;
+  const box = orientedBox(local.ring);
+  const corners = local.ring.length;
+  const crossed = selfIntersects(local.ring);
+  return (
+    <Section title="Форма и положение">
+      <div className="row">
+        <TextField label="Ширина, м" type="number" value={fmt(box.width)} onCommit={(v) => { if (num(v) > 0) setBuildingSize(num(v), box.length); }} />
+        <TextField label="Длина, м" type="number" value={fmt(box.length)} onCommit={(v) => { if (num(v) > 0) setBuildingSize(box.width, num(v)); }} />
+        <TextField label="Поворот, °" type="number" value={String(Math.round(box.angle))} onCommit={(v) => { if (Number.isFinite(num(v))) setBuildingAngle(num(v)); }} />
+      </div>
+      <dl className="facts">
+        <dt>Площадь</dt><dd className="mono">{Math.round(area(local.ring))} м²</dd>
+        <dt>Углов</dt><dd className="mono">{corners}</dd>
+      </dl>
+      {crossed && <p className="hint warn">Стороны контура пересекаются: Webots такое здание не построит. Перетащите углы или выровняйте их.</p>}
+      <p className="hint">
+        На карте: углы тянутся с прилипанием к прямому углу (Alt — без него), точка на середине стороны добавляет угол, сторону можно сдвинуть,
+        розовая ручка поворачивает, перетаскивание внутри двигает. Клик по углу и Delete убирают угол. Ширина и длина — по сторонам здания, поворот — азимут длинной стороны.
+      </p>
+      <div className="buttons">
+        <button className="btn" onClick={squareUpSelected} title="Все углы станут прямыми">Выровнять углы</button>
+        <button className="btn" onClick={duplicateSelected} title="⌘/Ctrl+D">Копия рядом <kbd>⌘D</kbd></button>
+      </div>
+    </Section>
+  );
+}
 import { BuildingHeightFields } from './HeightFields';
 
 const SOURCE_TEXT = {
@@ -63,6 +101,7 @@ export function BuildingInspector({ way }: { way: OsmWay }) {
           <button className="btn btn-quiet" onClick={toggle3d}>{view3d ? 'Вернуть 2D' : 'Показать в 3D'} <kbd>P</kbd></button>
         </div>
       </Section>
+      <ShapeSection way={way} />
       <Section title="Тип и крыша">
         <SelectField label="Тип здания" value={t[typeKey] ?? ''} options={BUILDING_TYPES} onChange={set(typeKey)} />
         <TextField label="Название" value={t.name ?? ''} onCommit={set('name')} />

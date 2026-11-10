@@ -3,6 +3,8 @@ import { serializeOsm } from '../osm/serialize';
 import { commitDrawing } from '../osm/draw';
 import { deleteNode, deleteWay, flipDirection, reverseWay, splitWay, toggleSignal, waysOfNode } from '../osm/edit';
 import { ROAD_TEMPLATES } from '../osm/tags';
+import { isBuilding } from '../osm/building';
+import { deleteBuilding } from '../osm/buildingEdit';
 import { addAllCordonConnectors } from '../osm/cordon';
 import { currentSelection, useEditor } from './store';
 import { refreshReport } from './validation';
@@ -102,7 +104,9 @@ export function deleteSelection(): void {
   const sel = currentSelection(s);
   if (!sel) return;
   if (sel.type === 'street') return;
-  s.apply((d) => (sel.type === 'node' ? deleteNode(d, sel.id) : deleteWay(d, sel.id)));
+  // A building takes the corners only it used along; other ways keep their nodes.
+  const building = sel.type === 'way' && s.doc.ways[sel.id] && isBuilding(s.doc.ways[sel.id].tags);
+  s.apply((d) => (sel.type === 'node' ? deleteNode(d, sel.id) : building ? deleteBuilding(d, sel.id) : deleteWay(d, sel.id)));
   s.select(null);
 }
 

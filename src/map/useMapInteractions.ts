@@ -10,6 +10,7 @@ import { isBuilding } from '../osm/building';
 import { useBoxSelect } from './useBoxSelect';
 import { placeGhost, useBuildingGhost } from './buildingTool';
 import { HANDLE_LAYERS, useBuildingEditing } from './useBuildingEditing';
+import { setPointer } from '../state/buildingActions';
 import { laneLinkAt, useLaneEditing } from './useLaneEditing';
 import { zoneEditingActive } from '../macro/useZoneEditing';
 
@@ -156,6 +157,7 @@ export function useMapInteractions(map: MapLibreMap | null, onPointer: (lon: num
     const onClick = (e: MapMouseEvent) => handleClick(map, e);
     const onMove = (e: MapMouseEvent) => {
       onPointer(e.lngLat.lng, e.lngLat.lat);
+      setPointer([e.lngLat.lng, e.lngLat.lat]);
       if (zoneEditingActive()) return;
       const s = useEditor.getState();
       const placing = s.mode === 'draw' || s.mode === 'building';

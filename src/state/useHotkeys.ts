@@ -5,6 +5,7 @@ import { useUi } from './ui';
 import { removePickedLink } from './laneActions';
 import { useBuildingTool } from '../map/buildingTool';
 import { removePickedCorner } from '../map/useBuildingEditing';
+import { copySelected, duplicateSelected, pasteBuilding, selectedBuildingId } from './buildingActions';
 import { BUILDING_TEMPLATES } from '../osm/buildingShape';
 import { deleteSelection, openFile, saveOsm, finishDrawing, flipSelected, reverseSelected, splitAtSelected, toggleSignalSelected } from './actions';
 
@@ -17,6 +18,8 @@ export const HOTKEYS: ReadonlyArray<[string, string]> = [
   [`1–${ROAD_TEMPLATES.length}`, 'Шаблон новой дороги'],
   ['R', 'Развернуть порядок узлов (смысл сохраняется)'],
   ['B, затем 1–3, R, Shift+R', 'Здание: шаблон, поворот на 90° и на 15°'],
+  ['⌘/Ctrl+D, ⌘/Ctrl+C, ⌘/Ctrl+V', 'Копия здания рядом / скопировать / вставить под курсором'],
+  ['Alt при перетаскивании угла', 'Без прилипания к прямому углу'],
   ['F', 'Поменять направление одностороннего движения'],
   ['S', 'Светофор в выбранном узле'],
   ['X', 'Разрезать дороги в выбранном узле'],
@@ -53,6 +56,10 @@ function handleKey(e: KeyboardEvent): void {
   const s = useEditor.getState();
   if ((e.ctrlKey || e.metaKey) && key === 'z') { e.preventDefault(); if (e.shiftKey) s.redo(); else s.undo(); return; }
   if ((e.ctrlKey || e.metaKey) && key === 'y') { e.preventDefault(); s.redo(); return; }
+  // Copies of the selected building: next to it, or through the clipboard to the cursor.
+  if (mod && key === 'd' && selectedBuildingId()) { e.preventDefault(); duplicateSelected(); return; }
+  if (mod && key === 'c' && copySelected()) { e.preventDefault(); return; }
+  if (mod && key === 'v' && pasteBuilding()) { e.preventDefault(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
 
   // The building tool has its own digits and R: template and turn of the ghost.
