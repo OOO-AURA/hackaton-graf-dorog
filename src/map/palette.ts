@@ -30,6 +30,9 @@ export interface MapPalette {
   bridgeParapet: string;
   /** Lane lines when no flows are computed. */
   lane: string;
+  /** Lane markings: a light line with a dark outline, so they show on a road of any colour. */
+  laneMark: string;
+  laneMarkCasing: string;
   path: string;
   tram: string;
   nodeFill: string;
@@ -58,6 +61,8 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     bridgeSide: '#8C7350',
     bridgeParapet: '#F4EBDD',
     lane: '#FBF6EA',
+    laneMark: '#FFFFFF',
+    laneMarkCasing: '#2B1D12',
     path: '#9C8763',
     tram: '#7A4FA0',
     nodeFill: '#FBF6EA',
@@ -84,6 +89,8 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     bridgeSide: '#5C5C66',
     bridgeParapet: '#D9D9E0',
     lane: '#E8E2D4',
+    laneMark: '#F7F5EF',
+    laneMarkCasing: '#0E0E10',
     path: '#6A6A72',
     tram: '#B48ADB',
     nodeFill: '#28282D',

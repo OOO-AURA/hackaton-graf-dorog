@@ -2,6 +2,7 @@ import earcut from 'earcut';
 import { isDrivable } from '../osm/tags';
 import type { OsmDoc, OsmWay } from '../osm/types';
 import { buildingHeight, LAYER_STEP } from '../osm/height';
+import { dividerOffsets } from './lanesGeo';
 
 /**
  * Geometry of the 3D view in local metres around an origin: x east, y south (the way Web
@@ -9,7 +10,7 @@ import { buildingHeight, LAYER_STEP } from '../osm/height';
  */
 
 export type Rgb = readonly [number, number, number];
-export type Scene3dColors = { building: Rgb; deck: (highway: string) => Rgb; deckSide: Rgb; parapet: Rgb; pier: Rgb; portal: Rgb };
+export type Scene3dColors = { building: Rgb; deck: (highway: string) => Rgb; deckSide: Rgb; parapet: Rgb; mark: Rgb; markCasing: Rgb; pier: Rgb; portal: Rgb };
 
 /**
  * Interleaved x, y, z, r, g, b, id, nx, ny, nz, shade, pick. `id` numbers blocks of touching
@@ -56,6 +57,10 @@ const SHADOW_REACH: P2 = [0.9, 1.2];
 /** Just above the ground, so the shadow is not lost in the road lines. */
 const SHADOW_Z = 0.08;
 const SHADOW: Rgb = [0, 0, 0];
+/** Lane markings on a deck: a light line on a wider dark outline, like the markings in 2D. */
+const MARK_WIDTH = 0.3;
+const MARK_CASING = 0.55;
+const MARK_LIFT = 0.04;
 const PORTAL_DEPTH = 1.5;
 const PORTAL_PILLAR = 1.2;
 
@@ -263,7 +268,38 @@ function addBridge(solid: Buf, shadows: Buf, mask: Buf, raw: P2[], tags: Record<
     ribbon(mask, l0, l1, r0, r1, z0 + 0.05, z1 + 0.05);
     addShadow(shadows, [ol0, ol1, or0, or1], z0, z1);
   }
+  addMarkings(solid, pts, z, tags, colors);
   addPiers(solid, pts, z, colors);
+}
+
+/** A polyline moved sideways by `d` metres along leftNormal (which, with y south, is to the right of travel). */
+function shifted(pts: readonly P2[], d: number): P2[] {
+  if (d === 0) return pts.map((p) => [p[0], p[1]]);
+  const o = offsets(pts, Math.abs(d));
+  return d > 0 ? o.left : o.right;
+}
+
+/** A flat band `width` wide around `centre`, `lift` above the deck; `keep` drops pieces for dashes. */
+function band(buf: Buf, c: Rgb, pts: readonly P2[], z: readonly number[], centre: number, width: number, lift: number, keep: (i: number) => boolean) {
+  const a = shifted(pts, centre - width / 2);
+  const b = shifted(pts, centre + width / 2);
+  for (let i = 0; i < pts.length - 1; i += 1) {
+    if (!keep(i)) continue;
+    quad(buf, c, 0, [a[i][0], a[i][1], z[i] + lift], [a[i + 1][0], a[i + 1][1], z[i + 1] + lift], [b[i + 1][0], b[i + 1][1], z[i + 1] + lift], [b[i][0], b[i][1], z[i] + lift]);
+  }
+}
+
+/**
+ * Lane markings on the deck, where the 2D ones would lie hidden under it. The deck points are
+ * RAMP_STEP apart, so dropping every other piece gives dashes of that length.
+ */
+function addMarkings(solid: Buf, pts: readonly P2[], z: readonly number[], tags: Record<string, string>, colors: Scene3dColors) {
+  for (const m of dividerOffsets(tags)) {
+    // lanesGeo counts offsets to the left of travel with y north; here y points south.
+    const centre = -m.offset;
+    band(solid, colors.markCasing, pts, z, centre, MARK_CASING, MARK_LIFT, () => true);
+    band(solid, colors.mark, pts, z, centre, MARK_WIDTH, MARK_LIFT * 2, (i) => m.solid || i % 2 === 0);
+  }
 }
 
 /** The deck footprint between two cross-sections, shifted away from the sun by the deck height there. */

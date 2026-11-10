@@ -4,7 +4,7 @@ import { parseOsm } from '../osm/parse';
 import { bridgeHeight, buildingGroups, buildScene3d, TUNNEL_PROFILE, deckProfile, LANE_WIDTH, LAYER_HEIGHT, roadWidth, STRIDE, type Scene3dColors } from './mesh3d';
 
 const COLORS: Scene3dColors = {
-  building: [0.8, 0.7, 0.6], deck: () => [1, 0.8, 0], deckSide: [0.5, 0.4, 0.3], parapet: [0.9, 0.9, 0.9], pier: [0.5, 0.4, 0.3], portal: [0.5, 0.4, 0.3],
+  building: [0.8, 0.7, 0.6], deck: () => [1, 0.8, 0], deckSide: [0.5, 0.4, 0.3], parapet: [0.9, 0.9, 0.9], mark: [1, 1, 1], markCasing: [0, 0, 0], pier: [0.5, 0.4, 0.3], portal: [0.5, 0.4, 0.3],
 };
 
 const osm = (body: string) => parseOsm(`<osm version="0.6">${body}</osm>`);
@@ -135,6 +135,17 @@ describe('3D scene geometry', () => {
     };
     expect(reach('1')).toBeGreaterThan(0);
     expect(reach('2')).toBeGreaterThan(reach('1'));
+  });
+
+  test('a bridge deck carries the lane markings, and a one-lane bridge none', () => {
+    const nodes = `<node id="1" lat="52.0" lon="104.000"/><node id="2" lat="52.0" lon="104.003"/>`;
+    const marks = (tags: string) => {
+      const m = buildScene3d(osm(`${nodes}<way id="10"><nd ref="1"/><nd ref="2"/><tag k="highway" v="primary"/><tag k="bridge" v="yes"/>${tags}</way>`), COLORS)!;
+      // Vertices in the marking colour, just above the deck.
+      return Array.from({ length: m.structures.length / STRIDE }, (_, i) => i * STRIDE).filter((o) => m.structures[o + 3] === 1 && m.structures[o + 4] === 1 && m.structures[o + 5] === 1);
+    };
+    expect(marks('<tag k="lanes" v="4"/>').length).toBeGreaterThan(0);
+    expect(marks('<tag k="oneway" v="yes"/><tag k="lanes" v="1"/>')).toHaveLength(0);
   });
 
   test('a tunnel is a tube under the ground, as deep as its level', () => {
