@@ -5067,11 +5067,11 @@
  <node id="10250749966" visible="true" version="2" changeset="129962231" timestamp="2022-12-11T13:13:50Z" user="Vladimir Syroezhkin" uid="3871350" lat="52.2672306" lon="104.2580213"/>
  <node id="10250749967" visible="true" version="1" changeset="129935329" timestamp="2022-12-10T14:26:53Z" user="Vladimir Syroezhkin" uid="3871350" lat="52.2671910" lon="104.2578084">
   <tag k="crossing" v="uncontrolled"/>
-  <tag k="highway" v="traffic_signals"/>
+  <tag k="highway" v="crossing"/>
  </node>
  <node id="10250749968" visible="true" version="2" changeset="157328533" timestamp="2024-10-01T09:01:42Z" user="sonyam4" uid="22005151" lat="52.2671516" lon="104.2576018">
   <tag k="crossing" v="uncontrolled"/>
-  <tag k="highway" v="traffic_signals"/>
+  <tag k="highway" v="crossing"/>
   <tag k="tactile_paving" v="no"/>
  </node>
  <node id="10250749969" visible="true" version="3" changeset="179686686" timestamp="2026-03-11T10:15:24Z" user="loik1112" uid="23921064" lat="52.2671122" lon="104.257431"/>
@@ -22455,8 +22455,6 @@
   <tag k="name:etymology:wikidata" v="Q46599"/>
   <tag k="maxspeed" v="60"/>
   <tag k="source:maxspeed" v="RU:urban"/>
-  <tag k="oneway" v="yes"/>
-  <tag k="lanes" v="3"/>
  </way>
  <way id="1499812932" visible="true" version="1" changeset="181397520" timestamp="2026-04-16T06:53:43Z" user="loik1112" uid="23921064">
   <nd ref="13734031699"/>
