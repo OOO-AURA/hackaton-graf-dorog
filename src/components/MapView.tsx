@@ -15,6 +15,7 @@ import { applyBasemapTone, BASE_STYLE } from '../map/style';
 import { MAP_PALETTE } from '../map/palette';
 import { useUi } from '../state/ui';
 import { MapOverlay } from './MapOverlay';
+import { applyLens } from '../map/lens';
 import { useSim, vehiclesAt } from '../sim/store';
 import { losFeatures, signalFeatures } from '../sim/overlay';
 import { useMacro } from '../macro/store';
@@ -196,7 +197,8 @@ function useMapLook(map: MapLibreMap | null): void {
   useEffect(() => { if (alive(map)) applyRoadColors(map, MAP_PALETTE[theme], colorMode, look); }, [map, theme, colorMode, look]);
   useEffect(() => { if (alive(map)) applyBasemapTone(map, theme, opacity); }, [map, theme, opacity]);
   const view3dOn = useUi((s) => s.view3d);
-  useEffect(() => { if (alive(map)) applyLayerVisibility(map, layers, view3dOn); }, [map, layers, view3dOn]);
+  const lens = useUi((s) => s.lens);
+  useEffect(() => { if (alive(map)) { applyLayerVisibility(map, layers, view3dOn); applyLens(map, lens); } }, [map, layers, view3dOn, lens]);
   // The 3D mesh is built only while 3D is on, and again on every edit or theme change; a node
   // being dragged moves on the 2D layers, the mesh follows when it is let go.
   const doc3d = useSettledDoc();

@@ -1,3 +1,4 @@
+import { WayCache, sig } from './wayCache';
 import type { Feature, FeatureCollection, LineString, Point, Polygon } from 'geojson';
 import { buildingHeight as heightOf } from '../osm/building';
 import { direction, highwayColor, isDrivable } from '../osm/tags';
@@ -70,9 +71,14 @@ function roadFeatures(doc: OsmDoc, w: OsmWay, tapers: readonly Taper[] | undefin
 const collection = <G extends LineString | Point | Polygon>(features: Feature<G, Props>[]): FeatureCollection<G, Props> =>
   ({ type: 'FeatureCollection', features });
 
+const roadCache = new WayCache<Feature<LineString, Props>[]>();
+
 export function roadsGeoJson(doc: OsmDoc) {
   const tapers = roadTapers(doc);
-  return collection(Object.values(doc.ways).filter((w) => isDrivable(w.tags) && w.refs.length > 1).flatMap((w) => roadFeatures(doc, w, tapers.get(w.id))));
+  return collection(Object.values(doc.ways).filter((w) => isDrivable(w.tags) && w.refs.length > 1).flatMap((w) => {
+    const t = tapers.get(w.id);
+    return roadCache.get(doc, w, [sig(t)], () => roadFeatures(doc, w, t));
+  }));
 }
 
 /** Building height in metres as Webots will build it, including its defaults per building type (see osm/building.ts). */

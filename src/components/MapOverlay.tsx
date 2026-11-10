@@ -1,3 +1,4 @@
+import { LENSES } from '../map/lens';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { useEffect, useState } from 'react';
 import { docBounds } from '../map/geojson';
@@ -127,6 +128,19 @@ function LookSwitch() {
   );
 }
 
+/** Lens switch: the same map for drivers, pedestrians, public transport, rail or metro. */
+function LensSwitch() {
+  const lens = useUi((s) => s.lens);
+  const setLens = useUi((s) => s.setLens);
+  return (
+    <div className="float float-lens seg" role="radiogroup" aria-label="Линза карты">
+      {LENSES.map(([v, label]) => (
+        <button key={v} role="radio" aria-checked={lens === v} className={lens === v ? 'on' : ''} onClick={() => setLens(v)}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
 function LayerBar() {
   const layers = useUi((s) => s.layers);
   const toggle = useUi((s) => s.toggleLayer);
@@ -150,6 +164,7 @@ export function MapOverlay({ map }: { map: MapLibreMap | null }) {
       {micro ? <SimBar /> : <FloatingTools />}
       {!micro && <HeightHandle map={map} />}
       {!micro && <LookSwitch />}
+      <LensSwitch />
       {!micro && <JunctionCard />}
       <ZoomControls map={map} />
       <BasemapSwitch />

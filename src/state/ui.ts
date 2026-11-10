@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { RoadColorMode } from '../map/thematic';
+import type { Lens } from '../map/lens';
 
 export type Theme = 'light' | 'dark';
 export type ThemeChoice = Theme | 'system';
@@ -42,6 +43,9 @@ interface UiState {
   bottomTab: BottomTab;
   bottomOpen: boolean;
   layers: Record<LayerId, boolean>;
+  /** Which traveller the map is looked at for (see map/lens.ts). */
+  lens: Lens;
+  setLens: (lens: Lens) => void;
   /** Opacity of the basemap under the graph, 0..1 ("model / map" slider). */
   basemapOpacity: number;
   loading: string | null;
@@ -109,6 +113,14 @@ export const useUi = create<UiState>((set, get) => ({
   setWorkspace: (workspace) => set({ workspace }),
   openBottom: (bottomTab) => set({ bottomTab, bottomOpen: true }),
   toggleBottom: () => set({ bottomOpen: !get().bottomOpen }),
+  lens: 'all',
+  setLens: (lens) => {
+    const layers = { ...get().layers };
+    if (lens === 'transit') { layers.transit = true; layers.tram = true; }
+    if (lens === 'rail' || lens === 'metro') layers.tram = true;
+    if (lens === 'car' || lens === 'walk') layers.roads = true;
+    set({ lens, layers });
+  },
   toggleLayer: (id) => set({ layers: { ...get().layers, [id]: !get().layers[id] } }),
   setBasemapOpacity: (basemapOpacity) => set({ basemapOpacity }),
   setLoading: (loading) => set({ loading }),

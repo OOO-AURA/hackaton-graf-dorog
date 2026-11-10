@@ -12,6 +12,9 @@ import { Tour } from './components/Tour';
 import { useUi } from './state/ui';
 import { useHotkeys } from './state/useHotkeys';
 import { useCloseGuard } from './state/useCloseGuard';
+import { usePanels } from './state/panels';
+import { SidePanel } from './components/SidePanel';
+import type { CSSProperties } from 'react';
 
 const MESSAGE_TIMEOUT_MS = 3500;
 const VALIDATE_DELAY_MS = 350;
@@ -58,14 +61,20 @@ export function App() {
   useEffect(() => startAutosave(), []);
   const empty = useEditor((s) => !Object.keys(s.doc.nodes).length);
   const workspace = useUi((s) => s.workspace);
+  const p = usePanels();
+  const vars = {
+    '--nav-w': `${p.navOpen ? p.navW : 28}px`,
+    '--insp-w': `${p.inspOpen ? p.inspW : 28}px`,
+    '--dock-h': `${p.dockH}px`,
+  } as CSSProperties;
   return (
-    <div className={`app${empty ? ' is-empty' : ''}`}>
+    <div className={`app${empty ? ' is-empty' : ''}`} style={vars}>
       <Header />
-      <Navigator />
+      <SidePanel side="left" title="Навигатор"><Navigator /></SidePanel>
       <main className="center">
         <MapView />
       </main>
-      {workspace === 'micro' ? <MicroPanel /> : <Inspector />}
+      <SidePanel side="right" title="Инспектор">{workspace === 'micro' ? <MicroPanel /> : <Inspector />}</SidePanel>
       <BottomDock />
       <Toast />
       <Tour />

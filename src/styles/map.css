@@ -30,6 +30,7 @@
 .float-zoom { top: 12px; right: 12px; flex-direction: column; }
 .float-look { top: 12px; left: 50%; transform: translateX(-50%); animation-name: float-in-center; }
 .float-look button.on { background: var(--pink); color: #fff; }
+.float-lens { top: 52px; left: 50%; transform: translateX(-50%); animation-name: float-in-center; }
 /* A narrow free map: the switch goes under the tools instead of between them and the zoom. */
 @media (max-width: 1360px) { .float-look { top: 56px; left: 12px; transform: none; animation-name: float-in; } }
 .float-basemap { bottom: 12px; left: 12px; gap: 10px; padding: 3px 10px 3px 3px; }
