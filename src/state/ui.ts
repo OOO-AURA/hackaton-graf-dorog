@@ -4,6 +4,8 @@ import type { RoadColorMode } from '../map/thematic';
 export type Theme = 'light' | 'dark';
 export type ThemeChoice = Theme | 'system';
 export type Workspace = 'macro' | 'micro';
+/** How roads look: coloured by class like a graph, or as asphalt with markings like an engineering plan. */
+export type RoadLook = 'graph' | 'engineering';
 export type BottomTab = 'issues' | 'check' | 'flows' | 'transit' | 'scenarios' | 'journal';
 export type LayerId = 'roads' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs' | 'transit' | 'changes';
 
@@ -53,6 +55,8 @@ interface UiState {
   /** What the road colour shows: class (default) or one attribute, like a Visum classified display. */
   roadColorMode: RoadColorMode;
   setRoadColorMode: (mode: RoadColorMode) => void;
+  roadLook: RoadLook;
+  setRoadLook: (look: RoadLook) => void;
   /** Lane link picked on the map at the junction being edited; Delete forbids that turn. */
   laneLink: LaneLinkRef | null;
   setLaneLink: (link: LaneLinkRef | null) => void;
@@ -87,6 +91,8 @@ export const useUi = create<UiState>((set, get) => ({
   fly: null,
   roadColorMode: 'class',
   setRoadColorMode: (roadColorMode) => set({ roadColorMode }),
+  roadLook: 'engineering',
+  setRoadLook: (roadLook) => set({ roadLook }),
   setThemeChoice: (themeChoice) => {
     try {
       if (themeChoice === 'system') localStorage.removeItem(THEME_KEY);

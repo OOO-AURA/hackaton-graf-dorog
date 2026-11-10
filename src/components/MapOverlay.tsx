@@ -11,6 +11,7 @@ import { TOOLS } from './tools';
 import { EmptyState } from './EmptyState';
 import { SimBar } from './sim/SimBar';
 import { HeightHandle } from './HeightHandle';
+import { JunctionCard } from './JunctionCard';
 
 const BASEMAPS: ReadonlyArray<[Basemap, string]> = [['osm', 'Схема'], ['satellite', 'Спутник'], ['none', 'Нет']];
 
@@ -111,6 +112,21 @@ function ColorModeSwitch() {
   );
 }
 
+const LOOKS = [['engineering', 'Инженерия'], ['graph', 'Граф']] as const;
+
+/** Engineering plan (asphalt, markings, turn ribbons) or a graph coloured by road class. */
+function LookSwitch() {
+  const look = useUi((s) => s.roadLook);
+  const setLook = useUi((s) => s.setRoadLook);
+  return (
+    <div className="float float-look seg" role="radiogroup" aria-label="Вид дорог">
+      {LOOKS.map(([v, label]) => (
+        <button key={v} role="radio" aria-checked={look === v} className={look === v ? 'on' : ''} onClick={() => setLook(v)}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
 function LayerBar() {
   const layers = useUi((s) => s.layers);
   const toggle = useUi((s) => s.toggleLayer);
@@ -133,6 +149,8 @@ export function MapOverlay({ map }: { map: MapLibreMap | null }) {
     <>
       {micro ? <SimBar /> : <FloatingTools />}
       {!micro && <HeightHandle map={map} />}
+      {!micro && <LookSwitch />}
+      {!micro && <JunctionCard />}
       <ZoomControls map={map} />
       <BasemapSwitch />
       <ColorModeSwitch />

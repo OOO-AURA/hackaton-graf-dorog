@@ -28,6 +28,9 @@ export interface MapPalette {
   bridgeSide: string;
   /** Tops of bridge parapets in 3D: a light outline of the deck. */
   bridgeParapet: string;
+  /** Roads in the engineering look: asphalt with a light edge line. */
+  asphalt: string;
+  asphaltEdge: string;
   /** Lane lines when no flows are computed. */
   lane: string;
   /** Lane markings: a light line with a dark outline, so they show on a road of any colour. */
@@ -60,6 +63,8 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     building3d: '#D9C69C',
     bridgeSide: '#8C7350',
     bridgeParapet: '#F4EBDD',
+    asphalt: '#83838B',
+    asphaltEdge: '#F4F1EA',
     lane: '#FBF6EA',
     laneMark: '#FFFFFF',
     laneMarkCasing: '#2B1D12',
@@ -88,6 +93,8 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     building3d: '#4A4A52',
     bridgeSide: '#5C5C66',
     bridgeParapet: '#D9D9E0',
+    asphalt: '#3E3E46',
+    asphaltEdge: '#A3A3AD',
     lane: '#E8E2D4',
     laneMark: '#F7F5EF',
     laneMarkCasing: '#0E0E10',

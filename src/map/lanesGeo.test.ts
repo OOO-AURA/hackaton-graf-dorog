@@ -1,5 +1,5 @@
 import { parseOsm } from '../osm/parse';
-import { dividerOffsets, laneLines, type LaneStyle } from './lanesGeo';
+import { dividerOffsets, junctionGeometry, laneLines, zebras, type LaneStyle } from './lanesGeo';
 
 const osm = (body: string) => parseOsm(`<osm version="0.6">${body}</osm>`);
 const STYLE: LaneStyle = { load: () => null, color: () => '#fff' };
@@ -48,5 +48,46 @@ describe('lane markings', () => {
     const loaded: LaneStyle = { load: () => 0.8, color: () => '#f00' };
     expect(laneLines(road({ highway: 'primary', lanes: '2' }), loaded).features.find((f) => f.properties.kind === 'lane')?.properties.loaded).toBe(true);
     expect(laneLines(road({ highway: 'primary', lanes: '2' }), STYLE).features.find((f) => f.properties.kind === 'lane')?.properties.loaded).toBe(false);
+  });
+});
+
+describe('junction drawing', () => {
+  /** A four-way junction of two-way roads with two lanes each, at node 5. */
+  const CROSS = osm(`
+    <node id="1" lat="52.0005" lon="104.0000"/><node id="2" lat="51.9995" lon="104.0000"/>
+    <node id="3" lat="52.0000" lon="103.9992"/><node id="4" lat="52.0000" lon="104.0008"/>
+    <node id="5" lat="52.0000" lon="104.0000"/>
+    <way id="10"><nd ref="1"/><nd ref="5"/><nd ref="2"/><tag k="highway" v="secondary"/><tag k="lanes" v="2"/></way>
+    <way id="11"><nd ref="3"/><nd ref="5"/><nd ref="4"/><tag k="highway" v="secondary"/><tag k="lanes" v="2"/></way>`);
+  const geo = () => junctionGeometry(CROSS, ['5'], null, STYLE);
+
+  test('every movement is a ribbon of its turn group and lane width', () => {
+    const { links } = geo();
+    const groups = new Set(links.features.map((f) => f.properties.group));
+    expect(groups).toEqual(new Set(['through', 'left', 'right']));
+    expect(links.features.every((f) => Number(f.properties.w17) > 5)).toBe(true);
+  });
+
+  test('the junction gets an outline, a stop line on every approach and an arrow on every lane coming in', () => {
+    const { areas, stops, arrows } = geo();
+    expect(areas.features).toHaveLength(1);
+    expect(areas.features[0].geometry.type).toBe('Polygon');
+    expect(stops.features).toHaveLength(4);
+    expect(arrows.features).toHaveLength(4);
+    // One lane per direction takes every turn the junction offers.
+    expect(arrows.features[0].properties.icon).toBe('turn-arrow:left-through-right');
+  });
+
+  test('a crossing on a road is a zebra across it, as wide as the road', () => {
+    const doc = osm(`
+      <node id="1" lat="52.0" lon="104.000"/><node id="2" lat="52.0" lon="104.001"/><node id="3" lat="52.0" lon="104.002"/>
+      <node id="9" lat="52.0" lon="104.001"><tag k="highway" v="crossing"/></node>
+      <way id="10"><nd ref="1"/><nd ref="9"/><nd ref="3"/><tag k="highway" v="secondary"/><tag k="lanes" v="2"/></way>`);
+    const z = zebras(doc).features;
+    expect(z).toHaveLength(1);
+    const [[, latA], [, latB]] = z[0].geometry.coordinates;
+    // The road runs east, so the zebra runs north to south, 7 m of carriageway and a margin.
+    expect(Math.abs(latA - latB) * 111_000).toBeGreaterThan(7);
+    expect(Math.abs(latA - latB) * 111_000).toBeLessThan(10);
   });
 });

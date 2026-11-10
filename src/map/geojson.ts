@@ -3,10 +3,7 @@ import { buildingHeight as heightOf } from '../osm/building';
 import { direction, highwayColor, isDrivable } from '../osm/tags';
 import { nodeSymbol } from './features';
 import { thematicProps } from './thematic';
-import { roadWidthMetres } from './lanesGeo';
-
-/** Screen pixels per metre at zoom 17 on MapLibre's 512 px tiles. */
-const pxPerMetreZ17 = (lat: number) => 2 ** 17 / (78271.517 * Math.cos((lat * Math.PI) / 180));
+import { pxPerMetreZ17, roadWidthMetres } from './lanesGeo';
 import type { OsmDoc, OsmWay } from '../osm/types';
 
 type Props = Record<string, string | number | boolean>;
