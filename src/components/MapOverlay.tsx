@@ -19,7 +19,7 @@ import { BUILDING_TEMPLATES } from '../osm/buildingShape';
 const BASEMAPS: ReadonlyArray<[Basemap, string]> = [['osm', 'Схема'], ['satellite', 'Спутник'], ['none', 'Нет']];
 
 export const LAYER_LABELS: Readonly<Record<LayerId, string>> = {
-  roads: 'Дороги', junctions: 'Перекрёстки', signals: 'Светофоры', crossings: 'Переходы',
+  sidewalks: 'Тротуары', roads: 'Дороги', junctions: 'Перекрёстки', signals: 'Светофоры', crossings: 'Переходы',
   bridges: 'Мосты', tunnels: 'Тоннели', buildings: 'Здания', tram: 'Ж/д и трамвай', signs: 'Знаки', transit: 'Маршруты ОТ', changes: 'Изменения',
 };
 

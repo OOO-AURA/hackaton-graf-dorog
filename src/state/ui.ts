@@ -8,9 +8,9 @@ export type Workspace = 'macro' | 'micro';
 /** How roads look: coloured by class like a graph, or as asphalt with markings like an engineering plan. */
 export type RoadLook = 'graph' | 'engineering';
 export type BottomTab = 'issues' | 'check' | 'flows' | 'transit' | 'scenarios' | 'journal';
-export type LayerId = 'roads' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs' | 'transit' | 'changes';
+export type LayerId = 'roads' | 'sidewalks' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs' | 'transit' | 'changes';
 
-export const LAYER_IDS: readonly LayerId[] = ['roads', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'tram', 'signs', 'transit', 'changes'];
+export const LAYER_IDS: readonly LayerId[] = ['roads', 'sidewalks', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'tram', 'signs', 'transit', 'changes'];
 
 /** Layers that start hidden: they are overlays for a particular task. */
 const OFF_BY_DEFAULT: ReadonlySet<LayerId> = new Set(['transit', 'changes']);
@@ -119,6 +119,9 @@ export const useUi = create<UiState>((set, get) => ({
     if (lens === 'transit') { layers.transit = true; layers.tram = true; }
     if (lens === 'rail' || lens === 'metro') layers.tram = true;
     if (lens === 'car' || lens === 'walk') layers.roads = true;
+    if (lens === 'walk') layers.sidewalks = true;
+    if (lens === 'car') layers.sidewalks = false;
+    if (lens === 'all') layers.sidewalks = true;
     set({ lens, layers });
   },
   toggleLayer: (id) => set({ layers: { ...get().layers, [id]: !get().layers[id] } }),

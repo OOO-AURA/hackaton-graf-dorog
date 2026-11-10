@@ -14,10 +14,10 @@ export const LENSES: ReadonlyArray<readonly [Lens, string]> = [
 
 type Group = 'road' | 'walk' | 'transit' | 'rail';
 
-const ROAD = ['roads-casing', 'bridge-casing', 'roads', 'roads-arrows', 'lanes', 'lane-marks-casing', 'lane-marks-dash', 'lane-marks-solid', 'nodes', 'signals', 'signs', ...JUNCTION_LAYERS];
+const ROAD = ['roads-casing', 'bridge-casing', 'roads', 'roads-arrows', 'lanes', 'lane-marks-casing', 'lane-marks-dash', 'lane-marks-solid', 'nodes', 'signals', 'signs', ...JUNCTION_LAYERS.filter((l) => !l.startsWith('zebra'))];
 const GROUPS: Record<Group, readonly string[]> = {
   road: ROAD,
-  walk: ['context', 'crossings'],
+  walk: ['context', 'context-casing', 'context-steps', 'sidewalk-left', 'sidewalk-right', 'crossings', 'zebra-base', 'zebra-stripes'],
   transit: ['transit-line', 'transit-stop'],
   rail: RAIL_LAYERS,
 };

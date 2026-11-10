@@ -150,7 +150,23 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   addZoneBadges(map);
 
   map.addLayer({ id: 'buildings', type: 'fill', source: 'buildings', paint: { 'fill-opacity': 0.55 } });
-  map.addLayer({ id: 'context', type: 'line', source: 'context', filter: ['!=', ['get', 'kind'], 'rail'], paint: { 'line-width': 1, 'line-dasharray': [2, 2] } });
+  // Footpaths at their real width from zoom 16: walks, pedestrian streets, cycleways, steps, trails.
+  const metres = (m: unknown, extra = 0) => ['interpolate', ['exponential', 2], ['zoom'], 13, 0.6 + extra, 16, ['+', ['max', 1.2, ['*', m, 0.68]], extra], 22, ['+', ['*', m, 0.68 * 64], extra]] as never;
+  const pathW = ['match', ['get', 'path'], 'square', 8, 'cycle', 2, 'steps', 2.5, 'walk', 2.25, 1.4];
+  const isPath = ['==', ['get', 'kind'], 'path'];
+  map.addLayer({ id: 'context-casing', type: 'line', source: 'context', filter: isPath as never, minzoom: 15, layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: { 'line-width': metres(pathW, 1.5), 'line-color': '#000', 'line-opacity': 0.25 } });
+  map.addLayer({ id: 'context', type: 'line', source: 'context', filter: ['!=', ['get', 'kind'], 'rail'], layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: { 'line-width': metres(pathW) } });
+  map.addLayer({ id: 'context-steps', type: 'line', source: 'context', filter: ['==', ['get', 'path'], 'steps'] as never, minzoom: 17,
+    paint: { 'line-width': metres(2.5), 'line-color': '#000', 'line-opacity': 0.35, 'line-dasharray': [0.25, 0.35] } });
+  // Sidewalks along streets, beside the carriageway on each side that has one.
+  const sideOffset = (prop: string) => ['interpolate', ['exponential', 2], ['zoom'], 15, ['/', ['get', prop], 4], 22, ['*', 32, ['get', prop]]] as never;
+  const sideWidth = ['interpolate', ['exponential', 2], ['zoom'], 15, ['/', ['get', 's17'], 4], 22, ['*', 32, ['get', 's17']]] as never;
+  map.addLayer({ id: 'sidewalk-left', type: 'line', source: 'roads', minzoom: 15, filter: ['all', ['in', 'l', ['get', 'sw']], ['!', ['get', 'bridge']], ['!', ['get', 'tunnel']]] as never,
+    layout: { 'line-join': 'round', 'line-cap': 'butt' }, paint: { 'line-width': sideWidth, 'line-offset': sideOffset('sl17') } });
+  map.addLayer({ id: 'sidewalk-right', type: 'line', source: 'roads', minzoom: 15, filter: ['all', ['in', 'r', ['get', 'sw']], ['!', ['get', 'bridge']], ['!', ['get', 'tunnel']]] as never,
+    layout: { 'line-join': 'round', 'line-cap': 'butt' }, paint: { 'line-width': sideWidth, 'line-offset': sideOffset('sr17') } });
   addRailLines(map);
   map.addLayer({ id: 'roads-casing', type: 'line', source: 'roads', filter: ['!', ['get', 'bridge']], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': laneWidth(2), 'line-offset': roadOffset } });
   // Bridge outlines end square with the deck, not in a half-disc over the road it lands on.
@@ -298,7 +314,9 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
   setArrowImage(map, p.arrow);
   set('buildings', 'fill-color', p.building);
   set('buildings', 'fill-outline-color', p.buildingLine);
-  set('context', 'line-color', p.path);
+  set('context', 'line-color', ['match', ['get', 'path'], 'cycle', p.cycle, 'square', p.square, 'trail', p.trail, p.walk] as never);
+  set('sidewalk-left', 'line-color', p.walk);
+  set('sidewalk-right', 'line-color', p.walk);
   applyRailPalette(map, p);
   set('roads-casing', 'line-color', p.casing);
   set('bridge-casing', 'line-color', p.bridgeCasing);
@@ -343,6 +361,7 @@ const ROAD_LAYERS = ['roads-casing', 'bridge-casing', 'roads', 'roads-bridge', '
 export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boolean>, view3d = false): void {
   const show = (layer: string, visible: boolean) => map.setLayoutProperty(layer, 'visibility', visible ? 'visible' : 'none');
   ROAD_LAYERS.forEach((l) => show(l, on.roads));
+  ['sidewalk-left', 'sidewalk-right', 'context', 'context-casing', 'context-steps'].forEach((l) => show(l, on.sidewalks));
   // In 3D the bridges are decks of the scene layer; the flat line stays only for clicks.
   show('roads-bridge', on.roads && on.bridges);
   map.setPaintProperty('roads-bridge', 'line-opacity', view3d ? 0 : 1);
