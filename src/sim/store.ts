@@ -7,6 +7,7 @@ import { useEditor } from '../state/store';
 import { useMacro } from '../macro/store';
 import { STRIDE, type DemandKind, type SimResult } from './types';
 import { flowsDemand, useCustomFlows } from './customFlows';
+import type { SignalPhase } from '../osm/signalPhases';
 
 export const SPEEDS = [1, 5, 10, 30, 60] as const;
 
@@ -30,6 +31,17 @@ export interface SignalPlan {
   /** A phase when all cars stand and only pedestrians cross, `pedSeconds` long. */
   pedPhase?: boolean;
   pedSeconds?: number;
+  /**
+   * The engineer's own phases (signalPhases.ts): when set they replace the cycle share and the
+   * extra sections, and go to SUMO as a tlLogic of exactly these phases.
+   */
+  phases?: SignalPhase[];
+  /** Start of the cycle against the common clock, for a green wave, seconds. */
+  offset?: number;
+  /** Saturation flow of a lane, vehicles an hour of green; lost time of a phase, s; walking speed, m/s. */
+  satFlow?: number;
+  lostTime?: number;
+  pedSpeed?: number;
 }
 
 export const ADAPTIVE_DEFAULTS = { minGreen: 8, maxGreen: 50, maxGap: 3 } as const;
@@ -39,6 +51,8 @@ export const planForSim = (p: SignalPlan) => ({
   cycle_s: p.cycle, main_share: p.mainShare, adaptive: p.mode === 'adaptive',
   min_green_s: p.minGreen ?? ADAPTIVE_DEFAULTS.minGreen, max_green_s: p.maxGreen ?? ADAPTIVE_DEFAULTS.maxGreen, max_gap_s: p.maxGap ?? ADAPTIVE_DEFAULTS.maxGap,
   left_arrow: Boolean(p.leftArrow), right_arrow: Boolean(p.rightArrow), ped_phase: Boolean(p.pedPhase), ped_s: p.pedSeconds ?? PED_SECONDS,
+  offset_s: p.offset ?? 0,
+  phases: (p.phases ?? []).map((ph) => ({ green_s: ph.green, yellow_s: ph.yellow, all_red_s: ph.allRed, ped: Boolean(ph.ped), moves: ph.moves })),
 });
 
 export const PED_SECONDS = 15;
@@ -77,6 +91,18 @@ interface SimState {
   seek: (t: number) => void;
 }
 
+/**
+ * Light programs have no standard OSM tags, so they are kept beside the file: per file name in
+ * the browser storage, and come back when the file is opened again.
+ */
+const PLANS_KEY = 'graf.signal-plans:';
+function savePlans(fileName: string, plans: Record<string, SignalPlan>): void {
+  try { localStorage.setItem(PLANS_KEY + fileName, JSON.stringify(plans)); } catch { /* storage off: the plans hold for this session */ }
+}
+function loadPlans(fileName: string): Record<string, SignalPlan> {
+  try { return JSON.parse(localStorage.getItem(PLANS_KEY + fileName) ?? '{}') as Record<string, SignalPlan>; } catch { return {}; }
+}
+
 export const useSim = create<SimState>((set, get) => ({
   sumo: null, running: false, error: null, result: null, minutes: 10, pedestrians: false, plans: {}, demand: 'random', baseline: null, playing: false, speed: 10, time: 0,
   setMinutes: (minutes) => set({ minutes }),
@@ -84,6 +110,7 @@ export const useSim = create<SimState>((set, get) => ({
   setPlan: (node, plan) => set(({ plans }) => {
     const next = { ...plans };
     if (plan) next[node] = plan; else delete next[node];
+    savePlans(useEditor.getState().fileName, next);
     return { plans: next };
   }),
   setDemand: (demand) => set(demand === 'od' ? { demand, minutes: Math.max(get().minutes, 15) } : { demand }),
@@ -209,3 +236,11 @@ export function levelOfService(delay: number): 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
   if (delay <= 80) return 'E';
   return 'F';
 }
+
+// A file opened (or opened again) brings its light programs back.
+let shownFile: string | null = null;
+useEditor.subscribe((s) => {
+  if (s.fileName === shownFile) return;
+  shownFile = s.fileName;
+  useSim.setState({ plans: loadPlans(s.fileName) });
+});

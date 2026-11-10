@@ -16,6 +16,7 @@ if isinstance(request, list):
 zones = request.get("zones", [])
 stops = request.get("stops", [])
 plans = request.get("plans", [])
+phase_plans = request.get("phase_plans", [])
 
 # pyproj is often missing, so the UTM projection netconvert uses is done here (WGS84, Krueger series).
 import math  # noqa: E402
@@ -160,7 +161,83 @@ def with_sections(t, items, main, left_arrow, right_arrow, ped_phase, ped_s):
     return out
 
 
-def program(plan):
+def arm_of(edge_id):
+    """Approach key of an incoming edge, as the editor names it: "<way>:<step>". netconvert calls
+    the edges of an OSM way "<way>#<n>" along it and "-<way>#<n>" against it; traffic coming in
+    along the way meets the junction at the way's end, so the road leaves it against the way (step
+    -1), and the other way round."""
+    against = edge_id.startswith("-")
+    way = edge_id.lstrip("-").split("#")[0]
+    return f"{way}:{1 if against else -1}"
+
+
+def own_program(t, spec, adaptive, min_green, max_green, max_gap):
+    """A program of exactly the engineer's phases: in each, the links of an approach that moves
+    get green ('g' for a left turn that gives way to oncoming traffic), the rest red; between
+    phases the links that stop show yellow, then all-red; pedestrian links are green in a
+    pedestrian phase (or always, when the plan has none, so people are never locked out)."""
+    dirs, peds = link_kinds(t)
+    links = {}
+    for in_lane, _out, idx in t.getConnections():
+        links.setdefault(idx, in_lane.getEdge().getID())
+    # The state has one letter per link of the program SUMO made, linked or not.
+    progs = list(t.getPrograms().values())
+    n = len(progs[0].getPhases()[0].state) if progs and progs[0].getPhases() else (max(links) + 1 if links else 0)
+    if n == 0:
+        return None
+    phases = spec.get("phases", [])
+    has_ped = any(p.get("ped") for p in phases)
+    keys = {arm_of(e) for i, e in links.items() if i not in peds}
+    known = {k for p in phases for k in p.get("moves", {})}
+    # An approach the editor does not know (netconvert joined or renamed its edge) moves with the first phase.
+    first_go = next((p for p in phases if not p.get("ped")), None)
+
+    def state(p):
+        out = []
+        for i in range(n):
+            if i in peds:
+                out.append("G" if p.get("ped") or not has_ped else "r")
+                continue
+            if p.get("ped"):
+                out.append("r")
+                continue
+            key = arm_of(links.get(i, ""))
+            move = p.get("moves", {}).get(key, "off") if key in known else ("go" if p is first_go else "off")
+            d = dirs.get(i, "s")
+            left = d in ("l", "L", "t")
+            if move == "go":
+                out.append("g" if left else "G")
+            elif move == "noleft":
+                out.append("r" if left else "G")
+            elif move == "left":
+                out.append("G" if left else "r")
+            else:
+                out.append("r")
+        return "".join(out)
+
+    states = [state(p) for p in phases]
+    items = []
+    for k, p in enumerate(phases):
+        st, nxt = states[k], states[(k + 1) % len(states)]
+        items.append((float(p["green"]), st, not p.get("ped")))
+        if p.get("yellow", 0) > 0:
+            items.append((float(p["yellow"]), "".join("y" if c in "Gg" and nxt[i] == "r" else c for i, c in enumerate(st)), False))
+        if p.get("all_red", 0) > 0:
+            items.append((float(p["all_red"]), "".join(c if c in "Gg" and nxt[i] in "Gg" else "r" for i, c in enumerate(st)), False))
+    offset = float(spec.get("offset", 0))
+    if adaptive:
+        body = "".join(
+            f'    <phase duration="{d:.0f}" minDur="{min(min_green, d):.0f}" maxDur="{max(max_green, d):.0f}" state="{st}"/>\n' if g else f'    <phase duration="{d:.0f}" state="{st}"/>\n'
+            for d, st, g in items)
+        params = f'    <param key="max-gap" value="{max_gap:.1f}"/>\n    <param key="detector-gap" value="2.0"/>\n'
+        xml = f'  <tlLogic id="{t.getID()}" type="actuated" programID="graf" offset="{offset:.0f}">\n{params}{body}  </tlLogic>\n'
+    else:
+        body = "".join(f'    <phase duration="{d:.0f}" state="{st}"/>\n' for d, st, _ in items)
+        xml = f'  <tlLogic id="{t.getID()}" type="static" programID="graf" offset="{offset:.0f}">\n{body}  </tlLogic>\n'
+    return {"tls": t.getID(), "xml": xml, "cycle": round(sum(d for d, _, _ in items)), "unmatched": sorted(keys - known)}
+
+
+def program(plan, spec=None):
     """Program for the traffic light nearest to the OSM node: yellow and all-red keep their
     length, the rest of the cycle goes to green phases, `share` of it to the main ones. An adaptive
     plan is a SUMO actuated program: each green lasts between its min and max and ends once the gap
@@ -181,6 +258,8 @@ def program(plan):
     if best is None:
         return None
     t = best[1]
+    if spec and spec.get("phases"):
+        return own_program(t, spec, adaptive, min_green, max_green, max_gap)
     progs = list(t.getPrograms().values())
     if not progs:
         return None
@@ -226,6 +305,6 @@ out = {
     "tls": tls,
     "zones": [{"from": nearest(z[0], z[1], True), "to": nearest(z[0], z[1], False)} for z in zones],
     "stops": [stop_lane(p[0], p[1]) for p in stops],
-    "programs": [program(p) for p in plans],
+    "programs": [program(p, phase_plans[i] if i < len(phase_plans) else None) for i, p in enumerate(plans)],
 }
 json.dump(out, open(sys.argv[-1], "w"))

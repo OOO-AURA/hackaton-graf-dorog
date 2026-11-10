@@ -11,10 +11,8 @@ import { removePickedLink } from '../state/laneActions';
 import { TURN_GLYPHS } from './LaneTurnsSection';
 import type { OsmDoc } from '../osm/types';
 import { useSettledDoc } from '../state/settled';
-import { SignalPlanSection } from './SignalPlanSection';
+import { SignalEditor } from './SignalPlanSection';
 import { approachControl, approachSign, setApproachSign, type ApproachSign } from '../osm/signs';
-import { setNodeTags } from '../osm/edit';
-import { withTag } from '../osm/tags';
 
 /**
  * Parts of a junction's editing, shared by the node inspector and the junction editor window:
@@ -111,21 +109,9 @@ export function JunctionInfo({ nodeId }: { nodeId: string }) {
   );
 }
 
-/** Light of the junction: its plan and extra sections, or a button to put one. */
+/** Light of the junction: put it, take it away, its phases and every setting (SignalPlanSection.tsx). */
 export function JunctionSignal({ nodeId }: { nodeId: string }) {
-  const doc = useSettledDoc();
-  const apply = useEditor((s) => s.apply);
-  const node = doc.nodes[nodeId];
-  const ways = armsAt(doc, nodeId).map((a) => doc.ways[a.wayId]);
-  if (node.tags.highway !== 'traffic_signals') {
-    return (
-      <div className="jc-signal-empty">
-        <p className="jc-hint">Светофора здесь нет.</p>
-        <button className="btn btn-sm" onClick={() => apply((d) => setNodeTags(d, nodeId, withTag(d.nodes[nodeId].tags, 'highway', 'traffic_signals')))}>Поставить светофор</button>
-      </div>
-    );
-  }
-  return <SignalPlanSection node={node} ways={ways} />;
+  return <SignalEditor nodeId={nodeId} />;
 }
 
 /** Name of a junction from its streets, like "Лермонтова × Игошина". */

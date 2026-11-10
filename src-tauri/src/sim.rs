@@ -91,6 +91,26 @@ pub struct SignalPlan {
     pub ped_phase: bool,
     #[serde(default = "default_ped_s")]
     pub ped_s: f64,
+    /// Start of the cycle against the common clock, seconds.
+    #[serde(default)]
+    pub offset_s: f64,
+    /// The engineer's own phases; when there are any they make the program instead of the share.
+    #[serde(default)]
+    pub phases: Vec<PhaseSpec>,
+}
+
+/// One phase of a light: green, yellow and all-red seconds, how each approach moves
+/// (by "<way>:<step>" key: off, go, noleft, left), or pedestrians only.
+#[derive(Clone, Deserialize)]
+#[cfg_attr(test, derive(Debug))]
+pub struct PhaseSpec {
+    pub green_s: f64,
+    pub yellow_s: f64,
+    pub all_red_s: f64,
+    #[serde(default)]
+    pub ped: bool,
+    #[serde(default)]
+    pub moves: std::collections::HashMap<String, String>,
 }
 
 fn default_ped_s() -> f64 { 15.0 }
@@ -547,7 +567,13 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
     if demand.is_some() || !stop_points.is_empty() || !plans.is_empty() {
         let request = dir.join("request.json");
         let zones = demand.map(|d| d.zones.clone()).unwrap_or_default();
-        let body = serde_json::json!({ "zones": zones, "stops": stop_points, "plans": plans });
+        // The phases go beside the plan numbers, one entry per plan (null when it has none).
+        let phase_plans: Vec<serde_json::Value> = extras.signals.iter().map(|p| if p.phases.is_empty() { serde_json::Value::Null } else {
+            serde_json::json!({ "offset": p.offset_s.clamp(0.0, 300.0), "phases": p.phases.iter().map(|ph| serde_json::json!({
+                "green": ph.green_s.clamp(1.0, 180.0), "yellow": ph.yellow_s.clamp(0.0, 10.0), "all_red": ph.all_red_s.clamp(0.0, 10.0), "ped": ph.ped, "moves": &ph.moves,
+            })).collect::<Vec<_>>() })
+        }).collect();
+        let body = serde_json::json!({ "zones": zones, "stops": stop_points, "plans": plans, "phase_plans": phase_plans });
         fs::write(&request, body.to_string()).map_err(|e| e.to_string())?;
         cmd.arg(request);
     }
@@ -784,6 +810,10 @@ mod local_run {
         assert!(s.ok, "missing {:?}", s.missing);
     }
 
+    fn plan_like(tl: (f64, f64)) -> super::SignalPlan {
+        super::SignalPlan { node: "n".into(), lon: tl.0, lat: tl.1, cycle_s: 60.0, main_share: 0.7, adaptive: false, min_green_s: 8.0, max_green_s: 50.0, max_gap_s: 3.0, left_arrow: false, right_arrow: false, ped_phase: false, ped_s: 15.0, offset_s: 0.0, phases: vec![] }
+    }
+
     #[test]
     #[ignore]
     fn simulates_example() {
@@ -806,10 +836,17 @@ mod local_run {
         println!("persons {} walked {} loss {:.1} crossings {:?}", r.persons, r.ped_finished, r.ped_mean_time_loss_s, r.crossings.iter().take(3).collect::<Vec<_>>());
         assert!(r.persons > 10);
         let tl = r.signals.first().map(|s| (s.lon, s.lat)).unwrap();
-        let plan = super::SignalPlan { node: "n".into(), lon: tl.0, lat: tl.1, cycle_s: 60.0, main_share: 0.7, adaptive: false, min_green_s: 8.0, max_green_s: 50.0, max_gap_s: 3.0, left_arrow: false, right_arrow: false, ped_phase: false, ped_s: 15.0 };
+        let plan = super::SignalPlan { node: "n".into(), lon: tl.0, lat: tl.1, cycle_s: 60.0, main_share: 0.7, adaptive: false, min_green_s: 8.0, max_green_s: 50.0, max_gap_s: 3.0, left_arrow: false, right_arrow: false, ped_phase: false, ped_s: 15.0, offset_s: 0.0, phases: vec![] };
         let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: false, signals: vec![plan], rush_hour: false })).unwrap();
         println!("plans {:?} loss {:.1}", r.plans.iter().map(|p| (&p.tls, p.cycle_s)).collect::<Vec<_>>(), r.mean_time_loss_s);
         assert_eq!(r.plans.len(), 1);
+        // The engineer's own phases: two phases and a pedestrian one make a program of exactly them.
+        let phase = |green: f64, ped: bool| super::PhaseSpec { green_s: green, yellow_s: 3.0, all_red_s: 2.0, ped, moves: Default::default() };
+        let own = super::SignalPlan { phases: vec![phase(30.0, false), phase(20.0, false), phase(12.0, true)], offset_s: 10.0, ..plan_like(tl) };
+        let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: true, signals: vec![own], rush_hour: false })).unwrap();
+        println!("own phases {:?}", r.plans.iter().map(|p| (&p.tls, p.cycle_s)).collect::<Vec<_>>());
+        assert_eq!(r.plans.len(), 1);
+        assert_eq!(r.plans[0].cycle_s.round() as i64, 30 + 20 + 12 + 3 * 5);
         println!("timeline {} ways x {} min", r.timeline.ways.len(), r.timeline.ways.first().map(|w| w.delay.len()).unwrap_or(0));
         assert!(!r.timeline.ways.is_empty());
     }
