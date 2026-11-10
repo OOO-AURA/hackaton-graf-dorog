@@ -18,6 +18,7 @@ import type { CSSProperties } from 'react';
 import { useCheck } from './components/CheckPanel';
 import { useSim } from './sim/store';
 import { startErrorLog, useErrorLog } from './state/errorLog';
+import { JunctionEditor } from './components/JunctionEditor';
 
 const MESSAGE_TIMEOUT_MS = 3500;
 const VALIDATE_DELAY_MS = 350;
@@ -91,6 +92,7 @@ export function App() {
       </main>
       <SidePanel side="right" title="Инспектор">{workspace === 'micro' ? <MicroPanel /> : <Inspector />}</SidePanel>
       <BottomDock />
+      <JunctionEditor />
       <Toast />
       <Tour />
     </div>

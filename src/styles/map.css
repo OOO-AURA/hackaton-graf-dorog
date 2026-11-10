@@ -105,11 +105,13 @@
 .seg-wide { display: flex; margin-bottom: 8px; }
 .seg-wide button { flex: 1; }
 
-/* Junction editor card, top right of the free map, next to the zoom controls. */
-.junction-card {
-  top: 56px; right: 60px; width: 300px; max-height: calc(100% - 68px); flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px 12px;
-  overflow-y: auto; scrollbar-width: thin;
-}
+/* Junction parts: in the node inspector and in the junction editor window. */
+.jc-lanes-part { display: grid; gap: 8px; }
+.jc-signs { display: grid; gap: 6px; }
+.jc-sign-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: var(--r-md); background: var(--hover); }
+.jc-sign-seg button { width: 30px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.insp-cta { display: flex; align-items: center; gap: 10px; padding: 10px 16px 4px; }
+.insp-cta .hint { margin: 0; }
 .jc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .jc-head h3 { margin: 2px 0 0; font-size: 14px; font-weight: 700; line-height: 1.25; }
 .jc-head .tool { width: 26px; height: 26px; flex-shrink: 0; }
@@ -141,7 +143,6 @@
 .jc-hint { margin: 0; font-size: 11px; color: var(--ink-2); line-height: 1.4; }
 .jc-picked { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 600; }
 .jc-templates { display: flex; flex-wrap: wrap; gap: 4px; }
-@media (max-width: 1360px) { .junction-card { top: 100px; max-height: calc(100% - 112px); } }
 
 /* Buildings in the way of the road being drawn: what to do with them, under the tools. */
 .float-conflict { top: 56px; left: 12px; flex-direction: column; align-items: flex-start; gap: 6px; padding: 8px 10px; border-color: color-mix(in srgb, var(--red) 55%, transparent); }

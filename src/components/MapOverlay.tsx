@@ -13,7 +13,6 @@ import { TOOLS } from './tools';
 import { EmptyState } from './EmptyState';
 import { SimBar } from './sim/SimBar';
 import { HeightHandle } from './HeightHandle';
-import { JunctionCard } from './JunctionCard';
 import { useBuildingTool } from '../map/buildingTool';
 import { BUILDING_TEMPLATES } from '../osm/buildingShape';
 
@@ -260,7 +259,6 @@ export function MapOverlay({ map }: { map: MapLibreMap | null }) {
       {!micro && <LookSwitch />}
       <LensSwitch />
       <LoadLegend />
-      {!micro && <JunctionCard />}
       <ZoomControls map={map} />
       <BasemapSwitch />
       <ColorModeSwitch />

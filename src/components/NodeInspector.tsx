@@ -13,7 +13,9 @@ import { SignalPlanSection } from './SignalPlanSection';
 import { TurnsSection } from './TurnsSection';
 import { RouteSection } from './RouteSection';
 import { isJunction } from '../osm/turns';
-import { LaneTurnsSection } from './LaneTurnsSection';
+import { JunctionInfo, JunctionLanes, JunctionSigns } from './JunctionParts';
+import { JunctionCapacitySection } from './CapacityParts';
+import { junctions } from '../osm/lanes';
 import { useSettledDoc } from '../state/settled';
 import { StopSection } from './BusParts';
 import { detachWay } from '../osm/pieces';
@@ -30,8 +32,7 @@ const CALMING_OPTIONS = [['', 'Нет'], ['bump', 'Лежачий полицей
 const SIGNAL_DIRECTION_OPTIONS = [['', 'Все направления'], ['forward', 'Только по ходу линии'], ['backward', 'Только против хода']] as const;
 
 export function NodeInspector({ node }: { node: OsmNode }) {
-  const cardClosed = useUi((s) => s.junctionCardClosed);
-  const setCardClosed = useUi((s) => s.setJunctionCardClosed);
+  const openEditor = useUi((s) => s.setJunctionEditor);
   const apply = useEditor((s) => s.apply);
   const doc = useSettledDoc();
   const select = useEditor((s) => s.select);
@@ -40,13 +41,13 @@ export function NodeInspector({ node }: { node: OsmNode }) {
   const isSignal = node.tags.highway === 'traffic_signals';
   const inner = ways.some((w) => w.refs.indexOf(node.id) > 0 && w.refs.indexOf(node.id) < w.refs.length - 1);
 
+  const junction = junctions(doc).includes(node.id);
   const kind = NODE_KIND_OPTIONS.find(([v]) => v === (node.tags.highway ?? ''))?.[1] ?? node.tags.highway;
   return (
     <div className="inspector">
       <header className="insp-head">
         <span className="micro">Узел</span>
         <h2 className="insp-title">{NODE_FEATURES.find((f) => f.id === nodeSymbol(node.tags))?.label ?? (ways.length > 1 ? 'Перекрёсток' : kind)}</h2>
-        {cardClosed === node.id && <button className="link" onClick={() => setCardClosed(null)}>Открыть карточку перекрёстка</button>}
         <span className="mono insp-id">node {node.id} · {node.lat.toFixed(6)}, {node.lon.toFixed(6)}</span>
       </header>
       <Section title="Организация движения">
@@ -62,9 +63,20 @@ export function NodeInspector({ node }: { node: OsmNode }) {
           <button className="btn" onClick={splitAtSelected} disabled={!inner} title="X"><Icon name="scissors" /> Разрезать здесь <kbd>X</kbd></button>
         </div>
       </Section>
-      <LaneTurnsSection node={node} />
+      {junction && (
+        <>
+          <div className="insp-cta">
+            <button className="btn btn-ink" onClick={() => openEditor(node.id)}>Редактор перекрёстка</button>
+            <span className="hint">или двойной клик по перекрёстку на карте</span>
+          </div>
+          <Section title="Полосы"><JunctionLanes nodeId={node.id} /></Section>
+          <Section title="Знаки приоритета"><JunctionSigns nodeId={node.id} /></Section>
+        </>
+      )}
       {isSignal && <SignalPlanSection node={node} ways={ways} />}
       {isJunction(doc, node.id) && <TurnsSection nodeId={node.id} />}
+      {junction && <Section title="Пропускная способность" open={false}><JunctionCapacitySection nodeId={node.id} /></Section>}
+      {junction && <Section title="Сведения" open={false}><JunctionInfo nodeId={node.id} /></Section>}
       <RouteSection nodeId={node.id} />
       <Section title="Высота" open={false}>
         <TextField

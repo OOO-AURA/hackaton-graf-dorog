@@ -3,7 +3,10 @@ import { createRoot } from 'react-dom/client';
 import { parseOsm } from '../osm/parse';
 import { junctionLanes } from '../osm/lanes';
 import { useEditor } from '../state/store';
-import { JunctionCard } from './JunctionCard';
+import { JunctionLanes, JunctionSigns, junctionName } from './JunctionParts';
+import { JunctionCapacitySection } from './CapacityParts';
+import { approachSign } from '../osm/signs';
+import { armsAt } from '../osm/lanes';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -27,27 +30,25 @@ function render(node: React.ReactNode) {
 
 const south = () => junctionLanes(useEditor.getState().doc, '0').approaches.find((a) => a.arm.wayId === '10')!;
 
-describe('junction card', () => {
+describe('junction parts', () => {
   beforeEach(() => act(() => {
     useEditor.getState().load(parseOsm(XML), 'cross.osm');
     useEditor.getState().select({ type: 'node', id: '0' });
   }));
 
   test('shows every approach with its lanes, named after the streets', () => {
-    const r = render(<JunctionCard />);
-    expect(r.mount.textContent).toContain('Лермонтова × Игошина');
+    expect(junctionName(useEditor.getState().doc, '0')).toBe('Лермонтова × Игошина');
+    const r = render(<><JunctionLanes nodeId="0" /><JunctionCapacitySection nodeId="0" /></>);
     expect(r.mount.querySelectorAll('.jc-approach')).toHaveLength(4);
     expect(r.mount.querySelectorAll('.jc-approach')[0].querySelectorAll('.jc-lane')).toHaveLength(2);
     // Four approaches of two lanes, no signs: the right-hand rule, 650 an hour a lane.
-    const tab = [...r.mount.querySelectorAll('.jc-tabs button')].find((b) => b.textContent === 'Пропускная') as HTMLButtonElement;
-    act(() => tab.click());
     expect(r.mount.textContent).toContain('Пропускная способность');
     expect(r.mount.textContent).toMatch(/5\s?200 авт\/ч/);
     r.done();
   });
 
   test('+ adds a lane to the approach, a turn button forbids that turn', () => {
-    const r = render(<JunctionCard />);
+    const r = render(<JunctionLanes nodeId="0" />);
     const row = () => [...r.mount.querySelectorAll('.jc-approach')].find((el) => el.textContent?.includes('Лермонтова') && el.querySelector('.jc-street em')?.textContent === 'Ю')!;
     act(() => (row().querySelector('.jc-stepper button:last-child') as HTMLButtonElement).click());
     expect(south().turns).toHaveLength(3);
@@ -57,10 +58,16 @@ describe('junction card', () => {
     r.done();
   });
 
-  test('is not shown for a node that is not a junction', () => {
-    act(() => useEditor.getState().select({ type: 'node', id: '1' }));
-    const r = render(<JunctionCard />);
-    expect(r.mount.querySelector('.junction-card')).toBeNull();
+  test('a sign button puts that sign on the approach', () => {
+    const r = render(<JunctionSigns nodeId="0" />);
+    const arm = () => armsAt(useEditor.getState().doc, '0').find((a) => a.wayId === '10')!;
+    const row = [...r.mount.querySelectorAll('.jc-sign-row')].find((el) => el.querySelector('.jc-street em')?.textContent === 'Ю')!;
+    act(() => (row.querySelector('button[title="Уступи дорогу"]') as HTMLButtonElement).click());
+    expect(approachSign(useEditor.getState().doc, '0', arm())).toBe('give_way');
+    act(() => ([...r.mount.querySelectorAll('.jc-sign-row')].find((el) => el.querySelector('.jc-street em')?.textContent === 'Ю')!.querySelector('button[title="STOP"]') as HTMLButtonElement).click());
+    expect(approachSign(useEditor.getState().doc, '0', arm())).toBe('stop');
+    act(() => ([...r.mount.querySelectorAll('.jc-sign-row')].find((el) => el.querySelector('.jc-street em')?.textContent === 'Ю')!.querySelector('button[title="Без знака"]') as HTMLButtonElement).click());
+    expect(approachSign(useEditor.getState().doc, '0', arm())).toBe('none');
     r.done();
   });
 });

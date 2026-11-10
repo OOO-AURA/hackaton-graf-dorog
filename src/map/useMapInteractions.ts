@@ -6,6 +6,7 @@ import { featureById, toggleNodeFeature } from './features';
 import { useEditor } from '../state/store';
 import { finishDrawing } from '../state/actions';
 import { hitBuilding, hitNode, hitWay } from './hit';
+import { junctions } from '../osm/lanes';
 import { drawTarget } from './drawSnap';
 import { curvePoints } from '../osm/drawGeometry';
 import { isBuilding } from '../osm/building';
@@ -214,7 +215,17 @@ export function useMapInteractions(map: MapLibreMap | null, onPointer: (lon: num
       const hovering = !placing && (hitNode(map, e.point) || hitWay(map, s.doc, e.point));
       map.getCanvas().style.cursor = placing ? 'crosshair' : hovering ? 'pointer' : '';
     };
-    const onDblClick = () => { if (useEditor.getState().mode === 'draw') finishDrawing(); };
+    const onDblClick = (e: MapMouseEvent) => {
+      const s = useEditor.getState();
+      if (s.mode === 'draw') { finishDrawing(); return; }
+      // A double click on a junction opens its editor window.
+      if (s.mode !== 'select') return;
+      const id = hitNode(map, e.point);
+      if (!id || !junctions(s.doc).includes(id)) return;
+      e.preventDefault();
+      s.select({ type: 'node', id });
+      useUi.getState().setJunctionEditor(id);
+    };
     map.on('click', onClick);
     map.on('dblclick', onDblClick);
     map.on('mousemove', onMove);

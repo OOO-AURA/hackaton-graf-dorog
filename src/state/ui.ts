@@ -70,8 +70,9 @@ interface UiState {
   setDrawTarget: (target: DrawTarget | null) => void;
   /** Curve mode: the click after a point bends the road (control point), the next one ends the curve. */
   /** Junction whose card was closed: the card stays shut for it, the inspector stays open. */
-  junctionCardClosed: string | null;
-  setJunctionCardClosed: (nodeId: string | null) => void;
+  /** The junction whose editor window is open (double click on a junction), or null. */
+  junctionEditor: string | null;
+  setJunctionEditor: (nodeId: string | null) => void;
   drawCurve: boolean;
   toggleDrawCurve: () => void;
   curveControl: { lon: number; lat: number } | null;
@@ -116,8 +117,8 @@ export const useUi = create<UiState>((set, get) => ({
   setDragging: (dragging) => set({ dragging }),
   drawTarget: null,
   setDrawTarget: (drawTarget) => set({ drawTarget }),
-  junctionCardClosed: null,
-  setJunctionCardClosed: (junctionCardClosed) => set({ junctionCardClosed }),
+  junctionEditor: null,
+  setJunctionEditor: (junctionEditor) => set({ junctionEditor }),
   drawCurve: false,
   toggleDrawCurve: () => set({ drawCurve: !get().drawCurve, curveControl: null }),
   curveControl: null,

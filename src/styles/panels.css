@@ -457,3 +457,43 @@ button.link:hover { text-decoration: underline; }
 .lane-turns { display: flex; flex-wrap: wrap; gap: 4px; }
 .lane-turns .jc-turn { --turn: #2CC7C9; }
 .signal-sections { display: grid; gap: 4px; margin: 8px 0; padding: 8px; border-radius: var(--r-md); background: var(--hover); }
+
+/* Junction editor window: a large plan of one junction, its settings beside it. */
+.jx-backdrop {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px;
+  background: color-mix(in srgb, #000 45%, transparent); animation: jx-fade 160ms var(--ease-out, ease-out) both;
+}
+@keyframes jx-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .jx-backdrop { animation: none; } }
+.jx-window {
+  display: grid; grid-template-rows: auto 1fr; width: min(1280px, 100%); height: min(820px, 100%);
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45); overflow: hidden;
+}
+.jx-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 18px 10px; border-bottom: 1px solid var(--line); }
+.jx-head h2 { margin: 2px 0 0; font-size: 18px; line-height: 1.2; }
+.jx-body { display: grid; grid-template-columns: minmax(0, 1fr) 380px; min-height: 0; }
+.jx-stage { position: relative; display: grid; grid-template-rows: 1fr auto; min-height: 0; background: var(--map-bg, #1E1E22); }
+.jx-plan { width: 100%; height: 100%; min-height: 0; touch-action: none; user-select: none; }
+.jx-help { margin: 0; padding: 8px 14px 10px; font-size: 11.5px; color: var(--ink-2); background: var(--panel); border-top: 1px solid var(--line); }
+.jx-side { display: grid; grid-template-rows: auto 1fr; min-height: 0; padding: 12px 14px; gap: 10px; border-left: 1px solid var(--line); }
+.jx-panel { min-height: 0; overflow-y: auto; scrollbar-width: thin; padding-right: 2px; }
+.jx-road-edge { fill: none; stroke: #8E8E98; stroke-linecap: butt; stroke-linejoin: round; }
+.jx-road { fill: none; stroke: #45454E; stroke-linecap: butt; stroke-linejoin: round; }
+.jx-core { fill: #45454E; stroke: none; }
+.jx-mark { fill: none; stroke: #F4F1EA; stroke-width: 0.15; }
+.jx-mark.dash { stroke-dasharray: 3 3; }
+.jx-stop { fill: none; stroke: #FFFFFF; stroke-width: 0.4; }
+.jx-stop.yield { stroke-dasharray: 0.7 0.7; }
+.jx-link { cursor: pointer; }
+.jx-link-hit { fill: none; stroke: transparent; stroke-width: 1.8; }
+.jx-link-line { fill: none; stroke: currentColor; stroke-width: 0.35; stroke-linecap: round; opacity: 0.9; }
+.jx-link:hover .jx-link-line { stroke-width: 0.55; opacity: 1; }
+.jx-link.picked .jx-link-line { stroke-width: 0.8; opacity: 1; }
+.jx-end { stroke-width: 0.35; fill: #FBF6EA; }
+.jx-end.in { stroke: #E5392A; cursor: grab; }
+.jx-end.out { stroke: #3F8BC4; }
+.jx-drag { stroke: #E5392A; stroke-width: 0.35; stroke-dasharray: 0.8 0.5; pointer-events: none; }
+.jx-sign { cursor: pointer; color: #EDEAE3; }
+.jx-sign-bg { fill: rgba(20, 20, 24, 0.75); stroke: rgba(255, 255, 255, 0.35); stroke-width: 0.12; }
+.jx-sign:hover .jx-sign-bg { stroke: #fff; stroke-width: 0.2; }
+.jx-signal rect { fill: #1A1A1E; stroke: #fff; stroke-width: 0.15; }

@@ -93,12 +93,12 @@ export function approachControl(doc: OsmDoc, nodeId: string, arm: Arm): Approach
 /** Travel direction of traffic coming in along an arm, in the way's terms. */
 const incomingDirection = (arm: Arm) => (arm.step === 1 ? 'backward' : 'forward');
 
-/** Puts a give-way sign on the arm `back` metres from the junction, on a node there or a new one. */
-function addGiveWay(doc: OsmDoc, nodeId: string, arm: Arm, back: number): OsmDoc {
+/** Puts a give-way (or stop) sign on the arm `back` metres from the junction, on a node there or a new one. */
+function addGiveWay(doc: OsmDoc, nodeId: string, arm: Arm, back: number, highway: 'give_way' | 'stop' = 'give_way'): OsmDoc {
   const way = doc.ways[arm.wayId];
   const refs = armRefs(way, arm);
   const f = frame(doc.nodes[nodeId].lat);
-  const tags = { highway: 'give_way', direction: incomingDirection(arm) };
+  const tags = { highway, direction: incomingDirection(arm) };
   let dist = 0;
   for (let i = 1; i < refs.length; i += 1) {
     const [a, b] = [doc.nodes[refs[i - 1]], doc.nodes[refs[i]]];
@@ -118,6 +118,50 @@ function addGiveWay(doc: OsmDoc, nodeId: string, arm: Arm, back: number): OsmDoc
 
 const signBack = (doc: OsmDoc, arms: readonly Arm[]) =>
   Math.max(SIGN_BACK_MIN, Math.max(...arms.map((a) => halfWidth(doc.ways[a.wayId].tags))) + SIGN_BACK_MARGIN);
+
+/** The sign a driver sees coming into the junction along an arm: main road, give way, stop or none. */
+export type ApproachSign = 'none' | 'main' | 'give_way' | 'stop';
+
+export function approachSign(doc: OsmDoc, nodeId: string, arm: Arm): ApproachSign {
+  const control = approachControl(doc, nodeId, arm);
+  if (control === 'stop' || control === 'give_way') return control;
+  return doc.ways[arm.wayId]?.tags.priority_road ? 'main' : 'none';
+}
+
+/**
+ * Sets the sign of one approach: a give-way or stop sign goes on a node of the arm before the
+ * junction (the old one is taken off first), the main road is `priority_road=designated` on the
+ * arm's way, which OSM keeps for the whole way.
+ */
+export function setApproachSign(doc: OsmDoc, nodeId: string, arm: Pick<Arm, 'wayId' | 'step'>, sign: ApproachSign): OsmDoc {
+  const key = `${arm.wayId}:${arm.step}`;
+  const find = (d: OsmDoc) => armsAt(d, nodeId).find((a) => `${a.wayId}:${a.step}` === key);
+  const at = find(doc);
+  if (!at) return doc;
+  let d = doc;
+  const way = d.ways[at.wayId];
+  const refs = armRefs(way, at);
+  const f = frame(d.nodes[nodeId].lat);
+  let dist = 0;
+  for (let i = 1; i < refs.length; i += 1) {
+    const [a, b] = [d.nodes[refs[i - 1]], d.nodes[refs[i]]];
+    if (!a || !b) break;
+    const [pa, pb] = [f.to(a.lon, a.lat), f.to(b.lon, b.lat)];
+    dist += Math.hypot(pb[0] - pa[0], pb[1] - pa[1]);
+    if (dist > CONTROL_REACH) break;
+    if (b.tags.highway === 'give_way' || b.tags.highway === 'stop') {
+      d = setNodeTags(d, b.id, withTag(withTag(b.tags, 'highway', null), 'direction', null));
+    }
+  }
+  const tags = d.ways[at.wayId].tags;
+  if (sign === 'main' && !tags.priority_road) d = setWayTags(d, at.wayId, withTag(tags, 'priority_road', 'designated'));
+  if (sign !== 'main' && tags.priority_road) d = setWayTags(d, at.wayId, withTag(tags, 'priority_road', null));
+  if (sign === 'give_way' || sign === 'stop') {
+    const again = find(d);
+    if (again) d = addGiveWay(d, nodeId, again, signBack(d, armsAt(d, nodeId)), sign);
+  }
+  return d;
+}
 
 /**
  * Places priority signs by the rules at every junction without a traffic light: the roads of the

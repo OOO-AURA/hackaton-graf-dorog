@@ -1,28 +1,27 @@
 import {
-  applyJunctionTemplate, armKey, armsAt, classifyTurn, junctionLanes, junctions, setApproachLanes, toggleLaneTurn, turnDelta, TURNS,
+  applyJunctionTemplate, armKey, armsAt, classifyTurn, junctionLanes, setApproachLanes, toggleLaneTurn, turnDelta, TURNS,
   type Approach, type Arm, type JunctionLanes, type Turn,
 } from '../osm/lanes';
 import { compass } from '../osm/turns';
 import { turnGroup } from '../map/lanesGeo';
 import { TURN_COLORS } from '../map/junctionLayers';
-import { currentSelection, useEditor } from '../state/store';
+import { useEditor } from '../state/store';
 import { useUi } from '../state/ui';
 import { removePickedLink } from '../state/laneActions';
 import { TURN_GLYPHS } from './LaneTurnsSection';
-import { Icon } from './icons';
 import type { OsmDoc } from '../osm/types';
 import { useSettledDoc } from '../state/settled';
-import { JunctionCapacitySection } from './CapacityParts';
-import { useState } from 'react';
 import { SignalPlanSection } from './SignalPlanSection';
-import { approachControl } from '../osm/signs';
+import { approachControl, approachSign, setApproachSign, type ApproachSign } from '../osm/signs';
 import { setNodeTags } from '../osm/edit';
 import { withTag } from '../osm/tags';
 
 /**
- * The junction being edited, on the map next to it: every approach with its number of lanes
- * (− / +) and, for every lane, the directions it may take, in the colours of the ribbons on the
- * map. A click on a ribbon picks that movement here, so it can be forbidden in one step.
+ * Parts of a junction's editing, shared by the node inspector and the junction editor window:
+ * every approach with its number of lanes (− / +) and, for every lane, the directions it may
+ * take, in the colours of the ribbons on the map (a click on a ribbon picks that movement here,
+ * so it can be forbidden in one step); the priority sign of every approach; the traffic light;
+ * capacity; what the junction is made of.
  */
 
 const TURN_NAMES: Readonly<Record<Turn, string>> = {
@@ -91,11 +90,8 @@ function PickedLink() {
   );
 }
 
-type CardTab = 'lanes' | 'signal' | 'capacity' | 'info';
-const CARD_TABS: ReadonlyArray<readonly [CardTab, string]> = [['lanes', 'Полосы'], ['signal', 'Светофор'], ['capacity', 'Пропускная'], ['info', 'Сведения']];
-
 /** What controls the junction and what it is made of, at a glance. */
-function JunctionInfo({ nodeId }: { nodeId: string }) {
+export function JunctionInfo({ nodeId }: { nodeId: string }) {
   const doc = useSettledDoc();
   const node = doc.nodes[nodeId];
   const arms = armsAt(doc, nodeId);
@@ -116,7 +112,7 @@ function JunctionInfo({ nodeId }: { nodeId: string }) {
 }
 
 /** Light of the junction: its plan and extra sections, or a button to put one. */
-function JunctionSignal({ nodeId }: { nodeId: string }) {
+export function JunctionSignal({ nodeId }: { nodeId: string }) {
   const doc = useSettledDoc();
   const apply = useEditor((s) => s.apply);
   const node = doc.nodes[nodeId];
@@ -132,44 +128,77 @@ function JunctionSignal({ nodeId }: { nodeId: string }) {
   return <SignalPlanSection node={node} ways={ways} />;
 }
 
-export function JunctionCard() {
+/** Name of a junction from its streets, like "Лермонтова × Игошина". */
+export function junctionName(doc: OsmDoc, nodeId: string): string {
+  const names = [...new Set(armsAt(doc, nodeId).map((a) => doc.ways[a.wayId]?.tags.name).filter(Boolean))].slice(0, 2).join(' × ');
+  return names || `узел ${nodeId}`;
+}
+
+/** Lanes of every approach and where they may go, with the templates. */
+export function JunctionLanes({ nodeId }: { nodeId: string }) {
   const doc = useSettledDoc();
-  const selection = useEditor((s) => currentSelection(s));
   const apply = useEditor((s) => s.apply);
-  const nodeId = selection?.type === 'node' ? selection.id : null;
-  const closed = useUi((s) => s.junctionCardClosed);
-  const setClosed = useUi((s) => s.setJunctionCardClosed);
-  const [tab, setTab] = useState<CardTab>('lanes');
-  if (!nodeId || !junctions(doc).includes(nodeId) || closed === nodeId) return null;
   const lanes = junctionLanes(doc, nodeId);
-  if (!lanes.approaches.length) return null;
-  const names = [...new Set(lanes.arms.map((a) => doc.ways[a.wayId]?.tags.name).filter(Boolean))].slice(0, 2).join(' × ');
+  if (!lanes.approaches.length) return <p className="jc-hint">На этот перекрёсток никто не въезжает.</p>;
   return (
-    <section className="float junction-card" aria-label="Перекрёсток">
-      <header className="jc-head">
-        <div><span className="micro">Перекрёсток</span><h3>{names || `узел ${nodeId}`}</h3></div>
-        <button className="tool" onClick={() => setClosed(nodeId)} title="Закрыть карточку (перекрёсток остаётся выбранным)"><Icon name="close" /></button>
-      </header>
-      <div className="seg seg-wide jc-tabs" role="tablist" aria-label="Разделы перекрёстка">
-        {CARD_TABS.map(([id, label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>)}
+    <div className="jc-lanes-part">
+      <ul className="jc-legend">{LEGEND.map(([g, label]) => <li key={g}><i style={{ background: TURN_COLORS[g] }} />{label}</li>)}</ul>
+      <div className="jc-body">
+        {lanes.approaches.map((a) => <ApproachRow key={armKey(a.arm)} nodeId={nodeId} lanes={lanes} approach={a} />)}
       </div>
-      {tab === 'lanes' && (
-        <>
-          <ul className="jc-legend">{LEGEND.map(([g, label]) => <li key={g}><i style={{ background: TURN_COLORS[g] }} />{label}</li>)}</ul>
-          <div className="jc-body">
-            {lanes.approaches.map((a) => <ApproachRow key={armKey(a.arm)} nodeId={nodeId} lanes={lanes} approach={a} />)}
-          </div>
-          <PickedLink />
-          <div className="jc-templates">
-            <button className="btn btn-sm" onClick={() => apply((d) => applyJunctionTemplate(d, nodeId, 'usual'))}>Как обычно</button>
-            <button className="btn btn-sm" onClick={() => apply((d) => applyJunctionTemplate(d, nodeId, 'strict'))} title="Налево только с левой полосы, направо только с правой">С крайних</button>
-            <button className="btn btn-sm" onClick={() => apply((d) => applyJunctionTemplate(d, nodeId, 'free'))}>Все направления</button>
-          </div>
-        </>
-      )}
-      {tab === 'signal' && <JunctionSignal nodeId={nodeId} />}
-      {tab === 'capacity' && <JunctionCapacitySection nodeId={nodeId} />}
-      {tab === 'info' && <JunctionInfo nodeId={nodeId} />}
-    </section>
+      <PickedLink />
+      <div className="jc-templates">
+        <button className="btn btn-sm" onClick={() => apply((d) => applyJunctionTemplate(d, nodeId, 'usual'))}>Как обычно</button>
+        <button className="btn btn-sm" onClick={() => apply((d) => applyJunctionTemplate(d, nodeId, 'strict'))} title="Налево только с левой полосы, направо только с правой">С крайних</button>
+        <button className="btn btn-sm" onClick={() => apply((d) => applyJunctionTemplate(d, nodeId, 'free'))}>Все направления</button>
+      </div>
+    </div>
   );
+}
+
+export const SIGN_OPTIONS: ReadonlyArray<readonly [ApproachSign, string]> = [
+  ['none', 'Без знака'], ['main', 'Главная дорога'], ['give_way', 'Уступи дорогу'], ['stop', 'STOP'],
+];
+
+/** The priority sign of every approach, as drivers coming in see it. */
+export function JunctionSigns({ nodeId }: { nodeId: string }) {
+  const doc = useSettledDoc();
+  const apply = useEditor((s) => s.apply);
+  const arms = armsAt(doc, nodeId).filter((a) => a.lanesIn > 0);
+  if (doc.nodes[nodeId]?.tags.highway === 'traffic_signals') return <p className="jc-hint">Перекрёсток регулируется светофором: знаки приоритета на нём не действуют.</p>;
+  return (
+    <div className="jc-signs">
+      {arms.map((arm) => {
+        const now = approachSign(doc, nodeId, arm);
+        return (
+          <div key={armKey(arm)} className="jc-sign-row">
+            <span className="jc-street" title={streetOf(doc, arm)}>{streetOf(doc, arm)}<em>{compass(arm.bearing)}</em></span>
+            <div className="seg jc-sign-seg" role="radiogroup" aria-label={`Знак: ${streetOf(doc, arm)}`}>
+              {SIGN_OPTIONS.map(([v, label]) => (
+                <button key={v} role="radio" aria-checked={now === v} className={now === v ? 'on' : ''} title={label}
+                  onClick={() => apply((d) => setApproachSign(d, nodeId, arm, v))}>
+                  <SignGlyph sign={v} />
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      <p className="jc-hint">Без знаков на равнозначном перекрёстке действует правило правой руки. «Главная дорога» ставится на всю улицу.</p>
+    </div>
+  );
+}
+
+/** Small pictures of the signs 2.1, 2.4 and 2.5, and a dash for no sign. */
+export function SignGlyph({ sign, size = 18 }: { sign: ApproachSign; size?: number }) {
+  if (sign === 'main') {
+    return <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="4" width="12" height="12" transform="rotate(45 10 10)" fill="#fff" stroke="#222" strokeWidth="1" /><rect x="6.5" y="6.5" width="7" height="7" transform="rotate(45 10 10)" fill="#F2C230" /></svg>;
+  }
+  if (sign === 'give_way') {
+    return <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden="true"><path d="M2 3h16L10 18z" fill="#fff" stroke="#D3302A" strokeWidth="2.4" strokeLinejoin="round" /></svg>;
+  }
+  if (sign === 'stop') {
+    return <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 1.5h7l5 5v7l-5 5h-7l-5-5v-7z" fill="#D3302A" /><text x="10" y="12.6" textAnchor="middle" fontSize="5.6" fontWeight="700" fill="#fff" fontFamily="sans-serif">STOP</text></svg>;
+  }
+  return <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>;
 }
