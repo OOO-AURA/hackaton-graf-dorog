@@ -4,6 +4,7 @@ import {
   withBuildingHeight, withBuildingLevels, withMinHeight, withRoadKind, withRoadLayer, type RoadLevelKind,
 } from '../osm/height';
 import { setWayTags } from '../osm/edit';
+import { webotsDefaults } from '../osm/building';
 import type { OsmDoc, Tags } from '../osm/types';
 import { useEditor } from '../state/store';
 import { TextField } from './fields';
@@ -73,8 +74,7 @@ export function BuildingHeightFields({ ids, tags }: { ids: readonly string[]; ta
           onCommit={(v) => applyTags(ids, (t) => withMinHeight(t, Number.isFinite(num(v)) ? num(v) : 0))} />
       </div>
       <p className="hint">
-        {h.known || many ? '' : 'Высота в файле не указана, показана условная: 9 м. '}
-        Этаж считается за 3 м. «Низ» поднимает здание над землёй: арка, навес, переход. Пишется в теги height, building:levels и min_height.
+        Этаж считается за {formatMetres(webotsDefaults(tags).floorHeight)} м, как в Webots. «Низ» поднимает здание над землёй: арка, навес, переход. Пишется в теги height, building:levels и min_height.
         {` Предел ${MAX_BUILDING_HEIGHT} м.`}
       </p>
     </>

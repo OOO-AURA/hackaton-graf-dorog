@@ -3,10 +3,11 @@ import type { LayerId } from '../state/ui';
 import { ROAD_CLASSES, roadColorExpression, type MapPalette } from './palette';
 import { Scene3dLayer, SCENE3D_LAYER } from './scene3d';
 import type { Rgb, Scene3dColors } from './mesh3d';
+import { thematicExpression, type RoadColorMode } from './thematic';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', 'turns', 'changes', 'route'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
 export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'], buildings: ['buildings'], laneEnds: ['lane-ends'], laneLinks: ['lane-links'] } as const;
@@ -121,7 +122,7 @@ export function sceneColors(p: MapPalette): Scene3dColors & { selection: Rgb } {
   const service = rgb(p.roads.service);
   return {
     building: rgb(p.building3d), deck: (h) => byHighway.get(h) ?? service,
-    deckSide: rgb(p.bridgeSide), pier: rgb(p.bridgeSide), portal: rgb(p.bridgeSide), selection: rgb(p.selection),
+    deckSide: rgb(p.bridgeSide), parapet: rgb(p.bridgeParapet), pier: rgb(p.bridgeSide), portal: rgb(p.bridgeSide), selection: rgb(p.selection),
   };
 }
 
@@ -139,6 +140,11 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     id: 'roads', type: 'line', source: 'roads', filter: ['!', ['get', 'bridge']], layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: { 'line-width': laneWidth(), 'line-opacity': ['case', ['get', 'tunnel'], 0.45, 1] },
   });
+  // A blurred copy shifted down-right reads as the deck standing above the ground.
+  map.addLayer({
+    id: 'bridge-shadow', type: 'line', source: 'roads', filter: ['get', 'bridge'], layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: { 'line-width': laneWidth(4), 'line-blur': ['interpolate', ['linear'], ['zoom'], 14, 2, 18, 8], 'line-translate': [4, 5], 'line-translate-anchor': 'viewport' },
+  }, 'roads-casing');
   map.addLayer({ id: 'roads-bridge', type: 'line', source: 'roads', filter: ['get', 'bridge'], layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-width': laneWidth() } });
   map.addLayer({ id: 'selection-line', type: 'line', source: 'selection', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': ['interpolate', ['exponential', 2], ['zoom'], 13, 6, 18, 26], 'line-opacity': 0.55 } }, 'roads-casing');
   map.addLayer({
@@ -175,6 +181,16 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   map.addLayer({ id: 'crossings', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['==', ['get', 'symbol'], 'crossing'], layout: signLayout(1) });
   map.addLayer({ id: 'signs', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['in', ['get', 'symbol'], ['literal', ['bump']]], layout: signLayout(1) });
   map.addLayer({ id: 'signals', type: 'circle', source: 'nodes', minzoom: 13, filter: ['==', ['get', 'kind'], 'signal'], paint: { 'circle-radius': 6, 'circle-stroke-width': 2 } });
+  // Junctions with turn bans: a dashed-looking double ring around the node.
+  map.addLayer({ id: 'turn-bans', type: 'circle', source: 'turns', minzoom: 14, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 6, 18, 13], 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 2.5, 'circle-stroke-opacity': 0.9 } });
+  // What changed against the opened file: new green, edited orange, removed red dashed.
+  const changeColor = ['match', ['get', 'kind'], 'added', '#2E9E4F', 'deleted', '#D92D20', '#E07B12'];
+  map.addLayer({ id: 'changes-line', type: 'line', source: 'changes', filter: ['==', ['geometry-type'], 'LineString'], layout: { visibility: 'none', 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': changeColor as never, 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 4, 18, 14], 'line-opacity': 0.55 } });
+  map.addLayer({ id: 'changes-point', type: 'circle', source: 'changes', filter: ['==', ['geometry-type'], 'Point'], layout: { visibility: 'none' },
+    paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 5, 18, 12], 'circle-color': changeColor as never, 'circle-opacity': 0.6 } });
+  map.addLayer({ id: 'route-line', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': '#7A4FA0', 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 4, 18, 10], 'line-opacity': 0.85 } });
   map.addLayer({ id: 'selection-node', type: 'circle', source: 'selection', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 10, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 3 } });
   map.addLayer({ id: 'issues-halo', type: 'circle', source: 'issues', filter: ['any', ['get', 'focused'], ['!=', ['get', 'kind'], 'cordon']], paint: { 'circle-radius': ['case', ['get', 'focused'], 22, 13], 'circle-opacity': 0.18, 'circle-blur': 0.4 } });
   map.addLayer({ id: 'issues', type: 'circle', source: 'issues', paint: {
@@ -188,6 +204,14 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
       'line-color': ['get', 'color'], 'line-opacity': 0.9,
       'line-width': ['interpolate', ['linear'], ['get', 'v'], 0, 1.5, 500, 4, 2000, 9],
       'line-offset': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 18, 6],
+    },
+  });
+  map.addLayer({
+    id: 'macro-bundle', type: 'line', source: 'macro', filter: ['==', ['get', 'kind'], 'bundle'],
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: {
+      'line-color': ['case', ['get', 'own'], '#E54489', '#EE5C9C'], 'line-opacity': ['case', ['get', 'own'], 1, 0.8],
+      'line-width': ['interpolate', ['linear'], ['get', 'share'], 0, 2, 1, 14],
     },
   });
   map.addLayer({
@@ -228,17 +252,26 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
   set('roads-casing', 'line-color', ['case', ['get', 'bridge'], p.bridgeCasing, p.casing]);
   set('roads', 'line-color', roadColorExpression(p));
   set('roads-bridge', 'line-color', roadColorExpression(p));
+  set('bridge-shadow', 'line-color', p.bridgeShadow);
   set('selection-line', 'line-color', p.selection);
   set('nodes', 'circle-color', ['match', ['get', 'kind'], 'end', p.roads.secondary, 'vertex', p.vertex, p.nodeFill]);
   set('nodes', 'circle-stroke-color', p.nodeStroke);
   set('signals', 'circle-color', p.signal);
   set('signals', 'circle-stroke-color', p.nodeStroke);
   set('selection-node', 'circle-stroke-color', p.selection);
+  set('turn-bans', 'circle-stroke-color', p.error);
   set('issues-halo', 'circle-color', issueColor);
   set('issues', 'circle-stroke-color', issueColor);
   set('draw-line', 'line-color', p.draw);
   set('draw-points', 'circle-color', p.nodeFill);
   set('draw-points', 'circle-stroke-color', p.draw);
+}
+
+/** Road colour by class or by one attribute; bridges keep the same colour as the road they carry. */
+export function applyRoadColors(map: MapLibreMap, p: MapPalette, mode: RoadColorMode): void {
+  const color = mode === 'class' ? roadColorExpression(p) : thematicExpression(mode);
+  map.setPaintProperty('roads', 'line-color', color as never);
+  map.setPaintProperty('roads-bridge', 'line-color', color as never);
 }
 
 const ROAD_LAYERS = ['roads-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line', 'lanes', 'lane-links', 'lane-ends'];
@@ -252,6 +285,7 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   map.setPaintProperty('roads-bridge', 'line-opacity', view3d ? 0 : 1);
   map.setLayoutProperty(SCENE3D_LAYER, 'visibility', view3d ? 'visible' : 'none');
   sceneOf(map)?.setVisible(on.buildings, on.bridges || on.tunnels);
+  show('bridge-shadow', on.roads && on.bridges && !view3d);
   // Vertices of the selected way stay visible and draggable even with junctions hidden.
   show('nodes', true);
   map.setFilter('nodes', (on.junctions ? NODES_FILTER : ['==', ['get', 'kind'], 'vertex']) as never);
@@ -260,6 +294,8 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   show('signs', on.signs);
   show('buildings', on.buildings && !view3d);
   show('tram', on.tram);
+  show('changes-line', on.changes);
+  show('changes-point', on.changes);
   show('transit-line', on.transit);
   show('transit-stop', on.transit);
   const structure: unknown[] = ['all'];

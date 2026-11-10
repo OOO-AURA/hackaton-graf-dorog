@@ -1,12 +1,16 @@
 import { create } from 'zustand';
+import type { RoadColorMode } from '../map/thematic';
 
 export type Theme = 'light' | 'dark';
 export type ThemeChoice = Theme | 'system';
 export type Workspace = 'macro' | 'micro';
 export type BottomTab = 'issues' | 'check' | 'flows' | 'transit' | 'scenarios' | 'journal';
-export type LayerId = 'roads' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs' | 'transit';
+export type LayerId = 'roads' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs' | 'transit' | 'changes';
 
-export const LAYER_IDS: readonly LayerId[] = ['roads', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'tram', 'signs', 'transit'];
+export const LAYER_IDS: readonly LayerId[] = ['roads', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'tram', 'signs', 'transit', 'changes'];
+
+/** Layers that start hidden: they are overlays for a particular task. */
+const OFF_BY_DEFAULT: ReadonlySet<LayerId> = new Set(['transit', 'changes']);
 
 const THEME_KEY = 'graf.theme';
 
@@ -46,6 +50,9 @@ interface UiState {
   featureKind: string;
   setFeatureKind: (id: string) => void;
   fly: FlyRequest | null;
+  /** What the road colour shows: class (default) or one attribute, like a Visum classified display. */
+  roadColorMode: RoadColorMode;
+  setRoadColorMode: (mode: RoadColorMode) => void;
   /** Lane link picked on the map at the junction being edited; Delete forbids that turn. */
   laneLink: LaneLinkRef | null;
   setLaneLink: (link: LaneLinkRef | null) => void;
@@ -70,7 +77,7 @@ export const useUi = create<UiState>((set, get) => ({
   workspace: 'macro',
   bottomTab: 'issues',
   bottomOpen: true,
-  layers: Object.fromEntries(LAYER_IDS.map((id) => [id, id !== 'transit'])) as Record<LayerId, boolean>,
+  layers: Object.fromEntries(LAYER_IDS.map((id) => [id, !OFF_BY_DEFAULT.has(id)])) as Record<LayerId, boolean>,
   basemapOpacity: 0.7,
   loading: null,
   view3d: false,
@@ -78,6 +85,8 @@ export const useUi = create<UiState>((set, get) => ({
   featureKind: 'signal',
   setFeatureKind: (featureKind) => set({ featureKind }),
   fly: null,
+  roadColorMode: 'class',
+  setRoadColorMode: (roadColorMode) => set({ roadColorMode }),
   setThemeChoice: (themeChoice) => {
     try {
       if (themeChoice === 'system') localStorage.removeItem(THEME_KEY);

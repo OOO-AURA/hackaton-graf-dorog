@@ -43,7 +43,7 @@
 .layer-chip.on { color: var(--ink); }
 .layer-chip.on i { border-color: var(--ink); background: var(--chip, var(--ink)); }
 .l-roads { --chip: var(--orange); } .l-junctions { --chip: var(--paper); } .l-signals { --chip: var(--red); } .l-crossings { --chip: var(--field); }
-.l-bridges { --chip: var(--ink); } .l-tunnels { --chip: var(--ink-2); } .l-buildings { --chip: #C9B48A; } .l-tram { --chip: #7A4FA0; } .l-signs { --chip: var(--yellow); }
+.l-bridges { --chip: var(--ink); } .l-tunnels { --chip: var(--ink-2); } .l-buildings { --chip: #C9B48A; } .l-tram { --chip: #7A4FA0; } .l-signs { --chip: var(--yellow); } .l-changes { --chip: #E07B12; }
 
 @media (max-width: 1500px) { .float-layers { left: auto; right: 12px; transform: none; animation-name: float-in; bottom: 54px; max-width: calc(100% - 24px); } }
 .tool-3d { font-family: var(--font-display); font-weight: 900; font-size: 14px; letter-spacing: 0.02em; }
@@ -63,6 +63,14 @@
   .sim-group { flex-wrap: wrap; row-gap: 4px; }
   .sim-group + .sim-group { padding-left: 0; border-left: 0; }
 }
+
+.float-colormode { bottom: 56px; left: 12px; flex-direction: column; align-items: stretch; gap: 6px; padding: 4px 6px; }
+.float-colormode select { height: 26px; font-size: 12px; }
+/* On narrow windows the layer bar moves up above the basemap switch, so the colour legend goes above it. */
+@media (max-width: 1500px) { .float-colormode { bottom: 96px; } }
+.thematic-legend { list-style: none; margin: 0; padding: 0 2px 2px; display: grid; gap: 2px; font-size: 11px; color: var(--ink-2); }
+.thematic-legend li { display: flex; align-items: center; gap: 6px; }
+.thematic-legend i { width: 16px; height: 4px; border-radius: 2px; flex-shrink: 0; }
 .compass { display: inline-flex; transition: transform 0.12s linear; }
 .box-select { position: absolute; pointer-events: none; border: 1.5px dashed var(--accent, #E54489); background: color-mix(in srgb, var(--accent, #E54489) 10%, transparent); border-radius: 2px; z-index: 5; }
 .height-handle { position: absolute; z-index: 6; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; }

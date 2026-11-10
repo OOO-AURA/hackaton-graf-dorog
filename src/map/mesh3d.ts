@@ -9,7 +9,7 @@ import { buildingHeight, LAYER_STEP } from '../osm/height';
  */
 
 export type Rgb = readonly [number, number, number];
-export type Scene3dColors = { building: Rgb; deck: (highway: string) => Rgb; deckSide: Rgb; pier: Rgb; portal: Rgb };
+export type Scene3dColors = { building: Rgb; deck: (highway: string) => Rgb; deckSide: Rgb; parapet: Rgb; pier: Rgb; portal: Rgb };
 
 /**
  * Interleaved x, y, z, r, g, b, id, nx, ny, nz, shade, pick. `id` numbers blocks of touching
@@ -33,6 +33,8 @@ export type Scene3dMesh = {
   structures: Float32Array;
   /** Tunnels as see-through tubes under the ground. */
   underground: Float32Array;
+  /** Shadows of bridge decks on the ground, drawn see-through so the roads under them show. */
+  shadows: Float32Array;
   /** Road ribbons as triangles with x, y, z only: what the cutaway looks for behind buildings. */
   roadMask: Float32Array;
 };
@@ -42,8 +44,18 @@ export const LANE_WIDTH = 3.5;
 export const LAYER_HEIGHT = LAYER_STEP;
 const DECK_THICKNESS = 1.2;
 const PARAPET = 1.0;
-const PIER_SPACING = 30;
-const PIER_SIZE = 1.4;
+/** Parapets are wide enough to show as a light outline of the deck from a normal 3D view. */
+const PARAPET_WIDTH = 0.7;
+const PIER_SPACING = 15;
+const PIER_SIZE = 1.8;
+/**
+ * Where a deck's shadow falls, in metres east and south per metre of deck height: the sun stands
+ * in the north-west of the screen, as in MapLibre's default light, so the shadow goes south-east.
+ */
+const SHADOW_REACH: P2 = [0.9, 1.2];
+/** Just above the ground, so the shadow is not lost in the road lines. */
+const SHADOW_Z = 0.08;
+const SHADOW: Rgb = [0, 0, 0];
 const PORTAL_DEPTH = 1.5;
 const PORTAL_PILLAR = 1.2;
 
@@ -224,12 +236,12 @@ export function densify(pts: readonly P2[], step: number): P2[] {
 
 const RAMP_STEP = 3;
 
-function addBridge(solid: Buf, mask: Buf, raw: P2[], tags: Record<string, string>, colors: Scene3dColors) {
+function addBridge(solid: Buf, shadows: Buf, mask: Buf, raw: P2[], tags: Record<string, string>, colors: Scene3dColors) {
   const pts = densify(raw, RAMP_STEP);
   const half = roadWidth(tags) / 2;
   const z = deckProfile(cumulative(pts), bridgeHeight(tags));
   const { left, right } = offsets(pts, half);
-  const outer = offsets(pts, half + 0.3);
+  const outer = offsets(pts, half + PARAPET_WIDTH);
   for (let i = 0; i < pts.length - 1; i += 1) {
     const [l0, l1, r0, r1] = [left[i], left[i + 1], right[i], right[i + 1]];
     const [z0, z1] = [z[i], z[i + 1]];
@@ -245,11 +257,20 @@ function addBridge(solid: Buf, mask: Buf, raw: P2[], tags: Record<string, string
     const [ol0, ol1, or0, or1] = [outer.left[i], outer.left[i + 1], outer.right[i], outer.right[i + 1]];
     quad(solid, colors.deckSide, 0, [r1[0], r1[1], z1], [r0[0], r0[1], z0], [r0[0], r0[1], z0 + PARAPET], [r1[0], r1[1], z1 + PARAPET]);
     quad(solid, colors.deckSide, 0, [l0[0], l0[1], z0], [l1[0], l1[1], z1], [l1[0], l1[1], z1 + PARAPET], [l0[0], l0[1], z0 + PARAPET]);
-    quad(solid, colors.deckSide, 0, [or0[0], or0[1], z0 + PARAPET], [r0[0], r0[1], z0 + PARAPET], [r1[0], r1[1], z1 + PARAPET], [or1[0], or1[1], z1 + PARAPET]);
-    quad(solid, colors.deckSide, 0, [l0[0], l0[1], z0 + PARAPET], [ol0[0], ol0[1], z0 + PARAPET], [ol1[0], ol1[1], z1 + PARAPET], [l1[0], l1[1], z1 + PARAPET]);
+    // Light parapet tops outline the deck, so it reads as a bridge from above too.
+    quad(solid, colors.parapet, 0, [or0[0], or0[1], z0 + PARAPET], [r0[0], r0[1], z0 + PARAPET], [r1[0], r1[1], z1 + PARAPET], [or1[0], or1[1], z1 + PARAPET]);
+    quad(solid, colors.parapet, 0, [l0[0], l0[1], z0 + PARAPET], [ol0[0], ol0[1], z0 + PARAPET], [ol1[0], ol1[1], z1 + PARAPET], [l1[0], l1[1], z1 + PARAPET]);
     ribbon(mask, l0, l1, r0, r1, z0 + 0.05, z1 + 0.05);
+    addShadow(shadows, [ol0, ol1, or0, or1], z0, z1);
   }
   addPiers(solid, pts, z, colors);
+}
+
+/** The deck footprint between two cross-sections, shifted away from the sun by the deck height there. */
+function addShadow(shadows: Buf, [l0, l1, r0, r1]: readonly P2[], z0: number, z1: number) {
+  if (z0 <= 0 && z1 <= 0) return;
+  const at = (p: P2, z: number): V3 => [p[0] + SHADOW_REACH[0] * z, p[1] + SHADOW_REACH[1] * z, SHADOW_Z];
+  quad(shadows, SHADOW, 0, at(r0, z0), at(r1, z1), at(l1, z1), at(l0, z0));
 }
 
 /** Depth of a tunnel's road below the ground: its OSM `layer` (at least −1) times one step. */
@@ -303,7 +324,7 @@ function addTunnel(buf: Buf, raw: P2[], tags: Record<string, string>, colors: Sc
   }
 }
 
-/** Piers every 30 m where the deck is high enough to stand on one. */
+/** Piers every 15 m where the deck is high enough to stand on one. */
 function addPiers(solid: Buf, pts: P2[], z: number[], colors: Scene3dColors) {
   const dist = cumulative(pts);
   const total = dist[dist.length - 1];
@@ -439,6 +460,7 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
   const solid = new Buf();
   const structures = new Buf();
   const underground = new Buf();
+  const shadows = new Buf();
   const mask = new Buf();
 
   // How many drivable non-tunnel ways touch each node: a tunnel end there is a portal.
@@ -467,7 +489,7 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     if (!isDrivable(w.tags)) return;
     if (isBridge(w)) {
       const start = structures.length;
-      addBridge(structures, mask, pts, w.tags, colors);
+      addBridge(structures, shadows, mask, pts, w.tags, colors);
       pickIds.push(w.id);
       structures.fill(start, 11, pickIds.length);
       return;
@@ -491,5 +513,5 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     for (let i = 0; i < pts.length - 1; i += 1) ribbon(mask, left[i], left[i + 1], right[i], right[i + 1], 0, 0);
   });
 
-  return { origin, buildings, pickIds, solid: solid.array, structures: structures.array, underground: underground.array, roadMask: mask.array };
+  return { origin, buildings, pickIds, solid: solid.array, structures: structures.array, underground: underground.array, shadows: shadows.array, roadMask: mask.array };
 }

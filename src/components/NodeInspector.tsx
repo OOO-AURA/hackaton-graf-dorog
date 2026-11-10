@@ -10,6 +10,9 @@ import { Section } from './Section';
 import { NODE_FEATURES, nodeSymbol } from '../map/features';
 import { Icon } from './icons';
 import { SignalPlanSection } from './SignalPlanSection';
+import { TurnsSection } from './TurnsSection';
+import { RouteSection } from './RouteSection';
+import { isJunction } from '../osm/turns';
 import { LaneTurnsSection } from './LaneTurnsSection';
 
 const NODE_KIND_OPTIONS = [
@@ -53,6 +56,8 @@ export function NodeInspector({ node }: { node: OsmNode }) {
       </Section>
       <LaneTurnsSection node={node} />
       {isSignal && <SignalPlanSection node={node} ways={ways} />}
+      {isJunction(doc, node.id) && <TurnsSection nodeId={node.id} />}
+      <RouteSection nodeId={node.id} />
       <Section title="Высота" open={false}>
         <TextField
           label="Отметка над уровнем моря, м" type="number" placeholder="—"

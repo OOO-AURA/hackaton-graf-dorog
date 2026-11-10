@@ -18,6 +18,8 @@ interface EditorState {
   doc: OsmDoc;
   /** Document as it was last loaded or saved; differs from `doc` when there are unsaved edits. */
   savedDoc: OsmDoc;
+  /** Document as it was opened; the changes layer and the change list compare against it. */
+  baseDoc: OsmDoc;
   fileName: string;
   /** Absolute path on disk when running as the desktop app; null in the browser or for new files. */
   filePath: string | null;
@@ -65,6 +67,7 @@ const pushPast = (past: OsmDoc[], doc: OsmDoc) => [...past, doc].slice(-HISTORY_
 export const useEditor = create<EditorState>((set, get) => ({
   doc: EMPTY_DOC,
   savedDoc: EMPTY_DOC,
+  baseDoc: EMPTY_DOC,
   fileName: 'graph.osm',
   filePath: null,
   saveName: 'hack-team10.osm',
@@ -82,7 +85,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   message: null,
 
   markSaved: (fileName, filePath, savedDoc) => set({ fileName, filePath, saveName: fileName, savedDoc }),
-  load: (doc, fileName, filePath = null) => set({ doc, savedDoc: doc, fileName, filePath, past: [], future: [], selection: null, multi: [], drawing: [], report: null, mode: 'select' }),
+  load: (doc, fileName, filePath = null) => set({ doc, savedDoc: doc, baseDoc: doc, fileName, filePath, past: [], future: [], selection: null, multi: [], drawing: [], report: null, mode: 'select' }),
   apply: (edit) => {
     const { doc, past } = get();
     const next = edit(doc);

@@ -1,6 +1,6 @@
 import { setWayTag, setWayTags } from '../osm/edit';
 import {
-  BUILDING_TYPES, buildingHeight, heightFromLevels, LEVEL_HEIGHT_M, levelsFromHeight, ROOF_MATERIALS, ROOF_SHAPES, WALL_MATERIALS,
+  BUILDING_TYPES, buildingHeight, ROOF_MATERIALS, ROOF_SHAPES, WALL_MATERIALS,
 } from '../osm/building';
 import type { OsmWay } from '../osm/types';
 import { useEditor } from '../state/store';
@@ -14,8 +14,8 @@ import { BuildingHeightFields } from './HeightFields';
 
 const SOURCE_TEXT = {
   height: 'по тегу height',
-  levels: `по этажности, ${LEVEL_HEIGHT_M} м на этаж, как считает Webots`,
-  none: 'не задана: Webots поставит высоту по умолчанию',
+  levels: 'по этажности, с высотой этажа как в Webots для этого типа здания',
+  default: 'не задана: Webots поставит этажность по умолчанию для типа здания. Укажите этажи, чтобы 3D совпало с реальностью',
 } as const;
 
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
@@ -52,16 +52,14 @@ export function BuildingInspector({ way }: { way: OsmWay }) {
       </header>
       <Section title="Высота для 3D">
         <dl className="facts">
-          <dt>Высота в Webots</dt><dd className="mono">{height.metres === null ? '—' : `${height.metres} м`}</dd>
+          <dt>Высота в Webots</dt><dd className="mono">{height.metres} м</dd>
         </dl>
-        <p className={`hint${height.source === 'none' ? ' warn' : ''}`}>Высота {SOURCE_TEXT[height.source]}.</p>
+        <p className={`hint${height.source === 'default' ? ' warn' : ''}`}>Высота {SOURCE_TEXT[height.source]}.</p>
         <BuildingHeightFields ids={[way.id]} tags={t} />
         <div className="row">
           <TextField label="Высота крыши, м" type="number" value={t['roof:height'] ?? ''} onCommit={set('roof:height')} placeholder="—" />
         </div>
         <div className="buttons">
-          <button className="btn" disabled={!t['building:levels']} onClick={() => apply((d) => setWayTags(d, way.id, heightFromLevels(t)))}>Высота по этажам</button>
-          <button className="btn" disabled={!t.height} onClick={() => apply((d) => setWayTags(d, way.id, levelsFromHeight(t)))}>Этажи по высоте</button>
           <button className="btn btn-quiet" onClick={toggle3d}>{view3d ? 'Вернуть 2D' : 'Показать в 3D'} <kbd>P</kbd></button>
         </div>
       </Section>

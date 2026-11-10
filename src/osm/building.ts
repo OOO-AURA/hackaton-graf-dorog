@@ -1,15 +1,26 @@
 /**
  * Building attributes that the Webots OSM importer turns into 3D.
  *
- * Webots reads building:levels (3 m per floor), height, min_height, roof:shape, roof:height,
- * building:material, roof:material and the colours. A building without any of them is drawn with
- * the importer's default height, so the 3D scene on the jury video is only as good as these tags.
+ * Webots reads building:levels, height, min_height, roof:shape, roof:height, building:material,
+ * roof:material and the colours. Without levels and height it uses the defaults of its config.ini
+ * per building type (a house has 2 floors, apartments 4, residential 6 floors of 3.2 m, anything else
+ * 3 floors of 3 m), so the 3D scene on the jury video is only as good as these tags.
  */
 import { withTag } from './tags';
 import type { OsmWay, Tags } from './types';
 
 /** Floor height the Webots importer assumes when it derives floors from height and back. */
 export const LEVEL_HEIGHT_M = 3;
+
+/** Webots osm_importer config.ini: floors and floor height per building type. */
+const WEBOTS_DEFAULTS: Readonly<Record<string, { floors: number; floorHeight: number }>> = {
+  house: { floors: 2, floorHeight: 3 },
+  apartments: { floors: 4, floorHeight: 3 },
+  residential: { floors: 6, floorHeight: 3.2 },
+};
+const WEBOTS_FALLBACK = { floors: 3, floorHeight: LEVEL_HEIGHT_M };
+
+export const webotsDefaults = (tags: Tags) => WEBOTS_DEFAULTS[tags.building ?? ''] ?? WEBOTS_FALLBACK;
 
 export const isBuilding = (tags: Tags): boolean => Boolean((tags.building && tags.building !== 'no') || tags['building:part']);
 
@@ -40,22 +51,26 @@ const positive = (v: string | undefined): number | null => {
   return Number.isFinite(n) && n > 0 ? n : null;
 };
 
-export type HeightSource = 'height' | 'levels' | 'none';
+export type HeightSource = 'height' | 'levels' | 'default';
 
-/** Height the 3D view and Webots will use, and where it comes from. */
-export function buildingHeight(tags: Tags): { metres: number | null; source: HeightSource } {
+const round1 = (v: number) => Math.round(v * 10) / 10;
+
+/** Height Webots will build, as its importer computes it, and where it comes from; the 3D view uses the same. */
+export function buildingHeight(tags: Tags): { metres: number; source: HeightSource } {
   const h = positive(tags.height);
   if (h !== null) return { metres: h, source: 'height' };
+  const { floors, floorHeight } = webotsDefaults(tags);
+  const roof = positive(tags['roof:height']) ?? 0;
   const levels = positive(tags['building:levels']);
-  if (levels !== null) return { metres: levels * LEVEL_HEIGHT_M + (positive(tags['roof:height']) ?? 0), source: 'levels' };
-  return { metres: null, source: 'none' };
+  if (levels !== null) return { metres: round1(Math.floor(levels) * floorHeight + roof), source: 'levels' };
+  return { metres: round1(floors * floorHeight + roof), source: 'default' };
 }
 
-/** Writes height from floors (floors × 3 m + roof) so Webots and the 3D view agree. */
+/** Writes height from floors (floors × the type's floor height + roof) so Webots and the 3D view agree. */
 export function heightFromLevels(tags: Tags): Tags {
   const levels = positive(tags['building:levels']);
   if (levels === null) return tags;
-  const total = levels * LEVEL_HEIGHT_M + (positive(tags['roof:height']) ?? 0);
+  const total = Math.floor(levels) * webotsDefaults(tags).floorHeight + (positive(tags['roof:height']) ?? 0);
   return withTag(tags, 'height', String(Math.round(total * 10) / 10));
 }
 
@@ -72,6 +87,6 @@ export function buildingCoverage(ways: readonly OsmWay[]): { total: number; with
   const buildings = ways.filter(isBuildingWay);
   const withHeight = buildings.filter((w) => positive(w.tags.height) !== null).length;
   const withLevels = buildings.filter((w) => positive(w.tags['building:levels']) !== null).length;
-  const withNothing = buildings.filter((w) => buildingHeight(w.tags).source === 'none').length;
+  const withNothing = buildings.filter((w) => buildingHeight(w.tags).source === 'default').length;
   return { total: buildings.length, withHeight, withLevels, withNothing };
 }

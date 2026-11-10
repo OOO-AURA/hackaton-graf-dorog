@@ -1,6 +1,6 @@
 import { setWayTag, setWayTags } from '../osm/edit';
 import { direction, DRIVABLE_HIGHWAYS } from '../osm/tags';
-import type { OsmWay } from '../osm/types';
+import type { OsmWay, Tags } from '../osm/types';
 import { useEditor } from '../state/store';
 import { flipSelected, reverseSelected, deleteSelection } from '../state/actions';
 import { SelectField, TextField } from './fields';
@@ -11,6 +11,10 @@ import { LaneStrip } from './LaneStrip';
 import { capacity, normTags, roadProfile } from '../osm/profile';
 import { RoadLevelFields } from './HeightFields';
 import { streetWays } from '../osm/street';
+import { webotsElevation } from '../osm/structures';
+import { simulatorSpeeds } from '../osm/speeds';
+import { safeInput } from '../osm/pipelineSafety';
+import { SimulatorsSection } from './SimulatorsSection';
 
 export const HIGHWAY_LABELS: Readonly<Record<string, string>> = {
   motorway: 'Автомагистраль', trunk: 'Скоростная', primary: 'Магистральная', secondary: 'Районная', tertiary: 'Улица местного значения',
@@ -26,13 +30,35 @@ const ACCESS_OPTIONS = [['', 'Без ограничений'], ['no', 'Запр�
 const BUS_OPTIONS = [['', 'Нет'], ['yes', 'Одна полоса']] as const;
 
 
+/** What MATSim and SUMO will take as the speed of this road when maxspeed is missing or not a number. */
+function SpeedNote({ tags }: { tags: Tags }) {
+  const s = simulatorSpeeds(tags);
+  if (s.matsim === s.sumo) return null;
+  const v = (x: number | null) => (x === null ? 'нет' : `${x} км/ч`);
+  return <p className="hint warn speed-note">Скорость в симуляторах разная: MATSim {v(s.matsim)}, SUMO {v(s.sumo)}. Укажите число, чтобы все уровни ехали одинаково.</p>;
+}
+
+/** Where the Webots importer will put this road: it lifts or sinks a whole way by layer × 5 m. */
+function elevationHint(t: Tags): string {
+  const z = webotsElevation(t);
+  if (z === null) return 'Webots не строит дороги с отрицательным layer: в 3D её не будет. Если это дорога под мостом, а не настоящий тоннель, оставьте её на уровне 0.';
+  if (z > 0) return `В 3D и в Webots дорога пройдёт на ${z} м над землёй (layer × 5 м). Подъезды в редакторе показаны насыпью с плавным подъёмом.`;
+  return 'Дорога на уровне земли.';
+}
+
 export function WayInspector({ way }: { way: OsmWay }) {
   const apply = useEditor((s) => s.apply);
   const select = useEditor((s) => s.select);
   const doc = useEditor((s) => s.doc);
   const t = way.tags;
   const streetParts = t.name ? streetWays(doc, t.name).length : 0;
-  const set = (key: string) => (value: string) => apply((d) => setWayTag(d, way.id, key, value || null));
+  const notify = useEditor((s) => s.notify);
+  // Lane counts and layer go through the same guard as validation: other values stop the Webots import.
+  const set = (key: string) => (value: string) => {
+    const safe = safeInput(key, value);
+    if (value.trim() && safe !== value.trim()) notify(safe ? `${key}: записано ${safe}, Webots принимает только целое число` : `${key}: значение «${value}» не подходит, тег не записан`);
+    apply((d) => setWayTag(d, way.id, key, safe));
+  };
   const dir = direction(t);
   const profile = roadProfile(t);
 
@@ -52,6 +78,7 @@ export function WayInspector({ way }: { way: OsmWay }) {
           <SelectField label="Покрытие" value={t.surface ?? ''} options={SURFACE_OPTIONS} onChange={set('surface')} />
         </div>
       </Section>
+      <SpeedNote tags={t} />
       <Section title="Полосы и направление">
         <LaneStrip tags={t} />
         <SelectField label="Движение" value={t.oneway === 'yes' || t.oneway === '-1' ? t.oneway : ''} options={ONEWAY_OPTIONS} onChange={set('oneway')} />
@@ -80,6 +107,7 @@ export function WayInspector({ way }: { way: OsmWay }) {
           </div>
         </Section>
       )}
+      <SimulatorsSection tags={t} />
       <Section title="Ограничения" open={false}>
         <div className="row">
           <TextField label="Масса, т" type="number" value={t.maxweight ?? ''} onCommit={set('maxweight')} placeholder="—" />
@@ -92,6 +120,7 @@ export function WayInspector({ way }: { way: OsmWay }) {
       </Section>
       <Section title="Высота">
         <RoadLevelFields ids={[way.id]} tags={t} />
+        <p className={`hint${webotsElevation(t) === null ? ' warn' : ''}`}>{elevationHint(t)}</p>
       </Section>
       <Section title="Все теги OSM" open={false} aside={<span className="mono count">{Object.keys(t).length}</span>}>
         <TagTable tags={t} onChange={(tags) => apply((d) => setWayTags(d, way.id, tags))} />

@@ -17,7 +17,15 @@ describe('building tags', () => {
     expect(buildingHeight({ height: '17.5', 'building:levels': '9' })).toEqual({ metres: 17.5, source: 'height' });
     expect(buildingHeight({ 'building:levels': '4' })).toEqual({ metres: 12, source: 'levels' });
     expect(buildingHeight({ 'building:levels': '4', 'roof:height': '2' })).toEqual({ metres: 14, source: 'levels' });
-    expect(buildingHeight({ height: 'abc' })).toEqual({ metres: null, source: 'none' });
+    expect(buildingHeight({ height: 'abc' })).toEqual({ metres: 9, source: 'default' });
+  });
+
+  test('without floors and height Webots uses its defaults per building type', () => {
+    expect(buildingHeight({ building: 'house' })).toEqual({ metres: 6, source: 'default' });
+    expect(buildingHeight({ building: 'apartments' })).toEqual({ metres: 12, source: 'default' });
+    expect(buildingHeight({ building: 'residential' })).toEqual({ metres: 19.2, source: 'default' });
+    expect(buildingHeight({ building: 'university' })).toEqual({ metres: 9, source: 'default' });
+    expect(buildingHeight({ building: 'residential', 'building:levels': '5' })).toEqual({ metres: 16, source: 'levels' });
   });
 
   test('converts floors to height and back with the importer rule of 3 m per floor', () => {

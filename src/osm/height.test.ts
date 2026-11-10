@@ -9,6 +9,12 @@ describe('building heights', () => {
     expect(buildingHeight({ building: 'yes' })).toMatchObject({ height: 9, known: false });
   });
 
+  test('without height or levels the building gets the Webots default of its type', () => {
+    expect(buildingHeight({ building: 'house' })).toMatchObject({ height: 6, levels: 2, known: false });
+    expect(buildingHeight({ building: 'residential' })).toMatchObject({ height: 19.2, levels: 6, known: false });
+    expect(withBuildingLevels({ building: 'residential' }, 5).height).toBe('16');
+  });
+
   test('setting metres keeps levels in step, and the other way round', () => {
     expect(withBuildingHeight({ building: 'yes' }, 15)).toMatchObject({ height: '15', 'building:levels': '5' });
     expect(withBuildingLevels({ building: 'yes' }, 9)).toMatchObject({ height: '27', 'building:levels': '9' });

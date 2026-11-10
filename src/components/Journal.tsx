@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { OsmDoc } from '../osm/types';
 import { useEditor } from '../state/store';
+import { ChangesSummary } from './ChangesSummary';
 
 interface Change { added: number; removed: number; changed: number; names: string[] }
 
@@ -60,8 +61,10 @@ export function Journal() {
     for (let i = useEditor.getState().past.length; i < target; i += 1) useEditor.getState().redo();
   };
 
-  if (!entries.length) return <p className="hint dock-empty">Правок пока нет. Каждое изменение появится здесь, и к любому шагу можно вернуться кликом.</p>;
+  if (!entries.length) return <><ChangesSummary /><p className="hint dock-empty">Правок пока нет. Каждое изменение появится здесь, и к любому шагу можно вернуться кликом.</p></>;
   return (
+    <>
+    <ChangesSummary />
     <ol className="journal">
       <li className={current === 0 ? 'on' : ''}><button onClick={() => goTo(0)}><span className="mono step">00</span><span>Файл открыт</span></button></li>
       {entries.map((e, i) => (
@@ -72,5 +75,6 @@ export function Journal() {
         </li>
       ))}
     </ol>
+    </>
   );
 }

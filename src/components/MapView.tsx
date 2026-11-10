@@ -4,7 +4,7 @@ import { useTransit } from '../transit/store';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import maplibregl, { type GeoJSONSource, type Map as MapLibreMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { addEditorLayers, applyLayerVisibility, applyPalette, sceneColors, sceneOf, type SourceId } from '../map/layers';
+import { addEditorLayers, applyLayerVisibility, applyPalette, applyRoadColors, sceneColors, sceneOf, type SourceId } from '../map/layers';
 import { buildScene3d } from '../map/mesh3d';
 import { junctionGeometry, laneLines, type LaneStyle } from '../map/lanesGeo';
 import { junctions } from '../osm/lanes';
@@ -22,6 +22,9 @@ import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson } from '../map/ge
 import { useMapInteractions } from '../map/useMapInteractions';
 import { currentSelection, useEditor } from '../state/store';
 import { streetWays } from '../osm/street';
+import { useBundle } from '../macro/bundleStore';
+import { diffFeatures, docDiff } from '../osm/diff';
+import { useRoute } from '../state/route';
 import type { OsmDoc } from '../osm/types';
 
 const IRKUTSK_CENTER: [number, number] = [104.262, 52.26];
@@ -70,6 +73,25 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     setData(map, 'context', context.lines);
     setData(map, 'roads', roadsGeoJson(doc));
   }, [map, doc]);
+
+  useEffect(() => {
+    if (!map) return;
+    const via = new Set(Object.values(doc.relations).filter((r) => r.tags.type === 'restriction')
+      .map((r) => r.members.find((m) => m.role === 'via' && m.type === 'node')?.ref).filter((id): id is string => Boolean(id && doc.nodes[id])));
+    setData(map, 'turns', { type: 'FeatureCollection', features: [...via].map((id) => ({ type: 'Feature', properties: { id }, geometry: { type: 'Point', coordinates: [doc.nodes[id].lon, doc.nodes[id].lat] } })) });
+  }, [map, doc]);
+
+  const route = useRoute((s) => s.result);
+  useEffect(() => {
+    if (map) setData(map, 'route', { type: 'FeatureCollection', features: route?.found ? [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route.coords } }] : [] });
+  }, [map, route]);
+
+  const baseDoc = useEditor((s) => s.baseDoc);
+  const changesOn = useUi((s) => s.layers.changes);
+  useEffect(() => {
+    // The diff walks every object, so it runs only while the layer is shown.
+    if (map) setData(map, 'changes', { type: 'FeatureCollection', features: changesOn ? diffFeatures(docDiff(baseDoc, doc), baseDoc, doc) : [] });
+  }, [map, doc, baseDoc, changesOn]);
 
   const routes = useMemo(() => transitRoutes(doc), [doc]);
   const transitSel = useTransit((s) => s.selected);
@@ -157,6 +179,8 @@ function useMapLook(map: MapLibreMap | null): void {
   const fly = useUi((s) => s.fly);
   const view3d = useUi((s) => s.view3d);
   useEffect(() => { if (alive(map)) applyPalette(map, MAP_PALETTE[theme]); }, [map, theme]);
+  const colorMode = useUi((s) => s.roadColorMode);
+  useEffect(() => { if (alive(map)) applyRoadColors(map, MAP_PALETTE[theme], colorMode); }, [map, theme, colorMode]);
   useEffect(() => { if (alive(map)) applyBasemapTone(map, theme, opacity); }, [map, theme, opacity]);
   const view3dOn = useUi((s) => s.view3d);
   useEffect(() => { if (alive(map)) applyLayerVisibility(map, layers, view3dOn); }, [map, layers, view3dOn]);
@@ -175,6 +199,7 @@ function useMapLook(map: MapLibreMap | null): void {
     setData(map, 'vehicles', workspace === 'micro' && simResult ? vehiclesAt(simResult, simTime) : empty);
   }, [map, simResult, simTime, workspace]);
   const flows = useMacro((s) => s.result?.flows);
+  const bundle = useBundle((s) => s.features);
   const iso = useMacro((s) => s.iso);
   const placing = useMacro((s) => s.placing);
   const points = useMacro((s) => s.points);
@@ -184,10 +209,10 @@ function useMapLook(map: MapLibreMap | null): void {
   useEffect(() => {
     if (!alive(map)) return;
     const features = workspace === 'macro'
-      ? [...macroFeatures(flows?.features ?? [], placing ? points : null), ...(iso?.features ?? [])]
+      ? [...macroFeatures(flows?.features ?? [], placing ? points : null), ...(iso?.features ?? []), ...bundle]
       : los;
     setData(map, 'macro', { type: 'FeatureCollection', features });
-  }, [map, flows, iso, workspace, los, placing, points]);
+  }, [map, flows, iso, workspace, los, placing, points, bundle]);
   // Signal heads change every frame, so they live in a small source of their own.
   useEffect(() => {
     if (!alive(map)) return;

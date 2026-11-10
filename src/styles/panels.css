@@ -314,3 +314,20 @@
 button.link { background: none; border: 0; padding: 2px 0; color: var(--blue, inherit); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
 button.link:hover { text-decoration: underline; }
 .insp-head button.link { display: block; margin-top: 4px; }
+.turn-group { display: grid; gap: 4px; margin-top: 6px; }
+.turn-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.turn-list label { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; padding: 2px 0; }
+.turn-list .turn-arrow { width: 16px; text-align: center; font-size: 14px; }
+.turn-list .turn-to { opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.turn-list li.banned label { text-decoration: line-through; color: var(--red, #d92d20); }
+.bundle { display: grid; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.bundle-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.changes-summary { display: grid; gap: 4px; padding: 8px 10px; margin-bottom: 8px; border: 1px solid var(--line); border-radius: var(--r-md, 8px); font-size: 12px; }
+.check-stage th { font-size: 10.5px; font-weight: 700; text-align: left; opacity: 0.7; }
+.check-stage td.was { opacity: 0.6; }
+.delta { font-size: 11px; font-weight: 700; margin-left: 4px; color: var(--ink-2); }
+/* Neutral on purpose: more links is good, more teleports is bad, so colour would mislead. */
+.sim-read { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.sim-read th, .sim-read td { padding: 3px 4px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+.sim-read thead th { font-size: 10.5px; opacity: 0.7; }
+.sim-read tbody th { font-weight: 600; color: var(--ink-2); }

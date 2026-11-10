@@ -32,6 +32,8 @@ const CUT_TEX_WIDTH = 2048;
 const BUILDING_OPACITY = 0.85;
 /** Opacity of tunnel tubes drawn through the ground. */
 const TUNNEL_OPACITY = 0.45;
+/** How dark a bridge's shadow is on the ground and on the roads under it. */
+const SHADOW_OPACITY = 0.45;
 /** Length of the fade below the cut, in CSS pixels. */
 const FADE_PX = 26;
 
@@ -265,7 +267,7 @@ function mul(a: ArrayLike<number>, b: ArrayLike<number>): Float32Array {
   return new Float32Array(out);
 }
 
-type Buffers = { solid: WebGLBuffer; solidCount: number; structures: WebGLBuffer; structuresCount: number; underground: WebGLBuffer; undergroundCount: number; mask: WebGLBuffer; maskCount: number };
+type Buffers = { solid: WebGLBuffer; solidCount: number; structures: WebGLBuffer; structuresCount: number; underground: WebGLBuffer; undergroundCount: number; shadows: WebGLBuffer; shadowsCount: number; mask: WebGLBuffer; maskCount: number };
 
 export class Scene3dLayer implements CustomLayerInterface {
   readonly id = SCENE3D_LAYER;
@@ -380,7 +382,7 @@ export class Scene3dLayer implements CustomLayerInterface {
   private dropBuffers(gl: GL) {
     if (!this.buffers) return;
     const b = this.buffers;
-    [b.solid, b.structures, b.underground, b.mask].forEach((x) => gl.deleteBuffer(x));
+    [b.solid, b.structures, b.underground, b.shadows, b.mask].forEach((x) => gl.deleteBuffer(x));
     this.buffers = null;
   }
 
@@ -400,6 +402,7 @@ export class Scene3dLayer implements CustomLayerInterface {
       solid: make(m.solid), solidCount: m.solid.length / STRIDE,
       structures: make(m.structures), structuresCount: m.structures.length / STRIDE,
       underground: make(m.underground), undergroundCount: m.underground.length / STRIDE,
+      shadows: make(m.shadows), shadowsCount: m.shadows.length / STRIDE,
       mask: make(m.roadMask), maskCount: m.roadMask.length / 3,
     };
   }
@@ -680,8 +683,17 @@ export class Scene3dLayer implements CustomLayerInterface {
       locs.forEach((l) => gl.disableVertexAttribArray(l));
     };
 
-    // Opaque structures first, so cut buildings blend over them.
     gl.disable(gl.CULL_FACE);
+    // Bridge shadows lie on the ground and darken the roads under the deck; they write no depth,
+    // so the deck, piers and buildings drawn next cover them where they stand in front.
+    if (this.showStructures && b.shadowsCount) {
+      gl.depthMask(false);
+      gl.uniform1f(ghost, SHADOW_OPACITY);
+      draw(b.shadows, b.shadowsCount);
+      gl.uniform1f(ghost, 0);
+      gl.depthMask(true);
+    }
+    // Opaque structures first, so cut buildings blend over them.
     if (this.showStructures) draw(b.structures, b.structuresCount);
     if (this.showBuildings) {
       // Back faces are culled; then depth first and colour only for the nearest fragment, so a
