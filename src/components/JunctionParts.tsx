@@ -12,7 +12,10 @@ import { TURN_GLYPHS } from './LaneTurnsSection';
 import type { OsmDoc } from '../osm/types';
 import { useSettledDoc } from '../state/settled';
 import { SignalEditor } from './SignalPlanSection';
-import { approachControl, approachSign, setApproachSign, type ApproachSign } from '../osm/signs';
+import { approachControl, approachCrossing, approachSign, approachSpeed, GAPS, gapCapacity, mainRoadAt, setApproachCrossing, setApproachSign, setApproachSpeed, type ApproachSign } from '../osm/signs';
+import { armLabel, junctionTurns, setTurnAllowed, type TurnKind } from '../osm/turns';
+import { useGaps } from '../state/gaps';
+import { useApproachFlows } from './SignalPlanSection';
 
 /**
  * Parts of a junction's editing, shared by the node inspector and the junction editor window:
@@ -146,31 +149,105 @@ export const SIGN_OPTIONS: ReadonlyArray<readonly [ApproachSign, string]> = [
   ['none', 'Без знака'], ['main', 'Главная дорога'], ['give_way', 'Уступи дорогу'], ['stop', 'STOP'],
 ];
 
-/** The priority sign of every approach, as drivers coming in see it. */
+/** Movements banned from an approach, from the turn table (relations `type=restriction`). */
+const BAN_SIGN: Readonly<Record<TurnKind, string>> = { left: '3.18.2', right: '3.18.1', uturn: '3.19', straight: '' };
+const BAN_NAME: Readonly<Record<TurnKind, string>> = { left: 'налево', right: 'направо', uturn: 'разворот', straight: 'прямо' };
+
+/**
+ * Every sign of every approach, as drivers coming in see them: priority (2.1, 2.4, 2.5), speed
+ * limit (3.24), banned turns (3.18.1, 3.18.2, 3.19), directions by lane (5.15.1, from the lanes),
+ * a pedestrian crossing (5.19), and for an approach that gives way the gap times its capacity
+ * comes from.
+ */
 export function JunctionSigns({ nodeId }: { nodeId: string }) {
   const doc = useSettledDoc();
   const apply = useEditor((s) => s.apply);
+  const gaps = useGaps((s) => s.gaps[nodeId] ?? {});
+  const setGaps = useGaps((s) => s.set);
+  const flows = useApproachFlows(nodeId);
   const arms = armsAt(doc, nodeId).filter((a) => a.lanesIn > 0);
-  if (doc.nodes[nodeId]?.tags.highway === 'traffic_signals') return <p className="jc-hint">Перекрёсток регулируется светофором: знаки приоритета на нём не действуют.</p>;
+  const lanes = junctionLanes(doc, nodeId);
+  const turns = junctionTurns(doc, nodeId);
+  const signal = doc.nodes[nodeId]?.tags.highway === 'traffic_signals';
+  const main = mainRoadAt(doc, nodeId);
+  // The turn table names its arms on its own; they are matched by way and direction.
+  const turnArm = (arm: Arm) => turns.map((t) => t.from).find((f) => f.wayId === arm.wayId && Math.abs(((f.bearing - arm.bearing + 540) % 360) - 180) < 1);
   return (
     <div className="jc-signs">
+      {signal && <p className="jc-hint">Перекрёсток со светофором: знаки приоритета действуют, только когда он выключен. Остальные знаки работают всегда.</p>}
+      {main.turns && <p className="jc-note"><b>8.13</b> Главная дорога здесь поворачивает: под знаками 2.1 и 2.4 нужна табличка «Направление главной дороги».</p>}
+      {main.arms.length > 2 && <p className="jc-note bad">Главной отмечено больше двух въездов: так быть не может, оставьте два.</p>}
       {arms.map((arm) => {
+        const key = armKey(arm);
         const now = approachSign(doc, nodeId, arm);
+        const speed = approachSpeed(doc, arm);
+        const from = turnArm(arm);
+        const own = from ? turns.filter((t) => t.from.key === from.key && t.kind !== 'straight') : [];
+        const approach = lanes.approaches.find((a) => armKey(a.arm) === key);
+        const crossing = approachCrossing(doc, nodeId, arm);
+        const yields = now === 'give_way' || now === 'stop';
+        const g = gaps[key] ?? GAPS[now === 'stop' ? 'stop' : 'give_way'];
+        // The flow it has to find gaps in: the main road's approaches, or all the others when none is marked.
+        const mains = arms.filter((a) => a !== arm && approachSign(doc, nodeId, a) === 'main');
+        const mainFlow = flows ? (mains.length ? mains : arms.filter((a) => a !== arm)).reduce((s, a) => s + flows(armKey(a)), 0) : 600;
         return (
-          <div key={armKey(arm)} className="jc-sign-row">
-            <span className="jc-street" title={streetOf(doc, arm)}>{streetOf(doc, arm)}<em>{compass(arm.bearing)}</em></span>
-            <div className="seg jc-sign-seg" role="radiogroup" aria-label={`Знак: ${streetOf(doc, arm)}`}>
-              {SIGN_OPTIONS.map(([v, label]) => (
-                <button key={v} role="radio" aria-checked={now === v} className={now === v ? 'on' : ''} title={label}
-                  onClick={() => apply((d) => setApproachSign(d, nodeId, arm, v))}>
-                  <SignGlyph sign={v} />
-                </button>
-              ))}
+          <div key={key} className="jc-sign-card">
+            <div className="jc-sign-row">
+              <span className="jc-street" title={streetOf(doc, arm)}>{streetOf(doc, arm)}<em>{compass(arm.bearing)}</em></span>
+              <div className="seg jc-sign-seg" role="radiogroup" aria-label={`Знак: ${streetOf(doc, arm)}`}>
+                {SIGN_OPTIONS.map(([v, label]) => (
+                  <button key={v} role="radio" aria-checked={now === v} className={now === v ? 'on' : ''} title={label}
+                    onClick={() => apply((d) => setApproachSign(d, nodeId, arm, v))}>
+                    <SignGlyph sign={v} />
+                  </button>
+                ))}
+              </div>
             </div>
+            <div className="jc-sign-grid">
+              <label className="field">
+                <span className="micro">3.24 Ограничение, км/ч</span>
+                <input type="number" min={5} max={130} step={5} placeholder="нет" defaultValue={speed ?? ''} key={speed ?? 'none'}
+                  onBlur={(e) => { const v = Number.parseFloat(e.target.value); apply((d) => setApproachSpeed(d, arm, Number.isFinite(v) && v > 0 ? v : null)); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
+              </label>
+              <label className="check jc-sign-check">
+                <input type="checkbox" checked={crossing} onChange={(e) => apply((d) => setApproachCrossing(d, nodeId, arm, e.target.checked))} />
+                <span><b>5.19</b> Пешеходный переход</span>
+              </label>
+            </div>
+            {own.length > 0 && (
+              <div className="jc-bans">
+                <span className="micro">Запреты поворотов</span>
+                {own.map((t) => (
+                  <button key={t.to.key} className={`jc-ban${t.allowed ? '' : ' on'}`} aria-pressed={!t.allowed}
+                    title={t.allowed ? `Запретить: ${BAN_NAME[t.kind]} на ${armLabel(t.to)}` : `Разрешить: ${BAN_NAME[t.kind]} на ${armLabel(t.to)}`}
+                    onClick={() => apply((d) => setTurnAllowed(d, nodeId, t.from, t.to, !t.allowed))}>
+                    {!t.allowed && <i>{BAN_SIGN[t.kind]}</i>} {BAN_NAME[t.kind]} → {armLabel(t.to)}
+                  </button>
+                ))}
+              </div>
+            )}
+            {approach && approach.turns.length > 1 && (
+              <div className="jc-lane-signs" title="5.15.1: направления по полосам, из настроек полос">
+                <span className="micro">5.15.1 По полосам</span>
+                <span className="jc-lane-sign">{approach.turns.map((ts, i) => <b key={i}>{ts.map((t) => TURN_GLYPHS[t]).join('') || '·'}</b>)}</span>
+              </div>
+            )}
+            {yields && (
+              <div className="jc-gaps">
+                <label className="field"><span className="micro">Критический интервал, с</span>
+                  <input type="number" min={2} max={10} step={0.1} defaultValue={g.tc} key={`tc${g.tc}`}
+                    onBlur={(e) => setGaps(nodeId, key, { tc: Number(e.target.value) || g.tc, tf: g.tf })} /></label>
+                <label className="field"><span className="micro">Интервал следования, с</span>
+                  <input type="number" min={1} max={6} step={0.1} defaultValue={g.tf} key={`tf${g.tf}`}
+                    onBlur={(e) => setGaps(nodeId, key, { tc: g.tc, tf: Number(e.target.value) || g.tf })} /></label>
+                <span className="jc-gap-cap">≈ <b className="mono">{Math.round(gapCapacity(mainFlow, g.tc, g.tf))}</b> авт/ч на полосу при потоке главной {Math.round(mainFlow)} авт/ч{flows ? '' : ' (условно, без расчёта потоков)'}</span>
+              </div>
+            )}
           </div>
         );
       })}
-      <p className="jc-hint">Без знаков на равнозначном перекрёстке действует правило правой руки. «Главная дорога» ставится на всю улицу.</p>
+      <p className="jc-hint">Без знаков на равнозначном перекрёстке действует правило правой руки. «Главная дорога» и ограничение скорости ставятся на всю дорогу (теги <code>priority_road</code>, <code>maxspeed</code>).</p>
     </div>
   );
 }

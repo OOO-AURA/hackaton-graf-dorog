@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { armsAt, armKey, junctions, type Arm } from '../osm/lanes';
-import { approachSign, setApproachSign, type ApproachSign } from '../osm/signs';
+import { approachCrossing, approachSign, approachSpeed, setApproachSign, type ApproachSign } from '../osm/signs';
 import { sectionOf, edgesOf, plainSection } from '../map/section';
 import { junctionGeometry, junctionRadius, turnGroup, type LaneStyle, type TurnGroup } from '../map/lanesGeo';
 import { TURN_COLORS } from '../map/junctionLayers';
@@ -69,7 +69,7 @@ interface Plan {
   links: Array<{ pts: V[]; from: string; lane: number; to: string; turn: string; group: string }>;
   stops: Array<{ pts: V[]; kind: string }>;
   arrows: Array<{ p: V; icon: string; bearing: number }>;
-  signs: Array<{ p: V; arm: Arm; sign: ApproachSign }>;
+  signs: Array<{ p: V; arm: Arm; sign: ApproachSign; speed: number | null; crossing: boolean }>;
   signal: boolean;
 }
 
@@ -111,7 +111,7 @@ function planOf(doc: OsmDoc, nodeId: string): Plan {
     const len = Math.hypot(dir[0], dir[1]) || 1;
     // Coming in, traffic runs towards the junction: its right is the arm's left.
     const side = road.centre + road.width / 2 + 3;
-    return { p: [at[0] - (dir[1] / len) * side, at[1] + (dir[0] / len) * side] as V, arm, sign: approachSign(doc, nodeId, arm) };
+    return { p: [at[0] - (dir[1] / len) * side, at[1] + (dir[0] / len) * side] as V, arm, sign: approachSign(doc, nodeId, arm), speed: approachSpeed(doc, arm), crossing: approachCrossing(doc, nodeId, arm) };
   });
   return {
     roads, core: hull(corners), signal, signs,
@@ -219,6 +219,15 @@ function JunctionPlan({ nodeId }: { nodeId: string }) {
           <rect width="4.4" height="4.4" rx="0.8" className="jx-sign-bg" />
           <svg x="0.4" y="0.4" width="3.6" height="3.6" viewBox="0 0 20 20" overflow="visible"><SignGlyph sign={s.sign} size={20} /></svg>
           <title>Знак: {SIGN_NAMES[s.sign]}. Клик меняет</title>
+          {/* Under the priority sign the rest of the stack, as drivers see it: speed limit, crossing. */}
+          {s.speed !== null && (
+            <g transform="translate(0 4.8)"><circle cx="2.2" cy="2.2" r="2" fill="#fff" stroke="#D3302A" strokeWidth="0.5" />
+              <text x="2.2" y="2.95" textAnchor="middle" fontSize="2" fontWeight="700" fill="#111" fontFamily="sans-serif">{s.speed}</text></g>
+          )}
+          {s.crossing && (
+            <g transform={`translate(0 ${s.speed !== null ? 9.6 : 4.8})`}><rect width="4.4" height="4.4" rx="0.4" fill="#2A5DB0" />
+              <path d="M0.7 3.7L2.2 0.7L3.7 3.7Z" fill="#fff" /><circle cx="2.2" cy="2" r="0.35" fill="#111" /></g>
+          )}
         </g>
       ))}
       {plan.signal && (

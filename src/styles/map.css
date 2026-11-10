@@ -150,3 +150,20 @@
 .jc-tabs { margin: 0; }
 .jc-tabs button { font-size: 11.5px; padding: 0 6px; }
 .jc-signal-empty { display: grid; gap: 6px; }
+.jc-sign-card { display: grid; gap: 6px; padding: 8px; border-radius: var(--r-md); background: var(--hover); }
+.jc-sign-card .jc-sign-row { padding: 0; background: none; }
+.jc-sign-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: end; }
+.jc-sign-check { font-size: 12px; }
+.jc-sign-check b, .jc-note b, .jc-ban i { font-family: var(--font-mono); font-size: 10.5px; font-style: normal; }
+.jc-bans { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.jc-bans .micro { width: 100%; }
+.jc-ban { padding: 3px 8px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--paper); color: var(--ink); font-size: 11.5px; cursor: pointer; }
+.jc-ban.on { border-color: #D9443A; background: color-mix(in srgb, #D9443A 16%, var(--paper)); text-decoration: line-through; text-decoration-color: #D9443A; }
+.jc-ban.on i { text-decoration: none; display: inline-block; margin-right: 2px; color: #D9443A; }
+.jc-lane-signs { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.jc-lane-sign { display: inline-flex; gap: 2px; padding: 3px 6px; border-radius: 4px; background: #2A5DB0; color: #fff; }
+.jc-lane-sign b { min-width: 14px; text-align: center; font-size: 12px; }
+.jc-gaps { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; align-items: end; }
+.jc-gap-cap { grid-column: 1 / -1; font-size: 11.5px; color: var(--ink-2); }
+.jc-note { margin: 0; padding: 6px 8px; border-radius: var(--r-md); background: color-mix(in srgb, #F2C230 18%, transparent); font-size: 11.5px; }
+.jc-note.bad { background: color-mix(in srgb, #D9443A 18%, transparent); }

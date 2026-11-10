@@ -40,7 +40,7 @@ function Num({ label, value, min, max, step = 1, onChange, unit }: { label: stri
 const streetOf = (doc: ReturnType<typeof useSettledDoc>, arm: Arm) => doc.ways[arm.wayId]?.tags.name || doc.ways[arm.wayId]?.tags.highway || 'дорога';
 
 /** Vehicles an hour coming in along each approach, from the last macro run: flows of the way's link that ends at the junction. */
-function useApproachFlows(nodeId: string): ((key: string) => number) | null {
+export function useApproachFlows(nodeId: string): ((key: string) => number) | null {
   const result = useMacro((s) => s.result);
   const doc = useSettledDoc();
   return useMemo(() => {

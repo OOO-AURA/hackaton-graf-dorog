@@ -94,11 +94,11 @@ export function approachControl(doc: OsmDoc, nodeId: string, arm: Arm): Approach
 const incomingDirection = (arm: Arm) => (arm.step === 1 ? 'backward' : 'forward');
 
 /** Puts a give-way (or stop) sign on the arm `back` metres from the junction, on a node there or a new one. */
-function addGiveWay(doc: OsmDoc, nodeId: string, arm: Arm, back: number, highway: 'give_way' | 'stop' = 'give_way'): OsmDoc {
+function addGiveWay(doc: OsmDoc, nodeId: string, arm: Arm, back: number, highway: 'give_way' | 'stop' = 'give_way', own?: Tags): OsmDoc {
   const way = doc.ways[arm.wayId];
   const refs = armRefs(way, arm);
   const f = frame(doc.nodes[nodeId].lat);
-  const tags = { highway, direction: incomingDirection(arm) };
+  const tags = own ?? { highway, direction: incomingDirection(arm) };
   let dist = 0;
   for (let i = 1; i < refs.length; i += 1) {
     const [a, b] = [doc.nodes[refs[i - 1]], doc.nodes[refs[i]]];
@@ -267,3 +267,77 @@ export function signPoints(doc: OsmDoc): FeatureCollection<Point, SignProps> {
   }
   return { type: 'FeatureCollection', features };
 }
+
+/** Nodes of an arm within reach of the junction, from it outwards. */
+function nodesNear(doc: OsmDoc, nodeId: string, arm: Arm): string[] {
+  const way = doc.ways[arm.wayId];
+  if (!way) return [];
+  const refs = armRefs(way, arm);
+  const f = frame(doc.nodes[nodeId].lat);
+  const out: string[] = [];
+  let dist = 0;
+  for (let i = 1; i < refs.length; i += 1) {
+    const [a, b] = [doc.nodes[refs[i - 1]], doc.nodes[refs[i]]];
+    if (!a || !b) break;
+    const [pa, pb] = [f.to(a.lon, a.lat), f.to(b.lon, b.lat)];
+    dist += Math.hypot(pb[0] - pa[0], pb[1] - pa[1]);
+    if (dist > CONTROL_REACH) break;
+    out.push(b.id);
+  }
+  return out;
+}
+
+/** Whether an approach has a pedestrian crossing (sign 5.19) just before the junction. */
+export const approachCrossing = (doc: OsmDoc, nodeId: string, arm: Arm): boolean =>
+  nodesNear(doc, nodeId, arm).some((id) => isCrossing(doc.nodes[id].tags));
+
+/** Puts a zebra crossing on an approach a few metres out of the junction, or takes the ones there away. */
+export function setApproachCrossing(doc: OsmDoc, nodeId: string, arm: Pick<Arm, 'wayId' | 'step'>, on: boolean): OsmDoc {
+  const key = `${arm.wayId}:${arm.step}`;
+  const at = armsAt(doc, nodeId).find((a) => `${a.wayId}:${a.step}` === key);
+  if (!at) return doc;
+  if (!on) {
+    return nodesNear(doc, nodeId, at).reduce((d, id) => (isCrossing(d.nodes[id].tags)
+      ? setNodeTags(d, id, withTag(withTag(d.nodes[id].tags, 'highway', null), 'crossing', null)) : d), doc);
+  }
+  if (approachCrossing(doc, nodeId, at)) return doc;
+  const back = Math.max(4, signBack(doc, armsAt(doc, nodeId)) - SIGN_BACK_MARGIN);
+  return addGiveWay(doc, nodeId, at, back, 'give_way', { highway: 'crossing', crossing: 'uncontrolled' });
+}
+
+/** Speed limit on an approach (sign 3.24): the `maxspeed` of its way, km/h, or null. */
+export const approachSpeed = (doc: OsmDoc, arm: Pick<Arm, 'wayId'>): number | null => {
+  const v = Number.parseFloat(doc.ways[arm.wayId]?.tags.maxspeed ?? '');
+  return Number.isFinite(v) ? v : null;
+};
+
+export function setApproachSpeed(doc: OsmDoc, arm: Pick<Arm, 'wayId'>, kmh: number | null): OsmDoc {
+  const way = doc.ways[arm.wayId];
+  if (!way) return doc;
+  return setWayTags(doc, way.id, withTag(way.tags, 'maxspeed', kmh ? String(Math.round(kmh)) : null));
+}
+
+/**
+ * Where the main road goes at a junction: the approaches of the main road, and whether it turns
+ * there, so a plate 8.13 «direction of the main road» belongs under its signs.
+ */
+export function mainRoadAt(doc: OsmDoc, nodeId: string): { arms: Arm[]; turns: boolean } {
+  const arms = armsAt(doc, nodeId).filter((a) => doc.ways[a.wayId]?.tags.priority_road);
+  if (arms.length !== 2) return { arms, turns: false };
+  const d = Math.abs(((arms[0].bearing - arms[1].bearing) % 360 + 360) % 360);
+  const across = Math.abs(180 - (d > 180 ? 360 - d : d));
+  return { arms, turns: across > 30 };
+}
+
+/**
+ * Capacity of a lane that gives way, vehicles an hour, by the gap acceptance formula (Harders,
+ * as in HCM and ОДМ 218.2.020): c = q·e^(−q·tc/3600) / (1 − e^(−q·tf/3600)) with the main flow q
+ * and the critical gap tc and follow-up time tf in seconds.
+ */
+export function gapCapacity(mainFlow: number, tc: number, tf: number): number {
+  const q = Math.max(1, mainFlow);
+  return (q * Math.exp((-q * tc) / 3600)) / (1 - Math.exp((-q * tf) / 3600));
+}
+
+/** Typical gaps: give way at a city junction, and at a stop sign where every car stops first. */
+export const GAPS: Readonly<Record<'give_way' | 'stop', { tc: number; tf: number }>> = { give_way: { tc: 5.5, tf: 3.1 }, stop: { tc: 6.5, tf: 3.5 } };

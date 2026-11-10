@@ -66,3 +66,30 @@ describe('road signs by the traffic rules', () => {
     expect(points.filter((f) => f.properties.sign === 'main_road').length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe('signs of an approach in detail', () => {
+  const xml = `<osm version="0.6">
+    <node id="0" lat="52.0000" lon="104.0000"/><node id="1" lat="51.9990" lon="104.0000"/><node id="2" lat="52.0000" lon="103.9985"/><node id="3" lat="52.0010" lon="104.0000"/>
+    <way id="10"><nd ref="1"/><nd ref="0"/><tag k="highway" v="residential"/></way>
+    <way id="20"><nd ref="2"/><nd ref="0"/><tag k="highway" v="residential"/></way>
+    <way id="30"><nd ref="0"/><nd ref="3"/><tag k="highway" v="residential"/></way>
+  </osm>`;
+  test('a crossing goes on the approach and comes off again, a speed limit is the way maxspeed', async () => {
+    const { parseOsm } = await import('./parse');
+    const { armsAt } = await import('./lanes');
+    const { approachCrossing, setApproachCrossing, approachSpeed, setApproachSpeed, mainRoadAt, setApproachSign, gapCapacity } = await import('./signs');
+    let doc = parseOsm(xml);
+    const arm = () => armsAt(doc, '0').find((a) => a.wayId === '10')!;
+    doc = setApproachCrossing(doc, '0', arm(), true);
+    expect(approachCrossing(doc, '0', arm())).toBe(true);
+    doc = setApproachCrossing(doc, '0', arm(), false);
+    expect(approachCrossing(doc, '0', arm())).toBe(false);
+    doc = setApproachSpeed(doc, arm(), 40);
+    expect(approachSpeed(doc, arm())).toBe(40);
+    // South and west as the main road: it turns at the junction, a plate 8.13 is needed.
+    doc = setApproachSign(doc, '0', arm(), 'main');
+    doc = setApproachSign(doc, '0', armsAt(doc, '0').find((a) => a.wayId === '20')!, 'main');
+    expect(mainRoadAt(doc, '0').turns).toBe(true);
+    expect(gapCapacity(600, 5.5, 3.1)).toBeGreaterThan(gapCapacity(1200, 5.5, 3.1));
+  });
+});
