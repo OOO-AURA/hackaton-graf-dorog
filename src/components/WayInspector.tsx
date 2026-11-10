@@ -1,6 +1,6 @@
 import { setWayTag, setWayTags } from '../osm/edit';
 import { direction, DRIVABLE_HIGHWAYS } from '../osm/tags';
-import type { OsmWay, Tags } from '../osm/types';
+import type { OsmDoc, OsmWay, Tags } from '../osm/types';
 import { useEditor } from '../state/store';
 import { flipSelected, reverseSelected, deleteSelection } from '../state/actions';
 import { SelectField, TextField } from './fields';
@@ -17,6 +17,7 @@ import { safeInput } from '../osm/pipelineSafety';
 import { SimulatorsSection } from './SimulatorsSection';
 import { useSettledDoc } from '../state/settled';
 import { BusLaneFields } from './BusParts';
+import { isolatePiece } from '../osm/pieces';
 
 export const HIGHWAY_LABELS: Readonly<Record<string, string>> = {
   motorway: 'Автомагистраль', trunk: 'Скоростная', primary: 'Магистральная', secondary: 'Районная', tertiary: 'Улица местного значения',
@@ -49,7 +50,14 @@ function elevationHint(t: Tags): string {
 }
 
 export function WayInspector({ way }: { way: OsmWay }) {
-  const apply = useEditor((s) => s.apply);
+  const storeApply = useEditor((s) => s.apply);
+  const piece = useEditor((s) => (s.selection?.type === 'way' && s.selection.id === way.id ? s.selection.piece : undefined));
+  // With a stretch picked, the first edit cuts it out of its way (it keeps the way's id), so the
+  // edit and the ones after it apply to the stretch only.
+  const apply = (edit: (d: OsmDoc) => OsmDoc) => {
+    storeApply((d) => edit(piece ? isolatePiece(d, way.id, piece) : d));
+    if (piece) select({ type: 'way', id: way.id });
+  };
   const select = useEditor((s) => s.select);
   const doc = useSettledDoc();
   const t = way.tags;
@@ -72,7 +80,8 @@ export function WayInspector({ way }: { way: OsmWay }) {
       <header className="insp-head">
         <span className="micro">Дорога</span>
         <h2 className="insp-title">{t.name || HIGHWAY_LABELS[t.highway ?? ''] || 'Без названия'}</h2>
-        <span className="mono insp-id">way {way.id} · {way.refs.length} узл.</span>
+        <span className="mono insp-id">way {way.id} · {piece ? `участок между точками, ${piece.to - piece.from + 1} узл. из ${way.refs.length}` : `${way.refs.length} узл.`}</span>
+        {piece && <button className="link" onClick={() => select({ type: 'way', id: way.id })}>Править всю линию</button>}
         {streetParts > 1 && <button className="link" onClick={() => select({ type: 'street', id: t.name })}>Вся улица: {streetParts} участков, править разом</button>}
       </header>
       <Section title="Свойства">

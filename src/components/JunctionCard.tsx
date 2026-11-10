@@ -89,10 +89,11 @@ function PickedLink() {
 export function JunctionCard() {
   const doc = useSettledDoc();
   const selection = useEditor((s) => currentSelection(s));
-  const select = useEditor((s) => s.select);
   const apply = useEditor((s) => s.apply);
   const nodeId = selection?.type === 'node' ? selection.id : null;
-  if (!nodeId || !junctions(doc).includes(nodeId)) return null;
+  const closed = useUi((s) => s.junctionCardClosed);
+  const setClosed = useUi((s) => s.setJunctionCardClosed);
+  if (!nodeId || !junctions(doc).includes(nodeId) || closed === nodeId) return null;
   const lanes = junctionLanes(doc, nodeId);
   if (!lanes.approaches.length) return null;
   const names = [...new Set(lanes.arms.map((a) => doc.ways[a.wayId]?.tags.name).filter(Boolean))].slice(0, 2).join(' × ');
@@ -100,7 +101,7 @@ export function JunctionCard() {
     <section className="float junction-card" aria-label="Перекрёсток">
       <header className="jc-head">
         <div><span className="micro">Перекрёсток</span><h3>{names || `узел ${nodeId}`}</h3></div>
-        <button className="tool" onClick={() => select(null)} title="Закрыть (Esc)"><Icon name="close" /></button>
+        <button className="tool" onClick={() => setClosed(nodeId)} title="Закрыть карточку (перекрёсток остаётся выбранным)"><Icon name="close" /></button>
       </header>
       <ul className="jc-legend">{LEGEND.map(([g, label]) => <li key={g}><i style={{ background: TURN_COLORS[g] }} />{label}</li>)}</ul>
       <div className="jc-body">

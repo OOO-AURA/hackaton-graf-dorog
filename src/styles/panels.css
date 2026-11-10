@@ -428,3 +428,16 @@ button.link:hover { text-decoration: underline; }
 .s-bus_stop { background: #1E5BB8; border-radius: 2px; box-shadow: 0 0 0 1.5px #fff inset; }
 .bus-lanes { display: grid; gap: 2px; }
 .stop-fields { display: grid; gap: 6px; margin-top: 6px; }
+.detach-row { display: flex; align-items: center; gap: 4px; }
+.detach-row > button:first-child { flex: 1; min-width: 0; }
+
+/* Error log */
+.error-log-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.error-log-head .hint { flex: 1; }
+.error-log-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 12px; }
+.error-log-list li { display: grid; grid-template-columns: 64px 84px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 2px 4px; border-radius: var(--r-sm); }
+.error-log-list li.app { background: var(--red-wash); }
+.error-log-list li.fixed { opacity: 0.55; }
+.error-log-list .link { text-align: left; }
+.error-kind { color: var(--ink-2); font-size: 11px; }
+.error-status { color: var(--ink-2); font-size: 11px; white-space: nowrap; }

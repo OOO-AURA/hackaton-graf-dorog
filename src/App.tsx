@@ -15,6 +15,9 @@ import { useCloseGuard } from './state/useCloseGuard';
 import { usePanels } from './state/panels';
 import { SidePanel } from './components/SidePanel';
 import type { CSSProperties } from 'react';
+import { useCheck } from './components/CheckPanel';
+import { useSim } from './sim/store';
+import { startErrorLog, useErrorLog } from './state/errorLog';
 
 const MESSAGE_TIMEOUT_MS = 3500;
 const VALIDATE_DELAY_MS = 350;
@@ -53,12 +56,24 @@ function useLiveValidation(): void {
   }, [doc, hasReport]);
 }
 
+/** Feeds the error log: failures written to the console, graph errors as edits bring them in, SUMO and check failures. */
+function useErrorLogFeeds(): void {
+  useEffect(() => {
+    const stopConsole = startErrorLog();
+    const stopIssues = useEditor.subscribe((s, prev) => { if (s.report && s.report !== prev.report) useErrorLog.getState().syncIssues(s.report.issues, s.doc === s.baseDoc); });
+    const stopSim = useSim.subscribe((s, prev) => { if (s.error && s.error !== prev.error) useErrorLog.getState().add('app', `SUMO: ${s.error}`); });
+    const stopCheck = useCheck.subscribe((s, prev) => { if (s.error && s.error !== prev.error) useErrorLog.getState().add('app', `Проверка как на сервере: ${s.error}`); });
+    return () => { stopConsole(); stopIssues(); stopSim(); stopCheck(); };
+  }, []);
+}
+
 export function App() {
   useHotkeys();
   useTheme();
   useLiveValidation();
   useCloseGuard();
   useEffect(() => startAutosave(), []);
+  useErrorLogFeeds();
   const empty = useEditor((s) => !Object.keys(s.doc.nodes).length);
   const workspace = useUi((s) => s.workspace);
   const p = usePanels();

@@ -5,10 +5,12 @@ import { streetWays } from '../osm/street';
 
 export type { DrawPoint };
 import { validate, type ValidationReport } from '../osm/validate';
+import type { Piece } from '../osm/pieces';
 
 export type Mode = 'select' | 'draw' | 'insert' | 'signal' | 'building';
 /** `street` selects every drivable way named `id` (see osm/street.ts). */
-export type Selection = { type: 'node' | 'way' | 'street'; id: string } | null;
+/** What is selected; a way may be picked only between two of its junctions (`piece`, see osm/pieces.ts). */
+export type Selection = { type: 'node' | 'way' | 'street'; id: string; piece?: Piece } | null;
 export type Basemap = 'osm' | 'satellite' | 'none';
 
 
@@ -128,7 +130,11 @@ export function currentSelection(state: Pick<EditorState, 'doc' | 'selection'>):
   if (!selection) return null;
   if (selection.type === 'street') return streetWays(doc, selection.id).length ? selection : null;
   const exists = selection.type === 'node' ? doc.nodes[selection.id] : doc.ways[selection.id];
-  return exists ? selection : null;
+  if (!exists) return null;
+  // A stretch that no longer fits its way (after an undo) falls back to the whole way.
+  const p = selection.piece;
+  if (p && selection.type === 'way' && p.to >= doc.ways[selection.id].refs.length) return { type: 'way', id: selection.id };
+  return selection;
 }
 
 /** Ways of a frame selection that still exist (undo may have removed some). */

@@ -53,7 +53,12 @@ function selectionGeoJson(doc: OsmDoc, sel: ReturnType<typeof currentSelection>,
   if (multi.length) return { type: 'FeatureCollection', features: multi.filter((id) => doc.ways[id]).map((id) => wayLine(doc, id)) };
   if (!sel) return { type: 'FeatureCollection', features: [] };
   if (sel.type === 'street') return { type: 'FeatureCollection', features: streetWays(doc, sel.id).map((w) => wayLine(doc, w.id)) };
-  if (sel.type === 'way') return { type: 'FeatureCollection', features: [wayLine(doc, sel.id)] };
+  if (sel.type === 'way') {
+    const line = wayLine(doc, sel.id);
+    if (!sel.piece) return { type: 'FeatureCollection', features: [line] };
+    const coords = (line.geometry as { coordinates: number[][] }).coordinates.slice(sel.piece.from, sel.piece.to + 1);
+    return { type: 'FeatureCollection', features: [{ ...line, geometry: { type: 'LineString', coordinates: coords } }] };
+  }
   const n = doc.nodes[sel.id];
   return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [n.lon, n.lat] } }] };
 }
@@ -130,7 +135,13 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
       type: 'Feature', properties: { id: i.id, kind: i.kind, severity: i.severity, focused: i.id === focusIssue }, geometry: { type: 'Point', coordinates: i.at },
     }));
     setData(map, 'issues', { type: 'FeatureCollection', features });
-  }, [map, report, focusIssue]);
+    // The roads each issue is about, outlined under the road surface.
+    const lines = (report?.issues ?? []).flatMap((i) => i.wayIds.filter((id) => doc.ways[id]).map((id) => ({
+      type: 'Feature', properties: { severity: i.severity, focused: i.id === focusIssue },
+      geometry: { type: 'LineString', coordinates: doc.ways[id].refs.filter((r) => doc.nodes[r]).map((r) => [doc.nodes[r].lon, doc.nodes[r].lat]) },
+    })));
+    setData(map, 'issue-ways', { type: 'FeatureCollection', features: lines });
+  }, [map, report, focusIssue, doc]);
 
   // The road being drawn, as wide as it will be, up to the pointer; buildings in its way in red.
   const templateIndex = useEditor((s) => s.templateIndex);

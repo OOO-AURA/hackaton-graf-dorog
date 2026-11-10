@@ -16,6 +16,7 @@ import { currentSelection, useEditor } from './store';
 import { useUi } from './ui';
 import { refreshReport } from './validation';
 import { askUser, baseName, downloadText, isDesktop, openOsmFile, saveOsmFile } from '../platform';
+import { isolatePiece } from '../osm/pieces';
 
 export function loadXml(xml: string, fileName: string, filePath: string | null = null): void {
   const { load, notify } = useEditor.getState();
@@ -154,7 +155,8 @@ export function deleteSelection(): void {
   if (sel.type === 'street') return;
   // A building takes the corners only it used along; other ways keep their nodes.
   const building = sel.type === 'way' && s.doc.ways[sel.id] && isBuilding(s.doc.ways[sel.id].tags);
-  s.apply((d) => (sel.type === 'node' ? deleteNode(d, sel.id) : building ? deleteBuilding(d, sel.id) : deleteWay(d, sel.id)));
+  // A stretch picked between two junctions goes alone; the rest of the way stays.
+  s.apply((d) => (sel.type === 'node' ? deleteNode(d, sel.id) : building ? deleteBuilding(d, sel.id) : deleteWay(sel.piece ? isolatePiece(d, sel.id, sel.piece) : d, sel.id)));
   s.select(null);
 }
 

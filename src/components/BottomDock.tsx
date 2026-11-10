@@ -4,6 +4,8 @@ import { useUi, type BottomTab } from '../state/ui';
 import { CheckPanel, useCheck } from './CheckPanel';
 import { IssuesPanel } from './IssuesPanel';
 import { Journal } from './Journal';
+import { ErrorLogPanel } from './ErrorLogPanel';
+import { useErrorLog } from '../state/errorLog';
 import { FlowsPanel } from './FlowsPanel';
 import { ScenariosPanel } from './ScenariosPanel';
 import { TransitPanel } from './TransitPanel';
@@ -16,12 +18,14 @@ function Badge({ tab }: { tab: BottomTab }) {
   const report = useEditor((s) => s.report);
   const check = useCheck((s) => s.report);
   const running = useCheck((s) => s.running);
+  const logged = useErrorLog((s) => s.entries.filter((e) => e.kind === 'app' || !e.fixedAt).length);
   if (tab === 'issues' && report) {
     const errors = report.issues.filter((i) => i.severity === 'error').length;
     const all = report.issues.length;
     if (!all) return <span className="badge ok" aria-label="ошибок нет"><Icon name="check" size={11} /></span>;
     return <span className={`badge${errors ? ' err' : ' warn'}`}>{all}</span>;
   }
+  if (tab === 'errors' && logged) return <span className="badge err">{logged}</span>;
   if (tab === 'check' && running) return <span className="badge spin" aria-label="идёт проверка" />;
   if (tab === 'check' && check) {
     const failed = check.stages.filter((s) => s.status === 'fail').length;
@@ -30,7 +34,7 @@ function Badge({ tab }: { tab: BottomTab }) {
   return null;
 }
 
-const TABS: ReadonlyArray<[BottomTab, string]> = [['issues', 'Валидация'], ['check', 'Проверка как на сервере'], ['flows', 'Потоки'], ['transit', 'Транспорт'], ['scenarios', 'Сценарии'], ['journal', 'Журнал']];
+const TABS: ReadonlyArray<[BottomTab, string]> = [['issues', 'Валидация'], ['check', 'Проверка как на сервере'], ['flows', 'Потоки'], ['transit', 'Транспорт'], ['scenarios', 'Сценарии'], ['journal', 'Журнал'], ['errors', 'Ошибки']];
 
 export function BottomDock() {
   const tab = useUi((s) => s.bottomTab);
@@ -66,6 +70,7 @@ export function BottomDock() {
           {tab === 'transit' && <TransitPanel />}
           {tab === 'scenarios' && <ScenariosPanel />}
           {tab === 'journal' && <Journal />}
+          {tab === 'errors' && <ErrorLogPanel />}
         </div>
       )}
     </section>
