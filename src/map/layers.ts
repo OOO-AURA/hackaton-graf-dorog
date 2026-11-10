@@ -34,6 +34,23 @@ const SIGN_ICONS: Record<string, (c: CanvasRenderingContext2D) => void> = {
     c.fillStyle = '#FFFFFF'; for (let x = 8; x < 26; x += 5) c.fillRect(x, 18, 3, 7);
     c.beginPath(); c.arc(16, 9, 2.5, 0, Math.PI * 2); c.fill(); c.fillRect(15, 11, 2, 6);
   },
+  // Road signs 2.5 «STOP», 2.4 «Уступи дорогу» and 5.16 «Место остановки автобуса».
+  stop: (c) => {
+    c.fillStyle = '#D7262B'; c.strokeStyle = '#FFFFFF'; c.lineWidth = 2;
+    c.beginPath();
+    for (let i = 0; i < 8; i += 1) { const a = Math.PI / 8 + (i * Math.PI) / 4; c.lineTo(16 + 13.5 * Math.cos(a), 16 + 13.5 * Math.sin(a)); }
+    c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = '#FFFFFF'; c.fillRect(8, 14, 16, 4);
+  },
+  give_way: (c) => {
+    c.fillStyle = '#FFFFFF'; c.strokeStyle = '#D7262B'; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(3, 5); c.lineTo(29, 5); c.lineTo(16, 28); c.closePath(); c.fill(); c.stroke();
+  },
+  bus_stop: (c) => {
+    c.fillStyle = '#3F8BC4'; c.fillRect(3, 3, 26, 26); c.strokeStyle = '#FFFFFF'; c.lineWidth = 2; c.strokeRect(4, 4, 24, 24);
+    c.fillStyle = '#FFFFFF'; c.fillRect(8, 9, 16, 12); c.fillStyle = '#3F8BC4'; c.fillRect(10, 11, 12, 4);
+    c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(11, 23, 2, 0, Math.PI * 2); c.arc(21, 23, 2, 0, Math.PI * 2); c.fill();
+  },
   bump: (c) => {
     c.fillStyle = '#F0BC2A'; c.strokeStyle = '#3A2516'; c.lineWidth = 2.5;
     c.beginPath(); c.moveTo(16, 3); c.lineTo(29, 28); c.lineTo(3, 28); c.closePath(); c.fill(); c.stroke();
@@ -203,7 +220,7 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   });
   const signLayout = (size: number) => ({ 'icon-image': ['concat', 'sign-', ['get', 'symbol']], 'icon-allow-overlap': true, 'icon-size': ['interpolate', ['linear'], ['zoom'], 14, size * 0.7, 18, size] }) as never;
   map.addLayer({ id: 'crossings', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['==', ['get', 'symbol'], 'crossing'], layout: signLayout(1) });
-  map.addLayer({ id: 'signs', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['in', ['get', 'symbol'], ['literal', ['bump']]], layout: signLayout(1) });
+  map.addLayer({ id: 'signs', type: 'symbol', source: 'nodes', minzoom: 14, filter: ['in', ['get', 'symbol'], ['literal', ['bump', 'stop', 'give_way', 'bus_stop']]], layout: signLayout(1) });
   map.addLayer({ id: 'signals', type: 'circle', source: 'nodes', minzoom: 13, filter: ['==', ['get', 'kind'], 'signal'], paint: { 'circle-radius': 6, 'circle-stroke-width': 2 } });
   // Junctions with turn bans: a dashed-looking double ring around the node.
   map.addLayer({ id: 'turn-bans', type: 'circle', source: 'turns', minzoom: 14, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 6, 18, 13], 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 2.5, 'circle-stroke-opacity': 0.9 } });

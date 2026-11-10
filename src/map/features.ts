@@ -37,6 +37,9 @@ export function toggleNodeFeature(doc: OsmDoc, nodeId: string, f: NodeFeature): 
 export function nodeSymbol(tags: Tags): string {
   if (tags.highway === 'traffic_signals') return 'signal';
   if (tags.highway === 'crossing' || tags.crossing) return 'crossing';
+  if (tags.highway === 'stop') return 'stop';
+  if (tags.highway === 'give_way') return 'give_way';
+  if (tags.highway === 'bus_stop') return 'bus_stop';
   if (tags.traffic_calming) return 'bump';
   return '';
 }
