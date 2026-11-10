@@ -2,8 +2,8 @@ import earcut from 'earcut';
 import { isDrivable } from '../osm/tags';
 import type { OsmDoc, OsmWay } from '../osm/types';
 import { buildingHeight, LAYER_STEP } from '../osm/height';
-import { roadTapers, sectionAt, sectionOf, widthOf, type CrossSection, type Taper } from './section';
-import { roadShifts } from './shift';
+import { sectionAt, sectionOf, widthOf, type CrossSection, type Taper } from './section';
+import { drawnRoads, roadShifts } from './shift';
 import { offsetLine } from './polyline';
 import { isLifted, nodeElevations } from './elevation';
 import { signPoints } from '../osm/signs';
@@ -568,7 +568,7 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
   const underground = new Buf();
   const shadows = new Buf();
   const mask = new Buf();
-  const tapers = roadTapers(doc);
+  const { tapers } = drawnRoads(doc);
 
   // How many drivable non-tunnel ways touch each node: a tunnel end there is a portal.
   const openAir = new Map<string, number>();

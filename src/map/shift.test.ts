@@ -1,6 +1,6 @@
 import { parseOsm } from '../osm/parse';
 import { roadTapers } from './section';
-import { roadShifts } from './shift';
+import { drawnRoads, roadShifts } from './shift';
 
 const tag = (tags: Record<string, string>) => Object.entries(tags).map(([k, v]) => `<tag k="${k}" v="${v}"/>`).join('');
 
@@ -34,14 +34,28 @@ describe('forks', () => {
     expect(roadTapers(doc).has('10')).toBe(true);
   });
 
-  test('a slip road starting on the main road is drawn alongside it, then on its own line', () => {
-    const offs = roadShifts(fork(twoWay(6), twoWay(4), link)).get('12')!;
+  test('slip roads at a fork start on their part of the wide road, then move to their own line', () => {
+    const offs = roadShifts(fork(twoWay(5), twoWay(4), link)).get('12')!;
     // Half the main road (7 m) and half the slip road (1.75 m), to the north: left of the way.
     expect(offs[0]).toBeCloseTo(8.75);
     expect(offs[1]).toBeGreaterThan(0);
     expect(offs[1]).toBeLessThan(8.75);
     expect(offs[2]).toBe(0);
-    expect(roadShifts(fork(twoWay(6), twoWay(4), link)).has('11')).toBe(false);
+    expect(roadShifts(fork(twoWay(5), twoWay(4), link)).has('11')).toBe(false);
+  });
+
+  test('a slip road leaving a through road grows out of its edge like an added lane', () => {
+    const doc = fork(twoWay(6), twoWay(4), link);
+    const offs = roadShifts(doc).get('12')!;
+    expect(offs[0]).toBeCloseTo(7);
+    const [t] = drawnRoads(doc).tapers.get('12')!;
+    expect(t.atStart).toBe(true);
+    expect(t.to.forward + t.to.backward).toBe(0);
+  });
+
+  test('yard driveways stay on their lines', () => {
+    const doc = fork(twoWay(6), twoWay(4), { highway: 'service' });
+    expect(roadShifts(doc).has('12')).toBe(false);
   });
 
   test('two equal halves of a dual carriageway each move half the way', () => {

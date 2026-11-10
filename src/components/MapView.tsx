@@ -241,9 +241,11 @@ function useLanes(map: MapLibreMap | null): void {
       const p = f.properties;
       f.properties.hot = Boolean(picked && p.node === picked.node && ((p.kind === 'in' && p.arm === picked.from && p.lane === picked.lane) || (p.kind === 'out' && p.arm === picked.to)));
     });
-    setData(map, 'lane-links', links);
+    // Movements and the outline only on the junction picked: on every junction they hide the roads.
+    const onPicked = <T extends { properties: Record<string, unknown> }>(fc: { features: T[] }) => ({ ...fc, features: fc.features.filter((f) => f.properties.node === editing) });
+    setData(map, 'lane-links', onPicked(links));
     setData(map, 'lane-ends', ends);
-    setData(map, 'junction-areas', areas);
+    setData(map, 'junction-areas', onPicked(areas));
     setData(map, 'stop-lines', stops);
     setData(map, 'lane-arrows', arrows);
   }, [map, doc, nodes, editing, style, picked]);
@@ -314,10 +316,22 @@ function useMapLook(map: MapLibreMap | null): void {
     const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     map.easeTo({ pitch: view3d ? 58 : 0, bearing: view3d ? -18 : 0, duration: instant ? 0 : 700 });
   }, [map, view3d]);
+  // The flat map does not tilt: in 2D the camera looks straight down, it only turns.
+  useEffect(() => {
+    if (!alive(map)) return undefined;
+    if (view3d) { map.setMaxPitch(MAX_PITCH_3D); return undefined; }
+    const flatten = () => { if (!useUi.getState().view3d && alive(map) && map.getPitch() < 0.5) map.setMaxPitch(0); };
+    flatten();
+    map.on('moveend', flatten);
+    return () => { map.off('moveend', flatten); };
+  }, [map, view3d]);
   useEffect(() => {
     if (alive(map) && fly) map.fitBounds(fly.bounds, { padding: 80, maxZoom: 17, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600 });
   }, [map, fly]);
 }
+
+/** Steepest tilt of the 3D view. */
+const MAX_PITCH_3D = 70;
 
 /** Set while the camera of a file is being restored, so the 2D/3D switch does not animate it away. */
 let restoringCamera = false;
@@ -387,7 +401,7 @@ export function MapView() {
 
   useEffect(() => {
     if (!container.current) return undefined;
-    const instance = new maplibregl.Map({ container: container.current, style: BASE_STYLE, center: IRKUTSK_CENTER, zoom: 15, maxPitch: 70, doubleClickZoom: false });
+    const instance = new maplibregl.Map({ container: container.current, style: BASE_STYLE, center: IRKUTSK_CENTER, zoom: 15, maxPitch: MAX_PITCH_3D, doubleClickZoom: false });
     instance.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right');
     instance.on('load', () => {
       addEditorLayers(instance, MAP_PALETTE[useUi.getState().theme]);

@@ -6,8 +6,8 @@ import { approachControl } from '../osm/signs';
 import { isLifted, isLiftedNode } from './elevation';
 import type { OsmDoc, Tags } from '../osm/types';
 import { along, cumulative, densify, frame, lengthOf, offsetLine, slice, type V } from './polyline';
-import { laneOffsetIn, plainSection, roadTapers, sectionAt, sectionOf, widthOf, type Travel } from './section';
-import { roadShifts, wayPoints } from './shift';
+import { laneOffsetIn, plainSection, sectionAt, sectionOf, widthOf, type Travel } from './section';
+import { drawnRoads, roadShifts, wayPoints } from './shift';
 import { psvLanes } from '../osm/busLanes';
 
 /**
@@ -73,7 +73,7 @@ const laneCache = new WayCache<Feature<LineString, Props>[]>();
 
 export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<LineString, Props> {
   const radius = new Map(junctions(doc).map((id) => [id, junctionRadius(doc, id)]));
-  const tapers = roadTapers(doc);
+  const { tapers } = drawnRoads(doc);
   const features: Feature<LineString, Props>[] = [];
   for (const w of Object.values(doc.ways)) {
     if (!isDrivable(w.tags) || w.refs.length < 2) continue;

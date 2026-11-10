@@ -8,8 +8,8 @@ import { thematicProps } from './thematic';
 import type { OsmDoc, OsmWay } from '../osm/types';
 import { pxPerMetreZ17 } from './lanesGeo';
 import { cumulative, frame, slice } from './polyline';
-import { roadTapers, sectionAt, sectionOf, taperBreaks, type Taper } from './section';
-import { roadShifts, wayPoints } from './shift';
+import { sectionAt, sectionOf, taperBreaks, type Taper } from './section';
+import { drawnRoads, roadShifts, wayPoints } from './shift';
 
 /** How far road pieces reach into their neighbours, metres. */
 const OVERLAP = 0.3;
@@ -49,7 +49,7 @@ export function sidewalkSides(tags: Record<string, string>): string {
   return URBAN.has((tags.highway ?? '').replace(/_link$/, '')) && !tags.highway?.endsWith('_link') ? 'lr' : '';
 }
 
-function roadFeatures(doc: OsmDoc, w: OsmWay, tapers: readonly Taper[] | undefined): Feature<LineString, Props>[] {
+function roadFeatures(doc: OsmDoc, w: OsmWay, tapers: readonly Taper[] | undefined, trim: readonly [number, number] = [0, 0]): Feature<LineString, Props>[] {
   const props: Props = {
     id: w.id,
     color: highwayColor(w.tags.highway ?? ''),
@@ -81,11 +81,13 @@ function roadFeatures(doc: OsmDoc, w: OsmWay, tapers: readonly Taper[] | undefin
       geometry: { type: 'LineString', coordinates: taper || from > 0 || to < total ? slice(pts, Math.max(0, from - OVERLAP), Math.min(total, to + OVERLAP)).map(f.back) : lonLat },
     };
   };
-  if (!tapers?.length) return [feature(0, total, false)];
+  // A road ending on a narrower one stops short, so its round end does not show past it (shift.ts).
+  const [cutStart, cutEnd] = trim;
+  if (!tapers?.length) return [feature(cutStart, total - cutEnd, false)];
   const out: Feature<LineString, Props>[] = [];
   const startLen = tapers.find((t) => t.atStart)?.length ?? 0;
   const endLen = tapers.find((t) => !t.atStart)?.length ?? 0;
-  out.push(feature(startLen, total - endLen, false));
+  out.push(feature(startLen || cutStart, total - (endLen || cutEnd), false));
   const breaks = taperBreaks(tapers, total);
   for (let i = 0; i + 1 < breaks.length; i += 1) {
     const [a, b] = [breaks[i], breaks[i + 1]];
@@ -100,10 +102,11 @@ const collection = <G extends LineString | Point | Polygon>(features: Feature<G,
 const roadCache = new WayCache<Feature<LineString, Props>[]>();
 
 export function roadsGeoJson(doc: OsmDoc) {
-  const tapers = roadTapers(doc);
+  const { tapers, trims } = drawnRoads(doc);
   return collection(Object.values(doc.ways).filter((w) => isDrivable(w.tags) && w.refs.length > 1).flatMap((w) => {
     const t = tapers.get(w.id);
-    return roadCache.get(doc, w, [sig(t), sig(roadShifts(doc).get(w.id))], () => roadFeatures(doc, w, t));
+    const trim = trims.get(w.id);
+    return roadCache.get(doc, w, [sig(t), sig(roadShifts(doc).get(w.id)), sig(trim)], () => roadFeatures(doc, w, t, trim));
   }));
 }
 
