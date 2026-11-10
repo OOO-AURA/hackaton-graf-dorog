@@ -234,8 +234,8 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     layout: { 'line-cap': 'round' },
     paint: {
       'line-color': ['get', 'color'], 'line-opacity': 0.9,
-      'line-width': ['interpolate', ['linear'], ['get', 'v'], 0, 1.5, 500, 4, 2000, 9],
-      'line-offset': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 18, 6],
+      'line-width': ['interpolate', ['linear'], ['zoom'], 12, ['interpolate', ['linear'], ['get', 'v'], 0, 1, 500, 2.5, 2000, 5], 18, ['interpolate', ['linear'], ['get', 'v'], 0, 3, 500, 8, 2000, 18]],
+      'line-offset': ['interpolate', ['linear'], ['zoom'], 13, 1.5, 18, 8],
     },
   });
   map.addLayer({

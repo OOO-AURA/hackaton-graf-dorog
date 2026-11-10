@@ -11,7 +11,7 @@ import { NODE_FEATURES, hasFeature } from '../map/features';
 import { signUrl } from '../map/signArt';
 import { junctions } from '../osm/lanes';
 import { LAYER_IDS } from '../state/ui';
-import { LAYER_LABELS } from './MapOverlay';
+import { LAYER_LABELS, pickLens } from './MapOverlay';
 import { LENSES } from '../map/lens';
 import { useSettledDoc } from '../state/settled';
 
@@ -125,12 +125,11 @@ function Layers() {
   const layers = useUi((s) => s.layers);
   const toggle = useUi((s) => s.toggleLayer);
   const lens = useUi((s) => s.lens);
-  const setLens = useUi((s) => s.setLens);
   return (
     <div className="nav-layers">
       <h3 className="tpl-group-title">Линза</h3>
       <div className="lens-grid">
-        {LENSES.map(([v, label]) => <button key={v} className={lens === v ? 'on' : ''} aria-pressed={lens === v} onClick={() => setLens(v)}>{label}</button>)}
+        {LENSES.map(([v, label]) => <button key={v} className={lens === v ? 'on' : ''} aria-pressed={lens === v} onClick={() => pickLens(v)}>{label}</button>)}
       </div>
       <h3 className="tpl-group-title">Слои</h3>
       <ul className="layer-list">

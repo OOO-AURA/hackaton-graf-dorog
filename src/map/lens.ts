@@ -6,13 +6,13 @@ import { RAIL_LAYERS } from './railLayers';
  * Lenses: one map, looked at for one kind of traveller. A lens keeps its own layers at full
  * strength and fades the rest, so the network it is about stands out without losing context.
  */
-export type Lens = 'all' | 'car' | 'walk' | 'transit' | 'rail' | 'metro';
+export type Lens = 'all' | 'car' | 'walk' | 'transit' | 'rail' | 'metro' | 'load';
 
 export const LENSES: ReadonlyArray<readonly [Lens, string]> = [
-  ['all', 'Все'], ['car', 'Авто'], ['walk', 'Пешеходы'], ['transit', 'ОТ'], ['rail', 'ЖД'], ['metro', 'Метро'],
+  ['all', 'Все'], ['car', 'Авто'], ['walk', 'Пешеходы'], ['transit', 'ОТ'], ['rail', 'ЖД'], ['metro', 'Метро'], ['load', 'Загруженность'],
 ];
 
-type Group = 'road' | 'walk' | 'transit' | 'rail';
+type Group = 'road' | 'walk' | 'transit' | 'rail' | 'load';
 
 const ROAD = ['roads-casing', 'bridge-casing', 'roads', 'roads-arrows', 'lanes', 'lane-marks-casing', 'lane-marks-dash', 'lane-marks-solid', 'nodes', 'signals', 'signs', ...JUNCTION_LAYERS.filter((l) => !l.startsWith('zebra'))];
 const GROUPS: Record<Group, readonly string[]> = {
@@ -20,15 +20,17 @@ const GROUPS: Record<Group, readonly string[]> = {
   walk: ['context', 'context-casing', 'context-steps', 'sidewalk-left', 'sidewalk-right', 'crossings', 'zebra-base', 'zebra-stripes'],
   transit: ['transit-line', 'transit-stop'],
   rail: RAIL_LAYERS,
+  load: ['macro-flow'],
 };
 
 const KEEP: Record<Lens, ReadonlySet<Group>> = {
-  all: new Set(['road', 'walk', 'transit', 'rail']),
+  all: new Set(['road', 'walk', 'transit', 'rail', 'load']),
   car: new Set(['road']),
   walk: new Set(['walk']),
   transit: new Set(['transit', 'rail']),
   rail: new Set(['rail']),
   metro: new Set(['rail']),
+  load: new Set(['load']),
 };
 
 const FADED = 0.14;
@@ -60,7 +62,7 @@ export function applyLens(map: MapLibreMap, lens: Lens): void {
     GROUPS[g].forEach((layer) => {
       if (lens === 'metro' && g === 'rail' && (layer === 'rail-base' || layer === 'rail-ties' || layer === 'rail-platform')) {
         setOpacity(map, layer, ['case', ['==', ['get', 'kind'], 'subway'], 1, FADED]);
-      } else setOpacity(map, layer, keep.has(g) ? 1 : FADED);
+      } else setOpacity(map, layer, keep.has(g) ? 1 : lens === 'load' && g === 'road' ? 0.4 : FADED);
     });
   });
 }
