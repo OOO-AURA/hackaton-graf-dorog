@@ -66,7 +66,7 @@ export function nodeKinds(doc: OsmDoc, id: string): Set<ObjectKind> {
   const out = new Set<ObjectKind>();
   if (!n) return out;
   const h = n.tags.highway ?? '';
-  if (CONTROL_HIGHWAY.has(h)) out.add('control');
+  if (CONTROL_HIGHWAY.has(h) || n.tags.traffic_sign || n.tags.traffic_calming) out.add('control');
   if (h === 'crossing' || n.tags.crossing) { out.add('control'); out.add('walk'); }
   if (h === 'bus_stop' || n.tags.public_transport || ['tram_stop', 'station', 'halt', 'platform', 'subway_entrance'].includes(n.tags.railway ?? '')) out.add('transit');
   const ways = waysOf(doc, id);

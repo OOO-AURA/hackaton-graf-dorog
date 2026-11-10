@@ -8,6 +8,7 @@ import { useUi } from '../state/ui';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { Icon } from './icons';
 import { TOOLS } from './tools';
+import { PresetDock } from './PresetDock';
 import { TOOLS_IN } from '../map/editScope';
 import { EmptyState } from './EmptyState';
 import { SimBar } from './sim/SimBar';
@@ -63,6 +64,7 @@ function FloatingTools() {
           </button>
         ))}
       </div>
+      <PresetDock />
       {mode === 'building' && <BuildingBar />}
       {mode === 'draw' && (
         <div className="float float-draw">

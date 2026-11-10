@@ -4,6 +4,7 @@ import { armsAt, junctions, type Arm } from './lanes';
 import { lanesByDirection } from './profile';
 import { isDrivable, withTag } from './tags';
 import type { OsmDoc, OsmWay, Tags } from './types';
+import { signsOf } from './trafficSigns';
 
 /**
  * Priority signs of the Russian traffic rules in standard OSM tags, so the file stays readable by
@@ -17,7 +18,8 @@ import type { OsmDoc, OsmWay, Tags } from './types';
  */
 
 export type ApproachControl = 'signal' | 'stop' | 'give_way' | null;
-export type SignKind = 'give_way' | 'stop' | 'main_road' | 'crossing';
+/** Kinds drawn from tags of their own, and `ts:<code>[:value]` for signs placed as traffic_sign. */
+export type SignKind = 'give_way' | 'stop' | 'main_road' | 'crossing' | `ts:${string}`;
 
 /** How far from a junction a light or sign on the approach still controls it, metres. */
 const CONTROL_REACH = 40;
@@ -204,7 +206,7 @@ export function placeRuleSigns(doc: OsmDoc): { doc: OsmDoc; giveWay: number; mai
 }
 
 /** `travel` is the unit direction (east, north) of the traffic the sign faces. */
-type SignProps = { sign: SignKind; node: string; travel: V };
+type SignProps = { sign: SignKind; node: string; id: string; travel: V };
 type SignFeature = Feature<Point, SignProps>;
 
 /** A sign on the right of traffic going from `a` to `b`, `before` metres back from `at`. */
@@ -222,7 +224,8 @@ export function signPoints(doc: OsmDoc): FeatureCollection<Point, SignProps> {
   const push = (sign: SignKind, node: string, at: V, a: V, b: V) => {
     const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
     const travel: V = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
-    features.push({ type: 'Feature', properties: { sign, node, travel }, geometry: { type: 'Point', coordinates: at } });
+    // `id` is the node: a click on the sign picks the node it stands on.
+    features.push({ type: 'Feature', properties: { sign, node, id: node, travel }, geometry: { type: 'Point', coordinates: at } });
   };
   for (const w of Object.values(doc.ways)) {
     if (!isDrivable(w.tags)) continue;
@@ -232,6 +235,21 @@ export function signPoints(doc: OsmDoc): FeatureCollection<Point, SignProps> {
     w.refs.forEach((id, i) => {
       const n = doc.nodes[id];
       const kind = n?.tags.highway;
+      // Signs placed as traffic_sign: on the right of the traffic they face, one after another on the post.
+      const own = n ? signsOf(n.tags).filter((x) => !(x.code === '2.4' && kind === 'give_way') && !(x.code === '2.5' && kind === 'stop') && !(x.code === '5.19' && isCrossing(n.tags))) : [];
+      if (n && own.length) {
+        const prev = doc.nodes[w.refs[Math.max(0, i - 1)]];
+        const next = doc.nodes[w.refs[Math.min(w.refs.length - 1, i + 1)]];
+        if (prev && next && prev !== next) {
+          const f = frame(n.lat);
+          const [pa, pb, p] = [f.to(prev.lon, prev.lat), f.to(next.lon, next.lat), f.to(n.lon, n.lat)];
+          const back = n.tags.direction === 'backward';
+          own.forEach((x, k) => {
+            const sign = `ts:${x.code}${x.value !== undefined ? `:${x.value}` : ''}` as SignKind;
+            if (back) push(sign, id, rightOf(f, pb, pa, p, side, k * 1.6), pb, pa); else push(sign, id, rightOf(f, pa, pb, p, side, k * 1.6), pa, pb);
+          });
+        }
+      }
       if (!n || (kind !== 'give_way' && kind !== 'stop' && !(isCrossing(n.tags) && rank(w.tags) >= RANK.residential))) return;
       const prev = doc.nodes[w.refs[Math.max(0, i - 1)]];
       const next = doc.nodes[w.refs[Math.min(w.refs.length - 1, i + 1)]];

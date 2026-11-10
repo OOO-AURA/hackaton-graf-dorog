@@ -17,4 +17,12 @@ export function addRoadSignImages(map: MapLibreMap): void {
       if (img && !map.hasImage(signImageId(sign))) map.addImage(signImageId(sign), img, { pixelRatio: 4 });
     });
   });
+  // Placed signs (`ts:<code>[:value]`) are drawn when the map first asks for one.
+  map.on('styleimagemissing', (e: { id: string }) => {
+    const prefix = 'road-sign-ts:';
+    if (!e.id.startsWith(prefix) || map.hasImage(e.id)) return;
+    void signBitmap(e.id.slice('road-sign-'.length), 96).then((img) => {
+      if (img && !map.hasImage(e.id)) map.addImage(e.id, img, { pixelRatio: 4 });
+    });
+  });
 }

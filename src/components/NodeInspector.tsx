@@ -7,6 +7,8 @@ import { SelectField, TextField } from './fields';
 import { formatMetres, nodeElevation, withElevation } from '../osm/height';
 import { TagTable } from './TagTable';
 import { Section } from './Section';
+import { SignSection } from './SignSection';
+import { signsOf } from '../osm/trafficSigns';
 import { NODE_FEATURES, nodeSymbol } from '../map/features';
 import { Icon } from './icons';
 import { SignalPlanSection } from './SignalPlanSection';
@@ -47,9 +49,10 @@ export function NodeInspector({ node }: { node: OsmNode }) {
     <div className="inspector">
       <header className="insp-head">
         <span className="micro">Узел</span>
-        <h2 className="insp-title">{NODE_FEATURES.find((f) => f.id === nodeSymbol(node.tags))?.label ?? (ways.length > 1 ? 'Перекрёсток' : kind)}</h2>
+        <h2 className="insp-title">{NODE_FEATURES.find((f) => f.id === nodeSymbol(node.tags))?.label ?? (ways.length > 1 ? 'Перекрёсток' : signsOf(node.tags).length ? 'Знак' : kind)}</h2>
         <span className="mono insp-id">node {node.id} · {node.lat.toFixed(6)}, {node.lon.toFixed(6)}</span>
       </header>
+      <SignSection node={node} />
       <Section title="Организация движения">
         <SelectField label="Тип" value={node.tags.highway ?? ''} options={NODE_KIND_OPTIONS} onChange={setTag('highway')} />
         {isSignal && <SelectField label="Светофор действует" value={node.tags['traffic_signals:direction'] ?? ''} options={SIGNAL_DIRECTION_OPTIONS} onChange={setTag('traffic_signals:direction')} />}

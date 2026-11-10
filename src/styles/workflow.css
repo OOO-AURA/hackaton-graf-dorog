@@ -179,3 +179,44 @@
 .island-more { justify-self: start; padding: 0 6px; font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .island, .island-body, .island-chev { transition: none; } }
 .float-tools .tool:disabled { opacity: 0.32; cursor: not-allowed; }
+
+/* Capsule of ready-made pieces at the bottom of the map: a row of round buttons that opens upwards into cards. */
+.preset-dock {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 3; display: grid; justify-items: center;
+  max-width: calc(100% - 140px); width: max-content;
+  background: var(--glass); backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  border: 1px solid var(--glass-line); border-radius: 28px; box-shadow: var(--shadow-glass);
+  transition: border-radius 420ms cubic-bezier(0.2, 0.9, 0.25, 1.12), box-shadow 300ms ease, width 420ms cubic-bezier(0.2, 0.9, 0.25, 1.12);
+}
+.preset-dock.open { width: min(980px, calc(100% - 140px)); border-radius: 26px; box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45); }
+.pd-bar { display: flex; align-items: center; gap: 4px; padding: 5px; }
+.pd-tab { white-space: nowrap; display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 14px 0 11px; border: 0; border-radius: 20px; background: none; color: var(--ink-2); font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 160ms ease, color 160ms ease, transform 160ms ease; }
+.pd-tab:hover { background: var(--hover); color: var(--ink); }
+.pd-tab:active { transform: scale(0.96); }
+.pd-tab.on { background: var(--ink); color: var(--on-ink); }
+.pd-picked { display: inline-flex; align-items: center; gap: 8px; height: 40px; margin-left: 4px; padding: 0 14px; border-left: 1px solid var(--line); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.pd-picked i { width: 8px; height: 8px; border-radius: 50%; background: #33B864; box-shadow: 0 0 0 3px color-mix(in srgb, #33B864 25%, transparent); }
+.pd-value { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; color: var(--ink-2); }
+.pd-value input { width: 56px; height: 26px; padding: 0 6px; }
+.pd-body { display: grid; grid-template-rows: 0fr; width: 100%; opacity: 0; transition: grid-template-rows 420ms cubic-bezier(0.2, 0.9, 0.25, 1.05), opacity 200ms ease; }
+.preset-dock.open .pd-body { grid-template-rows: 1fr; opacity: 1; transition: grid-template-rows 420ms cubic-bezier(0.2, 0.9, 0.25, 1.05), opacity 260ms 80ms ease; }
+.pd-inner { min-height: 0; overflow: hidden auto; max-height: 46vh; scrollbar-width: thin; display: grid; gap: 10px; }
+.preset-dock.open .pd-inner { padding: 14px 14px 4px; }
+.pd-group { display: grid; gap: 6px; }
+.pd-group-title { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); padding-left: 4px; }
+.pd-cards { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.pd-card {
+  flex: 0 0 auto; display: grid; justify-items: start; gap: 2px; width: 150px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 16px;
+  background: color-mix(in srgb, var(--paper) 70%, transparent); color: var(--ink); text-align: left; cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.2, 0.9, 0.25, 1.2), border-color 160ms ease, background-color 160ms ease;
+}
+.pd-card:hover { transform: translateY(-2px); border-color: var(--line-strong); }
+.pd-card.on { border-color: #4C8DF6; background: color-mix(in srgb, #4C8DF6 16%, var(--paper)); }
+.pd-card b { font-size: 12.5px; line-height: 1.25; }
+.pd-card .mono { font-size: 10.5px; color: var(--ink-2); }
+.pd-card .tpl-profile { width: 100%; height: 30px; }
+.pd-sign { width: 118px; justify-items: center; text-align: center; }
+.pd-sign img { margin-bottom: 2px; }
+.pd-rules { justify-items: start; }
+.stage:has(.preset-dock) .float-hint { bottom: 68px; }
+@media (prefers-reduced-motion: reduce) { .preset-dock, .pd-body, .pd-card, .pd-tab { transition: none; } }

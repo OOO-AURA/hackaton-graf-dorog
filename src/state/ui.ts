@@ -73,8 +73,12 @@ interface UiState {
   view3d: boolean;
   toggle3d: () => void;
   /** Traffic-control object the T tool places (id from map/features.ts). */
+  /** What the T tool puts: a NODE_FEATURES id, or `ts:<code>` for a road sign (osm/trafficSigns.ts). */
   featureKind: string;
   setFeatureKind: (id: string) => void;
+  /** The number on a sign that has one (3.24 speed). */
+  signValue: number;
+  setSignValue: (v: number) => void;
   fly: FlyRequest | null;
   /** What the road colour shows: class (default) or one attribute, like a Visum classified display. */
   roadColorMode: RoadColorMode;
@@ -112,6 +116,9 @@ interface UiState {
 
 const initialChoice = readThemeChoice();
 
+/** Layers as they were before a view mode changed them; null in «Все объекты». */
+let lensBase: Record<LayerId, boolean> | null = null;
+
 export const useUi = create<UiState>((set, get) => ({
   laneLink: null,
   setLaneLink: (laneLink) => set({ laneLink }),
@@ -142,6 +149,8 @@ export const useUi = create<UiState>((set, get) => ({
   toggle3d: () => set({ view3d: !get().view3d }),
   featureKind: 'signal',
   setFeatureKind: (featureKind) => set({ featureKind }),
+  signValue: 40,
+  setSignValue: (signValue) => set({ signValue }),
   fly: null,
   roadColorMode: 'class',
   setRoadColorMode: (roadColorMode) => set({ roadColorMode }),
@@ -177,7 +186,9 @@ export const useUi = create<UiState>((set, get) => ({
   toggleBottom: () => set({ bottomOpen: !get().bottomOpen }),
   lens: 'all',
   setLens: (lens) => {
-    const layers = { ...get().layers };
+    // A view mode switches its own layers on; leaving it gives the layers back as they were.
+    const layers = { ...(lensBase ?? get().layers) };
+    lensBase = lens === 'all' ? null : { ...layers };
     if (lens === 'transit') { layers.transit = true; layers.tram = true; }
     if (lens === 'rail' || lens === 'metro') layers.tram = true;
     if (lens === 'car' || lens === 'walk' || lens === 'signs') layers.roads = true;
@@ -187,7 +198,11 @@ export const useUi = create<UiState>((set, get) => ({
     if (lens === 'all') layers.sidewalks = true;
     set({ lens, layers });
   },
-  toggleLayer: (id) => set({ layers: { ...get().layers, [id]: !get().layers[id] } }),
+  toggleLayer: (id) => {
+    // A layer switched by hand inside a view mode stays so after leaving it.
+    if (lensBase) lensBase = { ...lensBase, [id]: !get().layers[id] };
+    set({ layers: { ...get().layers, [id]: !get().layers[id] } });
+  },
   setBasemapOpacity: (basemapOpacity) => set({ basemapOpacity }),
   setLoading: (loading) => set({ loading }),
   flyTo: (bounds) => set({ fly: { bounds, seq: (get().fly?.seq ?? 0) + 1 } }),

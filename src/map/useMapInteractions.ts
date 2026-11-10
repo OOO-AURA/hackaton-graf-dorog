@@ -1,3 +1,4 @@
+import type { OsmDoc } from '../osm/types';
 import { useEffect } from 'react';
 import type { Map as MapLibreMap, MapMouseEvent } from 'maplibre-gl';
 import { insertNodeInWay, mergeNodes, moveNode } from '../osm/edit';
@@ -7,6 +8,7 @@ import { useEditor } from '../state/store';
 import { finishDrawing } from '../state/actions';
 import { hitBuilding, hitNode, hitWay, pickableWay, pickNode, pickWay } from './hit';
 import { junctions } from '../osm/lanes';
+import { putSign, showSignGhost, signSnap } from './signTool';
 import { drawTarget } from './drawSnap';
 import { curvePoints } from '../osm/drawGeometry';
 import { isBuilding } from '../osm/building';
@@ -66,7 +68,24 @@ function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
       return;
     }
     case 'signal': {
-      const feature = featureById(useUi.getState().featureKind);
+      const kind = useUi.getState().featureKind;
+      if (kind.startsWith('ts:')) {
+        const code = kind.slice(3);
+        // A light goes on the junction under the cursor; every other sign sticks to the road edge.
+        const junction = code === 'signal' ? hitNode(map, e.point, undefined, 12) : null;
+        if (junction && junctions(s.doc).includes(junction)) {
+          s.apply((d) => toggleNodeFeature(d, junction, featureById('signal')));
+          s.select({ type: 'node', id: junction });
+          return;
+        }
+        const snap = signSnap(map, s.doc, e.point, e.lngLat);
+        if (!snap) { s.notify('Знак ставится у дороги: подведите его ближе к ней'); return; }
+        let placed: string | null = null;
+        s.apply((d) => { const r = putSign(d, snap, code, useUi.getState().signValue); placed = r.nodeId; return r.doc; });
+        if (placed) s.select({ type: 'node', id: placed });
+        return;
+      }
+      const feature = featureById(kind);
       if (nodeId) { s.apply((d) => toggleNodeFeature(d, nodeId, feature)); s.select({ type: 'node', id: nodeId }); return; }
       if (!way) return;
       let created = '';
@@ -115,6 +134,27 @@ function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
   }
 }
 
+/** The stretch a sign's post may slide along: the points before and after it on its only road, or null. */
+function signPostTrack(doc: OsmDoc, id: string): [[number, number], [number, number]] | null {
+  const n = doc.nodes[id];
+  if (!n?.tags.traffic_sign) return null;
+  const ways = Object.values(doc.ways).filter((w) => w.refs.includes(id));
+  if (ways.length !== 1) return null;
+  const refs = ways[0].refs;
+  const i = refs.indexOf(id);
+  if (i <= 0 || i >= refs.length - 1) return null;
+  const [a, b] = [doc.nodes[refs[i - 1]], doc.nodes[refs[i + 1]]];
+  return a && b ? [[a.lon, a.lat], [b.lon, b.lat]] : null;
+}
+
+/** Nearest point of the stretch, kept a little off its ends. */
+function onTrack([a, b]: [[number, number], [number, number]], lon: number, lat: number): [number, number] {
+  const k = Math.cos((lat * Math.PI) / 180);
+  const d = [(b[0] - a[0]) * k, b[1] - a[1]];
+  const t = Math.max(0.05, Math.min(0.95, (((lon - a[0]) * k) * d[0] + (lat - a[1]) * d[1]) / (d[0] * d[0] + d[1] * d[1] || 1)));
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+}
+
 /** Dragging a node in select mode; dropping it onto another node merges them into one intersection. */
 function useNodeDrag(map: MapLibreMap | null): void {
   useEffect(() => {
@@ -142,7 +182,10 @@ function useNodeDrag(map: MapLibreMap | null): void {
       if (!dragId || !pending) return;
       const [id, to] = [dragId, pending];
       pending = null;
-      useEditor.getState().applyLive((d) => moveNode(d, id, to.lng, to.lat));
+      // A sign's post slides along its road between the neighbouring points, so the road keeps its line.
+      const along = signPostTrack(useEditor.getState().doc, id);
+      const at = along ? onTrack(along, to.lng, to.lat) : [to.lng, to.lat];
+      useEditor.getState().applyLive((d) => moveNode(d, id, at[0], at[1]));
     };
     const onMove = (e: MapMouseEvent) => {
       if (!dragId) return;
@@ -214,6 +257,9 @@ export function useMapInteractions(map: MapLibreMap | null, onPointer: (lon: num
       const s = useEditor.getState();
       if (s.mode === 'draw') useUi.getState().setDrawTarget(drawTarget(map, s.doc, e.point, e.lngLat, s.drawing, e.originalEvent.shiftKey, Boolean(ROAD_TEMPLATES[s.templateIndex]?.tags.railway)));
       else if (useUi.getState().drawTarget) useUi.getState().setDrawTarget(null);
+      const kind = useUi.getState().featureKind;
+      const signing = s.mode === 'signal' && kind.startsWith('ts:');
+      showSignGhost(map, signing ? signSnap(map, s.doc, e.point, e.lngLat) : null, signing ? kind.slice(3) : null, useUi.getState().signValue);
       const placing = s.mode === 'draw' || s.mode === 'building';
       const hovering = !placing && (pickNode(map, e.point) || pickWay(map, s.doc, e.point));
       map.getCanvas().style.cursor = placing ? 'crosshair' : hovering ? 'pointer' : '';

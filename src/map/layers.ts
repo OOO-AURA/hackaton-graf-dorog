@@ -12,10 +12,10 @@ import type { RoadLook } from '../state/ui';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'vehicle-shapes', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, ...RAIL_SOURCES, 'draw-conflicts', 'sidewalks', 'issue-ways', 'custom-flows', 'turns', 'changes', 'route', 'ghost', 'building-handles'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'vehicle-shapes', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, ...RAIL_SOURCES, 'draw-conflicts', 'sidewalks', 'issue-ways', 'custom-flows', 'turns', 'changes', 'route', 'ghost', 'building-handles', 'sign-ghost'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
-export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes', ...RAIL_HIT_POINTS], roads: ['roads', 'roads-bridge', ...RAIL_HIT_LINES], buildings: ['buildings'], laneEnds: ['lane-ends'], laneLinks: ['lane-links', 'lane-ribbons'] } as const;
+export const HIT_LAYERS = { nodes: ['signals', 'signs', 'road-signs', 'crossings', 'nodes', ...RAIL_HIT_POINTS], roads: ['roads', 'roads-bridge', ...RAIL_HIT_LINES], buildings: ['buildings'], laneEnds: ['lane-ends'], laneLinks: ['lane-links', 'lane-ribbons'] } as const;
 
 function arrowImage(color: string): ImageData | null {
   const size = 24;
@@ -303,6 +303,12 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     },
   });
   // The building tool's ghost: the footprint raised to the height the building will get, see-through.
+  // The sign being put: a stem from the road line to the edge where it will stand, and the sign itself.
+  map.addLayer({ id: 'sign-ghost-stem', type: 'line', source: 'sign-ghost', filter: ['==', ['get', 'kind'], 'stem'], paint: { 'line-color': '#FBF6EA', 'line-width': 1.5, 'line-dasharray': [2, 2] } });
+  map.addLayer({ id: 'sign-ghost-foot', type: 'circle', source: 'sign-ghost', filter: ['==', ['get', 'kind'], 'foot'], paint: { 'circle-radius': 4, 'circle-color': '#FBF6EA', 'circle-stroke-color': '#1B110A', 'circle-stroke-width': 1.5 } });
+  map.addLayer({ id: 'sign-ghost', type: 'symbol', source: 'sign-ghost', filter: ['==', ['get', 'kind'], 'sign'],
+    layout: { 'icon-image': ['get', 'icon'], 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': ['interpolate', ['linear'], ['zoom'], 15, 0.8, 18, 1.1, 20, 1.6] },
+    paint: { 'icon-opacity': 0.9 } });
   map.addLayer({ id: 'ghost-3d', type: 'fill-extrusion', source: 'ghost',
     paint: { 'fill-extrusion-color': ['case', ['get', 'warn'], '#E5392A', '#E54489'], 'fill-extrusion-height': ['get', 'height'], 'fill-extrusion-opacity': 0.55 } });
   map.addLayer({ id: 'ghost-line', type: 'line', source: 'ghost',

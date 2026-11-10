@@ -307,6 +307,18 @@ function signFace(w: Writer, kind: SignKind) {
     case 'stop': layers.push([WHITE, polygon(8, 0.4, 0, z, Math.PI / 8)], [RED, polygon(8, 0.37, 0, z, Math.PI / 8)]); break;
     case 'main_road': layers.push([INK, polygon(4, 0.42, 0, z)], [WHITE, polygon(4, 0.4, 0, z)], [YELLOW, polygon(4, 0.27, 0, z)]); break;
     case 'crossing': layers.push([BLUE, polygon(4, 0.42, 0, z, Math.PI / 4)], [WHITE, polygon(3, 0.25, 0, z - 0.03, Math.PI / 2)]); break;
+    default: {
+      // A placed sign by its group: priority diamond, red-ringed disc, blue disc, blue square, white plate.
+      const code = kind.startsWith('ts:') ? kind.split(':')[1] : '';
+      if (code === '2.1' || code === '2.2') layers.push([INK, polygon(4, 0.42, 0, z)], [WHITE, polygon(4, 0.4, 0, z)], [YELLOW, polygon(4, 0.27, 0, z)]);
+      else if (code === '2.4') layers.push([WHITE, tri(1, true)], [RED, tri(0.92, true)], [WHITE, tri(0.58, true)]);
+      else if (code === '2.5') layers.push([WHITE, polygon(8, 0.4, 0, z, Math.PI / 8)], [RED, polygon(8, 0.37, 0, z, Math.PI / 8)]);
+      else if (code.startsWith('1.')) layers.push([WHITE, tri(1, false)], [RED, tri(0.92, false)], [WHITE, tri(0.58, false)]);
+      else if (code.startsWith('3.')) layers.push([WHITE, polygon(16, 0.36, 0, z)], [RED, polygon(16, 0.345, 0, z)], [WHITE, polygon(16, 0.26, 0, z)]);
+      else if (code.startsWith('4.')) layers.push([WHITE, polygon(16, 0.36, 0, z)], [BLUE, polygon(16, 0.34, 0, z)]);
+      else if (code.startsWith('5.')) layers.push([WHITE, polygon(4, 0.42, 0, z, Math.PI / 4)], [BLUE, polygon(4, 0.39, 0, z, Math.PI / 4)]);
+      else layers.push([INK, polygon(4, 0.32, 0, z, Math.PI / 4)], [WHITE, polygon(4, 0.3, 0, z, Math.PI / 4)]);
+    }
   }
   w.face(layers[0][1].map(([y, zz]) => [0.045, y, zz] as V3), SIGN_BACK, [-1, 0, 0]);
   layers.forEach(([c, pts], i) => plate(w, 0.05 + i * 0.008, pts, c));

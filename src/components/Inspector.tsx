@@ -12,7 +12,8 @@ import { Why } from './Why';
 import { RailInspector, StationInspector } from './RailInspector';
 import { isRailWay, stationKind } from '../osm/rail';
 import { useSettledDoc } from '../state/settled';
-import { RoadCatalog, SignPalette } from './ToolCatalog';
+import { signDef } from '../osm/trafficSigns';
+import { NODE_FEATURES } from '../map/features';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { finishDrawing } from '../state/actions';
 
@@ -54,6 +55,21 @@ function Nothing() {
 }
 
 /** While a road is drawn or signs are placed, the inspector is the catalogue for that tool. */
+/** What the T tool puts now, and how: a sign sticks to the road edge on the side of the cursor. */
+function SignStatus() {
+  const kind = useUi((s) => s.featureKind);
+  const def = kind.startsWith('ts:') ? signDef(kind.slice(3)) : null;
+  const feature = def ? null : NODE_FEATURES.find((f) => f.id === kind);
+  return (
+    <div className="tool-pane-status">
+      <span><b>{def ? `${def.code.startsWith('signal') ? '' : `${def.code} `}${def.name}` : feature?.label}</b></span>
+      <p className="hint">{def
+        ? 'Ведите по карте: знак прилипает к ближней дороге и встаёт у её края. С какой стороны дороги курсор, для того направления движения и знак. Клик ставит.'
+        : feature?.hint}</p>
+    </div>
+  );
+}
+
 function ToolPane({ mode }: { mode: 'draw' | 'signal' }) {
   const setMode = useEditor((s) => s.setMode);
   const points = useEditor((s) => s.drawing.length);
@@ -73,7 +89,8 @@ function ToolPane({ mode }: { mode: 'draw' | 'signal' }) {
           <button className="btn btn-sm btn-ink" onClick={finishDrawing} disabled={points < 2}>Готово <kbd>Enter</kbd></button>
         </div>
       )}
-      {mode === 'draw' ? <RoadCatalog /> : <SignPalette />}
+      {mode === 'signal' && <SignStatus />}
+      <p className="hint">Заготовки — в капсуле внизу карты: {mode === 'draw' ? 'вкладка «Дороги»' : 'вкладка «Знаки и ОДД»'}.</p>
     </div>
   );
 }

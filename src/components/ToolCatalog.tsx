@@ -1,13 +1,8 @@
-import { useMemo } from 'react';
-import { ROAD_TEMPLATES } from '../osm/tags';
 import { useEditor } from '../state/store';
-import { useUi } from '../state/ui';
-import { NODE_FEATURES } from '../map/features';
-import { signUrl } from '../map/signArt';
 import { placeRuleSigns } from '../osm/signs';
 
 /** Cross-section thumbnail of a road template: lanes, markings, sidewalks or rails. */
-function Profile({ tags }: { tags: Record<string, string> }) {
+export function Profile({ tags }: { tags: Record<string, string> }) {
   const W = 72; const H = 26;
   if (tags.railway) {
     const metro = tags.railway === 'subway';
@@ -55,7 +50,7 @@ function Profile({ tags }: { tags: Record<string, string> }) {
 
 const YELLOW_LINE = '#F6C31B';
 
-const gabarit = (tags: Record<string, string>) => {
+export const gabarit = (tags: Record<string, string>) => {
   if (tags.railway) return tags.railway === 'subway' ? 'тоннель · 1520 мм' : `колея ${tags.gauge ?? '1520'} мм`;
   const hw = tags.highway ?? '';
   if (hw === 'footway' || hw === 'pedestrian') return 'ширина 2,25 м';
@@ -64,61 +59,8 @@ const gabarit = (tags: Record<string, string>) => {
   return `${lanes} пол. · ${tags.maxspeed ?? '—'} км/ч`;
 };
 
-export function RoadCatalog() {
-  const setMode = useEditor((s) => s.setMode);
-  const template = useEditor((s) => s.templateIndex);
-  const setTemplate = useEditor((s) => s.setTemplate);
-  const groups = useMemo(() => {
-    const m = new Map<string, number[]>();
-    ROAD_TEMPLATES.forEach((t, i) => m.set(t.group, [...(m.get(t.group) ?? []), i]));
-    return [...m.entries()];
-  }, []);
-  return (
-    <section className="catalog">
-      {groups.map(([group, ids]) => (
-        <div key={group} className="tpl-group">
-          <h3 className="tpl-group-title">{group}</h3>
-          <div className="tpl-grid">
-            {ids.map((i) => {
-              const t = ROAD_TEMPLATES[i];
-              return (
-                <button key={t.label} className={`tpl-card${template === i ? ' on' : ''}`} aria-pressed={template === i}
-                  onClick={() => { setTemplate(i); setMode('draw'); }} title={i < 9 ? `Клавиша ${i + 1}` : undefined}>
-                  <Profile tags={t.tags} />
-                  <span className="tpl-name">{t.label}</span>
-                  <span className="tpl-meta mono">{gabarit(t.tags)}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </section>
-  );
-}
-
-/** Traffic-control objects for the T tool; picking one switches to that tool. */
-export function SignPalette() {
-  const kind = useUi((s) => s.featureKind);
-  const setKind = useUi((s) => s.setFeatureKind);
-  const setMode = useEditor((s) => s.setMode);
-  return (
-    <>
-      <div className="sign-grid">
-        {NODE_FEATURES.map((f) => (
-          <button key={f.id} className={`sign-tile${kind === f.id ? ' on' : ''}`} aria-pressed={kind === f.id} onClick={() => { setKind(f.id); setMode('signal'); }} title={`${f.label}. ${f.hint}`}>
-            <img src={signUrl(f.id)} alt="" width={28} height={28} draggable={false} />
-            <span>{f.label}</span>
-          </button>
-        ))}
-      </div>
-      <RuleSigns />
-    </>
-  );
-}
-
 /** Places priority signs by the traffic rules on every junction without a light. */
-function RuleSigns() {
+export function RuleSigns() {
   const apply = useEditor((s) => s.apply);
   const notify = useEditor((s) => s.notify);
   const run = () => {

@@ -2,6 +2,7 @@ import { useEditor, type Basemap } from '../state/store';
 import { useUi, type LayerId } from '../state/ui';
 import { usePanels } from '../state/panels';
 import { useMacro } from '../macro/store';
+import { useTransit } from '../transit/store';
 import { LENSES, type Lens } from '../map/lens';
 import { TOOLS_IN } from '../map/editScope';
 
@@ -38,7 +39,10 @@ const BASEMAPS: ReadonlyArray<readonly [Basemap, string]> = [['osm', 'Схема
 
 /** View mode pick; a tool the mode has no use for gives way to selecting, the load mode works out the flows first. */
 export function pickLens(v: Lens): void {
+  const was = useUi.getState().lens;
   useUi.getState().setLens(v);
+  // Leaving public transport drops the route picked there, so it does not stay on the map.
+  if (was === 'transit' && v !== 'transit') useTransit.getState().select(null);
   const editor = useEditor.getState();
   if (!TOOLS_IN[v].has(editor.mode)) editor.setMode(TOOLS_IN[v].has('select') ? 'select' : 'view');
   const macro = useMacro.getState();
