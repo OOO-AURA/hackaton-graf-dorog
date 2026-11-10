@@ -9,7 +9,7 @@ import type { RoadLook } from '../state/ui';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, 'turns', 'changes', 'route', 'ghost'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, 'turns', 'changes', 'route', 'ghost', 'building-handles'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
 export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes'], roads: ['roads', 'roads-bridge'], buildings: ['buildings'], laneEnds: ['lane-ends'], laneLinks: ['lane-links', 'lane-ribbons'] } as const;
@@ -261,6 +261,16 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     paint: { 'fill-extrusion-color': ['case', ['get', 'warn'], '#E5392A', '#E54489'], 'fill-extrusion-height': ['get', 'height'], 'fill-extrusion-opacity': 0.55 } });
   map.addLayer({ id: 'ghost-line', type: 'line', source: 'ghost',
     paint: { 'line-color': ['case', ['get', 'warn'], '#E5392A', '#E54489'], 'line-width': 2, 'line-dasharray': [2, 1.5] } });
+  // Handles of the selected building (map/useBuildingEditing.ts); the sides only catch the mouse.
+  const kind = (k: string) => ['==', ['get', 'kind'], k] as never;
+  map.addLayer({ id: 'bh-edge', type: 'line', source: 'building-handles', filter: kind('edge'), paint: { 'line-width': 14, 'line-opacity': 0.01, 'line-color': '#E54489' } });
+  map.addLayer({ id: 'bh-rotate-line', type: 'line', source: 'building-handles', filter: kind('rotate-line'), paint: { 'line-color': '#E54489', 'line-width': 1.5, 'line-dasharray': [2, 2] } });
+  map.addLayer({ id: 'bh-mid', type: 'circle', source: 'building-handles', filter: kind('mid'),
+    paint: { 'circle-radius': 4, 'circle-color': '#FBF6EA', 'circle-opacity': 0.85, 'circle-stroke-color': '#E54489', 'circle-stroke-width': 1.5 } });
+  map.addLayer({ id: 'bh-corner', type: 'circle', source: 'building-handles', filter: kind('corner'),
+    paint: { 'circle-radius': 6, 'circle-color': ['case', ['get', 'picked'], '#E54489', '#FBF6EA'], 'circle-stroke-color': '#E54489', 'circle-stroke-width': 2.5 } });
+  map.addLayer({ id: 'bh-rotate', type: 'circle', source: 'building-handles', filter: kind('rotate'),
+    paint: { 'circle-radius': 7, 'circle-color': '#E54489', 'circle-stroke-color': '#FBF6EA', 'circle-stroke-width': 2 } });
   map.addLayer({ id: 'draw-line', type: 'line', source: 'draw', paint: { 'line-width': 3, 'line-dasharray': [2, 1] } });
   map.addLayer({ id: 'draw-points', type: 'circle', source: 'draw', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-stroke-width': 2 } });
   applyPalette(map, p);

@@ -4,6 +4,7 @@ import { useEditor, type Mode } from './store';
 import { useUi } from './ui';
 import { removePickedLink } from './laneActions';
 import { useBuildingTool } from '../map/buildingTool';
+import { removePickedCorner } from '../map/useBuildingEditing';
 import { BUILDING_TEMPLATES } from '../osm/buildingShape';
 import { deleteSelection, openFile, saveOsm, finishDrawing, flipSelected, reverseSelected, splitAtSelected, toggleSignalSelected } from './actions';
 
@@ -37,7 +38,10 @@ function physicalKey(e: KeyboardEvent): string {
 }
 
 /** Delete forbids the picked lane link, if there is one, and otherwise deletes the selection. */
-const removeOrDelete = () => (useUi.getState().laneLink ? removePickedLink() : deleteSelection());
+const removeOrDelete = () => {
+  if (useUi.getState().laneLink) removePickedLink();
+  else if (!removePickedCorner()) deleteSelection();
+};
 
 function handleKey(e: KeyboardEvent): void {
   const key = physicalKey(e);
