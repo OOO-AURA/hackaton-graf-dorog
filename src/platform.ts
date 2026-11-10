@@ -7,6 +7,16 @@ import type { CheckReport } from './check';
 
 export const isDesktop = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
+/**
+ * Yes/no question to the user. In the desktop app it goes through the dialog plugin: WebKit's own
+ * window.confirm shows its panel on macOS, but the answer does not reach the page, so OK did nothing.
+ */
+export async function askUser(message: string): Promise<boolean> {
+  if (!isDesktop) return window.confirm(message);
+  const { ask } = await import('@tauri-apps/plugin-dialog');
+  return ask(message, { title: 'Граф Дорог', kind: 'warning', okLabel: 'Да', cancelLabel: 'Отмена' });
+}
+
 const OSM_FILTER = [{ name: 'OpenStreetMap', extensions: ['osm', 'xml'] }];
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {

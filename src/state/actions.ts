@@ -11,7 +11,7 @@ import type { OsmDoc, Tags } from '../osm/types';
 import { addAllCordonConnectors } from '../osm/cordon';
 import { currentSelection, useEditor } from './store';
 import { refreshReport } from './validation';
-import { baseName, downloadText, isDesktop, openOsmFile, saveOsmFile } from '../platform';
+import { askUser, baseName, downloadText, isDesktop, openOsmFile, saveOsmFile } from '../platform';
 
 export function loadXml(xml: string, fileName: string, filePath: string | null = null): void {
   const { load, notify } = useEditor.getState();
@@ -67,7 +67,7 @@ export async function saveOsm(saveAs = false): Promise<void> {
   const fileName = s.saveName.trim() || 'graph.osm';
   const report = await refreshReport();
   const errors = report.issues.filter((i) => i.severity === 'error').length;
-  if (errors > 0 && !window.confirm(`Проверка нашла ошибок: ${errors}. Они видны на панели «Проверка». Сохранить всё равно?`)) return;
+  if (errors > 0 && !(await askUser(`Проверка нашла ошибок: ${errors}. Они видны на панели «Проверка». Сохранить всё равно?`))) return;
   const name = fileName.endsWith('.osm') ? fileName : `${fileName}.osm`;
   const text = serializeOsm(s.doc);
   if (!isDesktop) {
