@@ -25,7 +25,7 @@ export function losFeatures(doc: OsmDoc, r: SimResult): unknown[] {
   });
 }
 
-const simSpan = (r: SimResult) => (r.frames.length ? r.frames[r.frames.length - 1].t : 0);
+export const simSpan = (r: SimResult) => (r.frames.length ? r.frames[r.frames.length - 1].t : 0);
 
 /** State of one light at time t. */
 export function stateAt(sig: Signal, t: number): string {

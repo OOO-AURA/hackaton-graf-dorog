@@ -12,7 +12,7 @@ import type { RoadLook } from '../state/ui';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'vehicle-shapes', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, ...RAIL_SOURCES, 'draw-conflicts', 'turns', 'changes', 'route', 'ghost', 'building-handles'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'vehicle-shapes', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, ...RAIL_SOURCES, 'draw-conflicts', 'sidewalks', 'turns', 'changes', 'route', 'ghost', 'building-handles'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
 export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes', ...RAIL_HIT_POINTS], roads: ['roads', 'roads-bridge', ...RAIL_HIT_LINES], buildings: ['buildings'], laneEnds: ['lane-ends'], laneLinks: ['lane-links', 'lane-ribbons'] } as const;
@@ -154,9 +154,10 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   // Sidewalks along streets, beside the carriageway on each side that has one.
   const sideOffset = (prop: string) => ['interpolate', ['exponential', 2], ['zoom'], 15, ['/', ['get', prop], 4], 22, ['*', 32, ['get', prop]]] as never;
   const sideWidth = ['interpolate', ['exponential', 2], ['zoom'], 15, ['/', ['get', 's17'], 4], 22, ['*', 32, ['get', 's17']]] as never;
-  map.addLayer({ id: 'sidewalk-left', type: 'line', source: 'roads', minzoom: 15, filter: ['all', ['in', 'l', ['get', 'sw']], ['!', ['get', 'bridge']], ['!', ['get', 'tunnel']]] as never,
+  // Pieces of a street meeting end to end are one line here (map/sidewalks.ts), so bends are round.
+  map.addLayer({ id: 'sidewalk-left', type: 'line', source: 'sidewalks', minzoom: 15, filter: ['in', 'l', ['get', 'sw']] as never,
     layout: { 'line-join': 'round', 'line-cap': 'butt' }, paint: { 'line-width': sideWidth, 'line-offset': sideOffset('sl17') } });
-  map.addLayer({ id: 'sidewalk-right', type: 'line', source: 'roads', minzoom: 15, filter: ['all', ['in', 'r', ['get', 'sw']], ['!', ['get', 'bridge']], ['!', ['get', 'tunnel']]] as never,
+  map.addLayer({ id: 'sidewalk-right', type: 'line', source: 'sidewalks', minzoom: 15, filter: ['in', 'r', ['get', 'sw']] as never,
     layout: { 'line-join': 'round', 'line-cap': 'butt' }, paint: { 'line-width': sideWidth, 'line-offset': sideOffset('sr17') } });
   addRailLines(map);
   map.addLayer({ id: 'roads-casing', type: 'line', source: 'roads', filter: ['!', ['get', 'bridge']], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': laneWidth(2), 'line-offset': roadOffset } });

@@ -38,6 +38,9 @@ describe('junction card', () => {
     expect(r.mount.textContent).toContain('Лермонтова × Игошина');
     expect(r.mount.querySelectorAll('.jc-approach')).toHaveLength(4);
     expect(r.mount.querySelectorAll('.jc-approach')[0].querySelectorAll('.jc-lane')).toHaveLength(2);
+    // Four approaches of two lanes, no signs: the right-hand rule, 650 an hour a lane.
+    expect(r.mount.textContent).toContain('Пропускная способность');
+    expect(r.mount.textContent).toMatch(/5\s?200 авт\/ч/);
     r.done();
   });
 

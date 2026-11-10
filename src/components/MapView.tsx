@@ -7,7 +7,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { addEditorLayers, applyLayerVisibility, applyPalette, applyRoadColors, sceneColors, sceneOf, type SourceId } from '../map/layers';
 import { buildScene3d } from '../map/mesh3d';
 import { junctionGeometry, laneLines, pxPerMetreZ17, zebras, type LaneStyle } from '../map/lanesGeo';
-import { drawingConflicts, drawWidth } from '../state/actions';
+import { builtPoints, drawingConflicts, drawWidth } from '../state/actions';
 import { curvePoints } from '../osm/drawGeometry';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { junctions } from '../osm/lanes';
@@ -28,6 +28,7 @@ import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson, railGeoJson, sta
 import { useMapInteractions } from '../map/useMapInteractions';
 import { currentSelection, useEditor } from '../state/store';
 import { useSettledDoc } from '../state/settled';
+import { sidewalkLines } from '../map/sidewalks';
 import { streetWays } from '../osm/street';
 import { useBundle } from '../macro/bundleStore';
 import { diffFeatures, docDiff } from '../osm/diff';
@@ -78,7 +79,9 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     const context = contextGeoJson(doc);
     setData(map, 'buildings', context.buildings);
     setData(map, 'context', context.lines);
-    setData(map, 'roads', roadsGeoJson(doc));
+    const roads = roadsGeoJson(doc);
+    setData(map, 'roads', roads);
+    setData(map, 'sidewalks', sidewalkLines(roads));
     setData(map, 'rails', railGeoJson(doc));
     setData(map, 'stations', stationGeoJson(doc));
   }, [map, doc]);
@@ -138,8 +141,8 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     const last = drawing[drawing.length - 1];
     const end = target ?? (pointer ? { lon: pointer[0], lat: pointer[1] } : null);
     const tail = last && end ? [...(control ? curvePoints(last, control, end) : []), end] : [];
-    const points = [...drawing, ...tail];
     const tags = ROAD_TEMPLATES[templateIndex].tags;
+    const points = builtPoints([...drawing, ...tail], tags);
     return { points, tags, conflicts: points.length > 1 ? drawingConflicts(doc, points, tags) : [] };
   }, [doc, drawing, pointer, templateIndex, target, control]);
   useEffect(() => {

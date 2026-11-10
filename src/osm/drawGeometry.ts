@@ -73,3 +73,37 @@ export function curvePoints(a: LonLatPoint, control: LonLatPoint, b: LonLatPoint
     return f.back([u * u * pa[0] + 2 * u * t * pc[0] + t * t * pb[0], u * u * pa[1] + 2 * u * t * pc[1] + t * t * pb[1]]);
   });
 }
+
+/** Corners sharper than this get rounded, degrees of turn. */
+const ROUND_MIN_TURN_DEG = 10;
+/** A rounded corner takes at most this share of each segment next to it. */
+const ROUND_MAX_SHARE = 0.45;
+
+interface Corner extends LonLatPoint { readonly nodeId?: string; readonly wayId?: string }
+
+/**
+ * A drawn road with its corners rounded, as roads are built: every free point where the road turns
+ * by more than a few degrees becomes an arc of `radius` metres (less where the segments are short).
+ * Points that join a node or another road stay where they are: the road meets it there.
+ */
+export function roundCorners<P extends Corner>(points: readonly P[], radius: number): Array<P | LonLatPoint> {
+  if (points.length < 3) return [...points];
+  const out: Array<P | LonLatPoint> = [points[0]];
+  for (let i = 1; i < points.length - 1; i += 1) {
+    const [a, v, b] = [points[i - 1], points[i], points[i + 1]];
+    const turn = Math.abs(turnDeg(bearingDeg(a, v), bearingDeg(v, b)));
+    if (v.nodeId || v.wayId || turn < ROUND_MIN_TURN_DEG || turn > 175) { out.push(v); continue; }
+    const half = ((turn / 2) * Math.PI) / 180;
+    const reach = Math.min(radius * Math.tan(half), distanceM(a, v) * ROUND_MAX_SHARE, distanceM(v, b) * ROUND_MAX_SHARE);
+    const f = frame(v.lat);
+    const [pa, pv, pb] = [f.to(a), f.to(v), f.to(b)];
+    const towards = (p: [number, number], d: number) => {
+      const len = Math.hypot(p[0] - pv[0], p[1] - pv[1]) || 1;
+      return f.back([pv[0] + ((p[0] - pv[0]) / len) * d, pv[1] + ((p[1] - pv[1]) / len) * d]);
+    };
+    const [t1, t2] = [towards(pa, reach), towards(pb, reach)];
+    out.push(t1, ...curvePoints(t1, v, t2, CURVE_STEP_M / 2), t2);
+  }
+  out.push(points[points.length - 1]);
+  return out;
+}
