@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseOsm } from '../osm/parse';
-import { bridgeHeight, buildingGroups, buildScene3d, TUNNEL_PROFILE, deckProfile, LANE_WIDTH, LAYER_HEIGHT, roadWidth, STRIDE, type Scene3dColors } from './mesh3d';
+import { bridgeHeight, buildingGroups, deckBottom, parapetAt, buildScene3d, TUNNEL_PROFILE, deckProfile, LANE_WIDTH, LAYER_HEIGHT, roadWidth, STRIDE, type Scene3dColors } from './mesh3d';
 
 const COLORS: Scene3dColors = {
   building: [0.8, 0.7, 0.6], deck: () => [1, 0.8, 0], deckSide: [0.5, 0.4, 0.3], parapet: [0.9, 0.9, 0.9], mark: [1, 1, 1], markCasing: [0, 0, 0], pier: [0.5, 0.4, 0.3], portal: [0.5, 0.4, 0.3],
@@ -191,5 +191,15 @@ describe('3D scene geometry', () => {
 
   test('an empty document has no scene', () => {
     expect(buildScene3d(osm(''), COLORS)).toBeNull();
+  });
+});
+
+describe('bridge ends', () => {
+  it('keep the deck out of the ground and lower the parapets to it', () => {
+    expect(deckBottom(0)).toBeCloseTo(-0.02);
+    expect(deckBottom(0.5)).toBeCloseTo(-0.02);
+    expect(deckBottom(5)).toBeCloseTo(3.8);
+    expect(parapetAt(0)).toBe(0);
+    expect(parapetAt(5)).toBe(1);
   });
 });

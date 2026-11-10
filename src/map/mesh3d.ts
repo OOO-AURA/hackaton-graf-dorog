@@ -241,6 +241,15 @@ export function densify(pts: readonly P2[], step: number): P2[] {
 
 const RAMP_STEP = 3;
 
+/**
+ * Underside of the deck at deck height `z`. On the ramps the slab would reach below the ground,
+ * and the 3D view has no ground to hide it, so it stops just under the ground: where the deck
+ * meets the road it is a thin sheet level with it.
+ */
+export const deckBottom = (z: number) => Math.max(z - DECK_THICKNESS, Math.min(z, 0) - 0.02);
+/** Parapets grow with the deck from nothing where it meets the road to full height 2 m up. */
+export const parapetAt = (z: number) => PARAPET * Math.max(0, Math.min(1, z / 2));
+
 function addBridge(solid: Buf, shadows: Buf, mask: Buf, raw: P2[], tags: Record<string, string>, colors: Scene3dColors) {
   const pts = densify(raw, RAMP_STEP);
   const half = roadWidth(tags) / 2;
@@ -250,21 +259,23 @@ function addBridge(solid: Buf, shadows: Buf, mask: Buf, raw: P2[], tags: Record<
   for (let i = 0; i < pts.length - 1; i += 1) {
     const [l0, l1, r0, r1] = [left[i], left[i + 1], right[i], right[i + 1]];
     const [z0, z1] = [z[i], z[i + 1]];
+    const [p0, p1] = [parapetAt(z0), parapetAt(z1)];
     // Deck top, seen from above: right edge to left edge is counter-clockwise.
     quad(solid, colors.deck((tags.highway ?? '').replace(/_link$/, '')), 0, [r0[0], r0[1], z0], [r1[0], r1[1], z1], [l1[0], l1[1], z1], [l0[0], l0[1], z0]);
     // Underside and the two sides.
-    const b0 = z0 - DECK_THICKNESS;
-    const b1 = z1 - DECK_THICKNESS;
+    const b0 = deckBottom(z0);
+    const b1 = deckBottom(z1);
     quad(solid, colors.deckSide, 0, [l0[0], l0[1], b0], [l1[0], l1[1], b1], [r1[0], r1[1], b1], [r0[0], r0[1], b0]);
-    quad(solid, colors.deckSide, 0, [r0[0], r0[1], b0], [r1[0], r1[1], b1], [r1[0], r1[1], z1 + PARAPET], [r0[0], r0[1], z0 + PARAPET]);
-    quad(solid, colors.deckSide, 0, [l1[0], l1[1], b1], [l0[0], l0[1], b0], [l0[0], l0[1], z0 + PARAPET], [l1[0], l1[1], z1 + PARAPET]);
+    quad(solid, colors.deckSide, 0, [r0[0], r0[1], b0], [r1[0], r1[1], b1], [r1[0], r1[1], z1 + p1], [r0[0], r0[1], z0 + p0]);
+    quad(solid, colors.deckSide, 0, [l1[0], l1[1], b1], [l0[0], l0[1], b0], [l0[0], l0[1], z0 + p0], [l1[0], l1[1], z1 + p1]);
     // Parapet inner faces and tops.
     const [ol0, ol1, or0, or1] = [outer.left[i], outer.left[i + 1], outer.right[i], outer.right[i + 1]];
-    quad(solid, colors.deckSide, 0, [r1[0], r1[1], z1], [r0[0], r0[1], z0], [r0[0], r0[1], z0 + PARAPET], [r1[0], r1[1], z1 + PARAPET]);
-    quad(solid, colors.deckSide, 0, [l0[0], l0[1], z0], [l1[0], l1[1], z1], [l1[0], l1[1], z1 + PARAPET], [l0[0], l0[1], z0 + PARAPET]);
-    // Light parapet tops outline the deck, so it reads as a bridge from above too.
-    quad(solid, colors.parapet, 0, [or0[0], or0[1], z0 + PARAPET], [r0[0], r0[1], z0 + PARAPET], [r1[0], r1[1], z1 + PARAPET], [or1[0], or1[1], z1 + PARAPET]);
-    quad(solid, colors.parapet, 0, [l0[0], l0[1], z0 + PARAPET], [ol0[0], ol0[1], z0 + PARAPET], [ol1[0], ol1[1], z1 + PARAPET], [l1[0], l1[1], z1 + PARAPET]);
+    quad(solid, colors.deckSide, 0, [r1[0], r1[1], z1], [r0[0], r0[1], z0], [r0[0], r0[1], z0 + p0], [r1[0], r1[1], z1 + p1]);
+    quad(solid, colors.deckSide, 0, [l0[0], l0[1], z0], [l1[0], l1[1], z1], [l1[0], l1[1], z1 + p1], [l0[0], l0[1], z0 + p0]);
+    // Light parapet tops outline the deck, so it reads as a bridge from above too; not where the
+    // deck lies on the ground, where they would be white stripes along the road.
+    if (p0 > 0.05 && p1 > 0.05) quad(solid, colors.parapet, 0, [or0[0], or0[1], z0 + p0], [r0[0], r0[1], z0 + p0], [r1[0], r1[1], z1 + p1], [or1[0], or1[1], z1 + p1]);
+    if (p0 > 0.05 && p1 > 0.05) quad(solid, colors.parapet, 0, [l0[0], l0[1], z0 + p0], [ol0[0], ol0[1], z0 + p0], [ol1[0], ol1[1], z1 + p1], [l1[0], l1[1], z1 + p1]);
     ribbon(mask, l0, l1, r0, r1, z0 + 0.05, z1 + 0.05);
     addShadow(shadows, [ol0, ol1, or0, or1], z0, z1);
   }
