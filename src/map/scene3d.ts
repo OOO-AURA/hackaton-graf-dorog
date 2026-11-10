@@ -1,5 +1,6 @@
 import type { CustomLayerInterface, Map as MapLibreMap } from 'maplibre-gl';
 import { mercatorX, mercatorY, STRIDE, type Rgb, type Scene3dMesh } from './mesh3d';
+import { FloatSink, VEHICLE_MIN_ZOOM, vehicleTriangles, type VehicleKind } from './props3d';
 
 /**
  * 3D buildings, bridges and tunnel portals drawn with our own WebGL, so that a building standing
@@ -304,11 +305,26 @@ export class Scene3dLayer implements CustomLayerInterface {
   private cutOn = false;
   private cutAnim = 0;
   private cutTime = 0;
+  private vehicles: ReadonlyArray<{ kind: VehicleKind; lon: number; lat: number; angle: number; bend: number }> | null = null;
+  private vehiclesDirty = false;
+  private vehicleBuf: WebGLBuffer | null = null;
+  private vehicleCount = 0;
+  private vehicleSink = new FloatSink();
 
   setMesh(mesh: Scene3dMesh | null): void {
     this.mesh = mesh;
     this.dirty = true;
     this.selDirty = true;
+    this.map?.triggerRepaint();
+  }
+
+  /**
+   * Vehicles of a micro run, front bumper in lon/lat, SUMO angle (degrees clockwise from north).
+   * They are built and drawn only from zoom VEHICLE_MIN_ZOOM; further out the 2D dots show them.
+   */
+  setVehicles(list: ReadonlyArray<{ kind: VehicleKind; lon: number; lat: number; angle: number; bend: number }> | null): void {
+    this.vehicles = list;
+    this.vehiclesDirty = true;
     this.map?.triggerRepaint();
   }
 
@@ -365,6 +381,9 @@ export class Scene3dLayer implements CustomLayerInterface {
 
   onRemove(_map: MapLibreMap, gl: GL): void {
     this.dropBuffers(gl);
+    if (this.vehicleBuf) gl.deleteBuffer(this.vehicleBuf);
+    this.vehicleBuf = null;
+    this.vehiclesDirty = true;
     [this.depthTarget, this.idTarget, this.maskTarget].forEach((t) => dropTarget(gl, t));
     this.depthTarget = this.idTarget = this.maskTarget = null;
     if (this.cutTex) gl.deleteTexture(this.cutTex);
@@ -377,6 +396,24 @@ export class Scene3dLayer implements CustomLayerInterface {
     this.pending.forEach((p) => p.resolve(null));
     this.pending = [];
     this.map = null;
+  }
+
+  /** Rebuilds the vehicle triangles when the run moved on, or when the map came close enough to show them. */
+  private uploadVehicles(gl: GL) {
+    const near = (this.map?.getZoom() ?? 0) >= VEHICLE_MIN_ZOOM;
+    const o = this.mesh?.origin;
+    if (!near || !o || !this.vehicles?.length) { this.vehicleCount = 0; this.vehiclesDirty = true; return; }
+    if (!this.vehiclesDirty) return;
+    this.vehiclesDirty = false;
+    const placed = this.vehicles.map((v) => {
+      const a = (v.angle * Math.PI) / 180;
+      return { kind: v.kind, at: [(mercatorX(v.lon) - o.x) * o.metersPerUnit, (mercatorY(v.lat) - o.y) * o.metersPerUnit] as [number, number], fwd: [Math.sin(a), -Math.cos(a)] as [number, number], bend: v.bend };
+    });
+    const data = vehicleTriangles(placed, this.vehicleSink);
+    if (!this.vehicleBuf) this.vehicleBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vehicleBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+    this.vehicleCount = data.length / STRIDE;
   }
 
   private dropBuffers(gl: GL) {
@@ -693,8 +730,10 @@ export class Scene3dLayer implements CustomLayerInterface {
       gl.uniform1f(ghost, 0);
       gl.depthMask(true);
     }
-    // Opaque structures first, so cut buildings blend over them.
+    // Opaque structures and vehicles first, so cut buildings blend over them.
     if (this.showStructures) draw(b.structures, b.structuresCount);
+    this.uploadVehicles(gl);
+    if (this.vehicleBuf && this.vehicleCount) draw(this.vehicleBuf, this.vehicleCount);
     if (this.showBuildings) {
       // Back faces are culled; then depth first and colour only for the nearest fragment, so a
       // faded wall shows the road behind it, never the far walls of the same building.

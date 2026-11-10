@@ -6,11 +6,12 @@ import { addRailLines, addStationLayers, applyRailPalette, RAIL_HIT_LINES, RAIL_
 import { addJunctionLayers, JUNCTION_LAYERS, JUNCTION_SOURCES, SIGN_LAYER, UNDER_DECK_LAYERS } from './junctionLayers';
 import type { Rgb, Scene3dColors } from './mesh3d';
 import { thematicExpression, type RoadColorMode } from './thematic';
+import { VEHICLE_MIN_ZOOM } from './props3d';
 import type { RoadLook } from '../state/ui';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, ...RAIL_SOURCES, 'draw-conflicts', 'turns', 'changes', 'route', 'ghost', 'building-handles'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'vehicle-shapes', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, ...RAIL_SOURCES, 'draw-conflicts', 'turns', 'changes', 'route', 'ghost', 'building-handles'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
 export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes', ...RAIL_HIT_POINTS], roads: ['roads', 'roads-bridge', ...RAIL_HIT_LINES], buildings: ['buildings'], laneEnds: ['lane-ends'], laneLinks: ['lane-links', 'lane-ribbons'] } as const;
@@ -255,8 +256,10 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     layout: { 'icon-image': ['concat', 'zone-', ['get', 'name']], 'icon-allow-overlap': true, 'icon-ignore-placement': true },
   });
   map.addLayer({ id: 'macro-signal', type: 'circle', source: 'signals', paint: { 'circle-color': ['get', 'color'], 'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 2.5, 18, 6], 'circle-stroke-width': 1.5, 'circle-stroke-color': '#1B110A' } });
+  // Close up a vehicle is its real outline from above (2D) or a model (3D, scene3d.ts); further out a dot.
+  map.addLayer({ id: 'vehicle-shapes', type: 'fill', source: 'vehicle-shapes', minzoom: VEHICLE_MIN_ZOOM, paint: { 'fill-color': ['get', 'color'], 'fill-outline-color': '#1B110A' } });
   map.addLayer({
-    id: 'vehicles', type: 'circle', source: 'vehicles',
+    id: 'vehicles', type: 'circle', source: 'vehicles', maxzoom: VEHICLE_MIN_ZOOM,
     paint: {
       'circle-color': ['get', 'color'], 'circle-stroke-width': 1, 'circle-stroke-color': '#1B110A',
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, ['case', ['get', 'big'], 3, 2], 18, ['case', ['get', 'big'], 8, 5]],
@@ -379,4 +382,5 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
     map.setFilter(id, (view3d ? (base ? ['all', base, ground] : ground) : base) as never);
   });
   show(SIGN_LAYER, on.signs && !view3d);
+  show('vehicle-shapes', !view3d);
 }

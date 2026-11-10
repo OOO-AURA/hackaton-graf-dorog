@@ -18,6 +18,7 @@ import { MAP_PALETTE } from '../map/palette';
 import { useUi } from '../state/ui';
 import { MapOverlay } from './MapOverlay';
 import { useSim, vehiclesAt } from '../sim/store';
+import { vehiclePoses, vehicleShapes } from '../sim/poses';
 import { losFeatures, signalFeatures } from '../sim/overlay';
 import { useMacro } from '../macro/store';
 import { useZoneEditing } from '../macro/useZoneEditing';
@@ -230,8 +231,13 @@ function useMapLook(map: MapLibreMap | null): void {
   useEffect(() => {
     if (!alive(map)) return;
     const empty = { type: 'FeatureCollection', features: [] };
-    setData(map, 'vehicles', workspace === 'micro' && simResult ? vehiclesAt(simResult, simTime) : empty);
-  }, [map, simResult, simTime, workspace]);
+    const live = workspace === 'micro' && simResult;
+    setData(map, 'vehicles', live ? vehiclesAt(simResult, simTime) : empty);
+    const poses = live ? vehiclePoses(simResult, simTime) : [];
+    // Outlines only matter close up, where the 2D layer shows them.
+    setData(map, 'vehicle-shapes', poses.length && !view3dOn ? vehicleShapes(poses) : empty);
+    sceneOf(map)?.setVehicles(view3dOn && poses.length ? poses : null);
+  }, [map, simResult, simTime, workspace, view3dOn]);
   const flows = useMacro((s) => s.result?.flows);
   const bundle = useBundle((s) => s.features);
   const iso = useMacro((s) => s.iso);

@@ -150,6 +150,9 @@ export const VEHICLE_SIZE: Readonly<Record<VehicleKind, { length: number; width:
   pedestrian: { length: 0.5, width: 0.5, height: 1.7 },
 };
 
+/** From this zoom vehicles are drawn as models (3D) and outlines (2D); further out as dots. */
+export const VEHICLE_MIN_ZOOM = 16;
+
 /** Every model, in the order they are listed in the plan. */
 export const VEHICLE_KINDS: readonly VehicleKind[] = Object.keys(VEHICLE_SIZE) as VehicleKind[];
 
@@ -257,8 +260,9 @@ function utility(w: Writer, c: Rgb) {
 }
 
 function pedestrian(w: Writer, c: Rgb) {
-  const ring = (r: number, z: number): V3[] => polygon(8, r, 0, 0, Math.PI / 8).map(([y, x]) => [x - 0.25, y, z] as V3);
-  loft(w, [ring(0.12, 0.02), ring(0.22, 0.18), ring(0.25, 0.45), ring(0.25, 1.4), ring(0.18, 1.6), ring(0.08, 1.7)], c);
+  // Hexagonal capsule: people come in hundreds, so it stays at a few dozen triangles.
+  const ring = (r: number, z: number): V3[] => polygon(6, r, 0, 0).map(([y, x]) => [x * (2 / Math.sqrt(3)) - 0.25, y, z] as V3);
+  loft(w, [ring(0.16, 0.02), ring(0.25, 0.25), ring(0.25, 1.45), ring(0.1, 1.7)], c);
 }
 
 /**
@@ -422,4 +426,29 @@ export function addStreetProps(out: Sink, { doc, local, roadWidth, signs }: Prop
       for (const s of [1, -1]) addPedestrianLight(out, [p[0] + r[0] * side * s, p[1] + r[1] * side * s], [-r[0] * s, -r[1] * s]);
     }
   }
+}
+
+/** Growable float buffer: vehicles are rebuilt on every step of a playing run. */
+export class FloatSink implements Sink {
+  data = new Float32Array(1 << 16);
+  length = 0;
+  push(...v: number[]) {
+    if (this.length + v.length > this.data.length) {
+      const grown = new Float32Array(Math.max(this.data.length * 2, this.length + v.length));
+      grown.set(this.data.subarray(0, this.length));
+      this.data = grown;
+    }
+    for (let i = 0; i < v.length; i += 1) this.data[this.length + i] = v[i];
+    this.length += v.length;
+  }
+  get array() { return this.data.subarray(0, this.length); }
+}
+
+export type PlacedVehicle = { kind: VehicleKind; at: P2; fwd: P2; bend: number };
+
+/** Triangles of all vehicles, already in local metres. */
+export function vehicleTriangles(list: Iterable<PlacedVehicle>, sink = new FloatSink()): Float32Array {
+  sink.length = 0;
+  for (const v of list) addVehicle(sink, v.kind, v.at, v.fwd, v.bend);
+  return sink.array;
 }
