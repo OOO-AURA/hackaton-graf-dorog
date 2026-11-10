@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { armsAt, armKey, junctions, type Arm } from '../osm/lanes';
 import { approachCrossing, approachSign, approachSpeed, setApproachSign, type ApproachSign } from '../osm/signs';
 import { sectionOf, edgesOf, plainSection } from '../map/section';
@@ -30,6 +31,46 @@ import type { Turn } from '../osm/lanes';
 const REACH = 42;
 const SIGN_ORDER: readonly ApproachSign[] = ['none', 'main', 'give_way', 'stop'];
 const SIGN_NAMES: Readonly<Record<ApproachSign, string>> = { none: 'без знака', main: 'главная дорога', give_way: 'уступи дорогу', stop: 'STOP' };
+const SIGN_TITLES: Readonly<Record<ApproachSign, readonly [string, string]>> = {
+  none: ['Без знака', 'Правило правой руки'],
+  main: ['Главная дорога', '2.1, въезд проезжает первым'],
+  give_way: ['Уступите дорогу', '2.4, пропустить главную'],
+  stop: ['STOP', '2.5, остановиться у стоп-линии'],
+};
+
+/** The sign of one approach as a capsule that opens beside it: four choices, the current one marked. */
+function SignMenu({ at, sign, onPick, onClose }: { at: DOMRect; sign: ApproachSign; onPick: (s: ApproachSign) => void; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    // A click on a sign of the plan is its own toggle; any other click outside shuts the menu.
+    const shut = (e: PointerEvent) => { const t = e.target as Element; if (!ref.current?.contains(t) && !t.closest?.('.jx-sign')) closeRef.current(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); closeRef.current(); } };
+    window.addEventListener('pointerdown', shut, true);
+    window.addEventListener('keydown', onKey, true);
+    ref.current?.querySelector<HTMLButtonElement>('button[aria-checked="true"]')?.focus();
+    return () => { window.removeEventListener('pointerdown', shut, true); window.removeEventListener('keydown', onKey, true); };
+  }, []);
+  const W = 280;
+  const H = 4 * 46 + 40;
+  // Beside the sign, to the right if there is room, and kept inside the window.
+  const left = at.right + 10 + W < window.innerWidth - 8 ? at.right + 10 : Math.max(8, at.left - 10 - W);
+  const top = Math.max(8, Math.min(window.innerHeight - H - 8, at.top - 12));
+  return createPortal(
+    <div ref={ref} className="jx-sign-menu" role="radiogroup" aria-label="Знак приоритета въезда" style={{ left, top, width: W }}>
+      <p className="micro">Знак на въезде</p>
+      {SIGN_ORDER.map((s) => (
+        <button key={s} role="radio" aria-checked={s === sign} className={s === sign ? 'on' : ''} onClick={() => { onPick(s); onClose(); }}>
+          <span className="jx-sm-glyph"><SignGlyph sign={s} size={24} /></span>
+          <span className="jx-sm-text"><b>{SIGN_TITLES[s][0]}</b><span>{SIGN_TITLES[s][1]}</span></span>
+          {s === sign && <Icon name="check" size={14} />}
+        </button>
+      ))}
+    </div>,
+    document.body,
+  );
+}
 
 type Tab = 'lanes' | 'signs' | 'signal' | 'capacity' | 'info';
 const TABS: ReadonlyArray<readonly [Tab, string]> = [['lanes', 'Полосы'], ['signs', 'Знаки'], ['signal', 'Светофор'], ['capacity', 'Пропускная'], ['info', 'Сведения']];
@@ -142,6 +183,8 @@ function JunctionPlan({ nodeId }: { nodeId: string }) {
   const plan = useMemo(() => planOf(doc, nodeId), [doc, nodeId]);
   const svg = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<{ from: { arm: string; lane: number; p: V }; to: V } | null>(null);
+  // The approach whose sign menu is open, and where its sign stands on screen.
+  const [signMenu, setSignMenu] = useState<{ arm: Arm; at: DOMRect } | null>(null);
   const toPlan = (e: { clientX: number; clientY: number }): V => {
     const el = svg.current;
     const m = el?.getScreenCTM();
@@ -215,10 +258,10 @@ function JunctionPlan({ nodeId }: { nodeId: string }) {
       {drag && <line x1={drag.from.p[0]} y1={y(drag.from.p)} x2={drag.to[0]} y2={y(drag.to)} className="jx-drag" />}
       {!plan.signal && plan.signs.map((s) => (
         <g key={`g${armKey(s.arm)}`} className="jx-sign" transform={`translate(${s.p[0] - 2.2} ${y(s.p) - 2.2})`}
-          onClick={() => apply((d) => setApproachSign(d, nodeId, s.arm, SIGN_ORDER[(SIGN_ORDER.indexOf(s.sign) + 1) % SIGN_ORDER.length]))}>
-          <rect width="4.4" height="4.4" rx="0.8" className="jx-sign-bg" />
+          onClick={(e) => { e.stopPropagation(); const r = (e.currentTarget.firstElementChild as SVGRectElement).getBoundingClientRect(); setSignMenu(signMenu && armKey(signMenu.arm) === armKey(s.arm) ? null : { arm: s.arm, at: r }); }}>
+          <rect width="4.4" height="4.4" rx="0.8" className={`jx-sign-bg${signMenu && armKey(signMenu.arm) === armKey(s.arm) ? ' open' : ''}`} />
           <svg x="0.4" y="0.4" width="3.6" height="3.6" viewBox="0 0 20 20" overflow="visible"><SignGlyph sign={s.sign} size={20} /></svg>
-          <title>Знак: {SIGN_NAMES[s.sign]}. Клик меняет</title>
+          <title>Знак: {SIGN_NAMES[s.sign]}. Клик открывает выбор</title>
           {/* Under the priority sign the rest of the stack, as drivers see it: speed limit, crossing. */}
           {s.speed !== null && (
             <g transform="translate(0 4.8)"><circle cx="2.2" cy="2.2" r="2" fill="#fff" stroke="#D3302A" strokeWidth="0.5" />
@@ -237,6 +280,10 @@ function JunctionPlan({ nodeId }: { nodeId: string }) {
           <title>Светофор</title>
         </g>
       )}
+      {signMenu && (() => {
+        const current = plan.signs.find((x) => armKey(x.arm) === armKey(signMenu.arm));
+        return current ? <SignMenu at={signMenu.at} sign={current.sign} onPick={(v) => apply((d) => setApproachSign(d, nodeId, signMenu.arm, v))} onClose={() => setSignMenu(null)} /> : null;
+      })()}
     </svg>
   );
 }
@@ -254,7 +301,8 @@ export function JunctionEditor() {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && /input|textarea|select/i.test(target.tagName)) return;
-      if (e.key === 'Escape') { e.stopPropagation(); close(null); }
+      // Esc shuts an open sign menu first (it handles the key itself), then the window.
+      if (e.key === 'Escape' && !document.querySelector('.jx-sign-menu')) { e.stopPropagation(); close(null); }
       if ((e.key === 'Delete' || e.key === 'Backspace') && useUi.getState().laneLink) { e.stopPropagation(); e.preventDefault(); removePickedLink(); }
     };
     window.addEventListener('keydown', onKey, true);
@@ -274,7 +322,7 @@ export function JunctionEditor() {
         <div className="jx-body">
           <div className="jx-stage">
             <JunctionPlan nodeId={nodeId} />
-            <p className="jx-help">Тяните от красной точки въезда к синей точке выезда, чтобы разрешить манёвр. Клик по ленте выбирает манёвр, Delete запрещает. Клик по знаку меняет его.</p>
+            <p className="jx-help">Тяните от красной точки въезда к синей точке выезда, чтобы разрешить манёвр. Клик по ленте выбирает манёвр, Delete запрещает. Клик по знаку открывает выбор знака.</p>
           </div>
           <aside className="jx-side">
             <div className="seg seg-wide jc-tabs" role="tablist" aria-label="Разделы перекрёстка">
