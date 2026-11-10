@@ -11,7 +11,7 @@ import type { RoadLook } from '../state/ui';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, ...RAIL_SOURCES, 'turns', 'changes', 'route'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, ...RAIL_SOURCES, 'draw-conflicts', 'turns', 'changes', 'route', 'ghost', 'building-handles'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
 export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes', ...RAIL_HIT_POINTS], roads: ['roads', 'roads-bridge', ...RAIL_HIT_LINES], buildings: ['buildings'], laneEnds: ['lane-ends'], laneLinks: ['lane-links', 'lane-ribbons'] } as const;
@@ -116,6 +116,10 @@ const SOLID_MARKS = ['all', ['==', ['get', 'kind'], 'divider'], ['==', ['get', '
 const LANE_MARK_MINZOOM = 16.5;
 /** Width of a lane marking in px; the road itself doubles per zoom step, so the marking does too. */
 const markWidth = (z16_5: number, z18: number, z20: number) => ['interpolate', ['exponential', 2], ['zoom'], 16.5, z16_5, 18, z18, 20, z20] as never;
+
+/** Width of the road being drawn: its real width close in (w17 px at zoom 17), at least a few px. */
+const drawWidthExpr = (extra: number) => ['interpolate', ['exponential', 2], ['zoom'],
+  13, ['+', ['max', 3, ['/', ['get', 'w17'], 16]], extra], 17, ['+', ['max', 4, ['get', 'w17']], extra], 22, ['+', ['*', 32, ['get', 'w17']], extra]] as never;
 
 const GRAPH_NODE_KINDS = ['junction', 'end', 'vertex'];
 const NODES_FILTER = ['all', ['!=', ['get', 'kind'], 'signal'], ['any', ['in', ['get', 'kind'], ['literal', GRAPH_NODE_KINDS]], ['>=', ['zoom'], 17]]];
@@ -259,7 +263,30 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     },
   });
   addVehicleSprites(map);
-  map.addLayer({ id: 'draw-line', type: 'line', source: 'draw', paint: { 'line-width': 3, 'line-dasharray': [2, 1] } });
+  // The building tool's ghost: the footprint raised to the height the building will get, see-through.
+  map.addLayer({ id: 'ghost-3d', type: 'fill-extrusion', source: 'ghost',
+    paint: { 'fill-extrusion-color': ['case', ['get', 'warn'], '#E5392A', '#E54489'], 'fill-extrusion-height': ['get', 'height'], 'fill-extrusion-opacity': 0.55 } });
+  map.addLayer({ id: 'ghost-line', type: 'line', source: 'ghost',
+    paint: { 'line-color': ['case', ['get', 'warn'], '#E5392A', '#E54489'], 'line-width': 2, 'line-dasharray': [2, 1.5] } });
+  // Handles of the selected building (map/useBuildingEditing.ts); the sides only catch the mouse.
+  const kind = (k: string) => ['==', ['get', 'kind'], k] as never;
+  map.addLayer({ id: 'bh-edge', type: 'line', source: 'building-handles', filter: kind('edge'), paint: { 'line-width': 14, 'line-opacity': 0.01, 'line-color': '#E54489' } });
+  map.addLayer({ id: 'bh-rotate-line', type: 'line', source: 'building-handles', filter: kind('rotate-line'), paint: { 'line-color': '#E54489', 'line-width': 1.5, 'line-dasharray': [2, 2] } });
+  map.addLayer({ id: 'bh-mid', type: 'circle', source: 'building-handles', filter: kind('mid'),
+    paint: { 'circle-radius': 4, 'circle-color': '#FBF6EA', 'circle-opacity': 0.85, 'circle-stroke-color': '#E54489', 'circle-stroke-width': 1.5 } });
+  map.addLayer({ id: 'bh-corner', type: 'circle', source: 'building-handles', filter: kind('corner'),
+    paint: { 'circle-radius': 6, 'circle-color': ['case', ['get', 'picked'], '#E54489', '#FBF6EA'], 'circle-stroke-color': '#E54489', 'circle-stroke-width': 2.5 } });
+  map.addLayer({ id: 'bh-rotate', type: 'circle', source: 'building-handles', filter: kind('rotate'),
+    paint: { 'circle-radius': 7, 'circle-color': '#E54489', 'circle-stroke-color': '#FBF6EA', 'circle-stroke-width': 2 } });
+  // The road being drawn looks like the road it will be: its width, an edge line and a dashed
+  // centre line; it turns red over buildings in its way, and those buildings turn red too.
+  map.addLayer({ id: 'draw-conflict-fill', type: 'fill', source: 'draw-conflicts', paint: { 'fill-color': '#E5392A', 'fill-opacity': 0.45 } });
+  map.addLayer({ id: 'draw-conflict-line', type: 'line', source: 'draw-conflicts', paint: { 'line-color': '#E5392A', 'line-width': 2 } });
+  map.addLayer({ id: 'draw-road-edge', type: 'line', source: 'draw', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-width': drawWidthExpr(3), 'line-opacity': 0.9 } });
+  map.addLayer({ id: 'draw-road', type: 'line', source: 'draw', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-width': drawWidthExpr(0), 'line-opacity': 0.85 } });
+  map.addLayer({ id: 'draw-line', type: 'line', source: 'draw', filter: ['==', ['geometry-type'], 'LineString'], paint: { 'line-width': 1.5, 'line-dasharray': [3, 3] } });
   map.addLayer({ id: 'draw-points', type: 'circle', source: 'draw', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-stroke-width': 2 } });
   applyPalette(map, p);
 }
@@ -290,7 +317,9 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
   set('turn-bans', 'circle-stroke-color', p.error);
   set('issues-halo', 'circle-color', issueColor);
   set('issues', 'circle-stroke-color', issueColor);
-  set('draw-line', 'line-color', p.draw);
+  set('draw-line', 'line-color', '#FFFFFF');
+  set('draw-road', 'line-color', ['case', ['get', 'conflict'], '#B3261E', ['get', 'rail'], p.rail, p.asphalt]);
+  set('draw-road-edge', 'line-color', ['case', ['get', 'conflict'], '#FF6B5E', p.draw]);
   set('draw-points', 'circle-color', p.nodeFill);
   set('draw-points', 'circle-stroke-color', p.draw);
 }

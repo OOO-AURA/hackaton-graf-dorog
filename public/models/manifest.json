@@ -1,0 +1,13 @@
+{
+  "car1": {"length": 4.5, "width": 1.678, "triangles": 13999},
+  "car2": {"length": 4.505, "width": 1.948, "triangles": 14000},
+  "bus": {"length": 12.0, "width": 3.692, "triangles": 13998},
+  "railcar": {"length": 24.0, "width": 4.42, "triangles": 2062},
+  "bike": {"length": 1.8, "width": 0.512, "triangles": 14000},
+  "truck": {"length": 9.0, "width": 2.105, "triangles": 13999},
+  "loco": {"length": 20.0, "width": 3.771, "triangles": 14000},
+  "scooter": {"length": 1.1, "width": 0.475, "triangles": 14000},
+  "tram": {"length": 15.0, "width": 3.653, "triangles": 13999},
+  "trolley": {"length": 12.0, "width": 2.543, "triangles": 2413},
+  "person": {"length": 0.603, "width": 0.28, "triangles": 72}
+}

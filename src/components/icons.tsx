@@ -29,6 +29,7 @@ const PATHS: Record<string, ReactNode> = {
   reverse: <path d="M15 6a6 6 0 10.8 6M15.5 2.5V6.3h-3.8" />,
   scissors: <><circle cx="5.5" cy="14.5" r="2.5" /><circle cx="14.5" cy="14.5" r="2.5" /><path d="M7 12.5L15 3M13 12.5L5 3" /></>,
   trash: <path d="M3.5 5.5h13M8 5.5V3.5h4v2M5 5.5l1 11h8l1-11" />,
+  building: <><path d="M4 17V6.5L10 3l6 3.5V17z" /><path d="M8 17v-4h4v4M7.5 8h1M11.5 8h1M7.5 10.8h1M11.5 10.8h1" /></>,
   dock: <><rect x="2.5" y="3.5" width="15" height="13" rx="1" /><path d="M2.5 12h15" /></>,
 };
 

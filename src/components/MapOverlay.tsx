@@ -1,16 +1,20 @@
 import { LENSES } from '../map/lens';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { docBounds } from '../map/geojson';
 import { useEditor, type Basemap } from '../state/store';
+import { drawingConflicts, finishDrawing } from '../state/actions';
 import { LAYER_IDS, useUi, type LayerId } from '../state/ui';
 import { THEMATIC, type RoadColorMode } from '../map/thematic';
+import { ROAD_TEMPLATES } from '../osm/tags';
 import { Icon } from './icons';
 import { TOOLS } from './tools';
 import { EmptyState } from './EmptyState';
 import { SimBar } from './sim/SimBar';
 import { HeightHandle } from './HeightHandle';
 import { JunctionCard } from './JunctionCard';
+import { useBuildingTool } from '../map/buildingTool';
+import { BUILDING_TEMPLATES } from '../osm/buildingShape';
 
 const BASEMAPS: ReadonlyArray<[Basemap, string]> = [['osm', 'Схема'], ['satellite', 'Спутник'], ['none', 'Нет']];
 
@@ -19,18 +23,63 @@ export const LAYER_LABELS: Readonly<Record<LayerId, string>> = {
   bridges: 'Мосты', tunnels: 'Тоннели', buildings: 'Здания', tram: 'Ж/д и трамвай', signs: 'Знаки', transit: 'Маршруты ОТ', changes: 'Изменения',
 };
 
+/** Template picker and hints of the building tool, next to the tools. */
+function BuildingBar() {
+  const template = useBuildingTool((s) => s.template);
+  const setTemplate = useBuildingTool((s) => s.setTemplate);
+  const ghost = useBuildingTool((s) => s.ghost);
+  return (
+    <div className="float-draw float-building">
+      <div className="seg" role="radiogroup" aria-label="Шаблон здания">
+        {BUILDING_TEMPLATES.map((t, i) => (
+          <button key={t.id} role="radio" aria-checked={template === i} className={template === i ? 'on' : ''} onClick={() => setTemplate(i)}
+            title={`${t.width}×${t.length} м, ${t.levels} эт. (${i + 1})`}>
+            <kbd>{i + 1}</kbd>{t.label}
+          </button>
+        ))}
+      </div>
+      <span className={`building-hint${ghost?.onRoad ? ' warn' : ''}`}>
+        {ghost?.onRoad ? 'На дороге' : ghost?.aligned ? 'Вдоль дороги' : 'Свободно'}
+      </span>
+    </div>
+  );
+}
+
 function FloatingTools() {
   const mode = useEditor((s) => s.mode);
   const setMode = useEditor((s) => s.setMode);
+  const template = useEditor((s) => s.templateIndex);
+  const points = useEditor((s) => s.drawing.length);
+  const drawing = useEditor((s) => s.drawing);
+  const doc = useEditor((s) => s.doc);
+  // Only the points already placed: that is what Enter would build.
+  const conflicts = useMemo(() => (mode === 'draw' && drawing.length > 1 ? drawingConflicts(doc, drawing, ROAD_TEMPLATES[template].tags) : []), [mode, drawing, doc, template]);
   return (
-    <div className="float float-tools" role="toolbar" aria-label="Инструменты">
-      {TOOLS.map((t) => (
-        <button key={t.mode} className={`tool${mode === t.mode ? ' on' : ''}`} onClick={() => setMode(t.mode)} title={`${t.label} (${t.key})`} aria-pressed={mode === t.mode}>
-          <Icon name={t.icon} size={18} />
-        </button>
-      ))}
-
-    </div>
+    <>
+      <div className="float float-tools" role="toolbar" aria-label="Инструменты">
+        {TOOLS.map((t) => (
+          <button key={t.mode} className={`tool${mode === t.mode ? ' on' : ''}`} onClick={() => setMode(t.mode)} title={`${t.label} (${t.key})`} aria-pressed={mode === t.mode}>
+            <Icon name={t.icon} size={18} />
+          </button>
+        ))}
+        {mode === 'building' && <BuildingBar />}
+        {mode === 'draw' && (
+          <div className="float-draw">
+            <button className="btn btn-ink" onClick={() => finishDrawing()} disabled={points < 2 || conflicts.length > 0}>Готово <kbd>Enter</kbd></button>
+          </div>
+        )}
+      </div>
+      {conflicts.length > 0 && (
+        <div className="float float-conflict" role="group" aria-label="Здания на пути дороги">
+          <b>{conflicts.length === 1 ? 'Дорога задевает здание' : `Дорога задевает здания: ${conflicts.length}`}</b>
+          <div className="buttons">
+            <button className="btn btn-sm btn-ink" onClick={() => finishDrawing('cut')} title="Часть здания под дорогой убирается, остальное остаётся с теми же тегами; здание, разрезанное пополам, становится двумя">Срезать по дороге</button>
+            <button className="btn btn-sm" onClick={() => finishDrawing('demolish')}>Снести</button>
+            <button className="btn btn-sm btn-quiet" onClick={() => finishDrawing('keep')} title="Например, проезд под зданием, в арке">Построить поверх</button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

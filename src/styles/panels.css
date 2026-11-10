@@ -1,8 +1,8 @@
 /* Navigator */
-.nav-section { padding: var(--sp-3) var(--sp-3) var(--sp-3); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: var(--sp-2); }
+.nav-section { padding: var(--sp-3) var(--sp-3) var(--sp-3); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: var(--sp-2); flex-shrink: 0; }
 .nav-section h2 { display: flex; align-items: baseline; justify-content: space-between; }
 .nav-section .hint { min-height: 3em; }
-.tool-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.tool-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
 .tool-tile {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 2px 5px; border: 1px solid var(--line);
   border-radius: var(--r-md); background: var(--field); font-size: 11px; font-weight: 600;

@@ -27,12 +27,20 @@
 .float-tools { top: 12px; left: 12px; }
 .float-draw { display: flex; align-items: center; gap: 6px; padding: 0 3px 0 8px; margin-left: 4px; border-left: 1px solid var(--line); animation: rise 180ms var(--ease-out); }
 .float-draw select { height: 28px; font-size: 12px; }
+.float-building .seg button { display: inline-flex; align-items: center; gap: 5px; }
+.float-building .seg button .mono { font-size: 10.5px; opacity: 0.75; }
+.float-building kbd, .building-hint kbd { font: 600 10px var(--font-mono); padding: 0 4px; border-radius: 3px; border: 1px solid var(--line-strong); background: var(--field); color: var(--ink); }
+.float-building .seg button.on kbd { background: transparent; color: inherit; border-color: currentColor; }
+.building-hint { font-size: 11.5px; color: var(--ink-2); white-space: nowrap; padding-right: 6px; }
+.building-hint.warn { color: var(--red-text); font-weight: 600; }
 .float-zoom { top: 12px; right: 12px; flex-direction: column; }
 .float-look { top: 12px; left: 50%; transform: translateX(-50%); animation-name: float-in-center; }
 .float-look button.on { background: var(--pink); color: #fff; }
 .float-lens { top: 52px; left: 50%; transform: translateX(-50%); animation-name: float-in-center; }
 /* A narrow free map: the switch goes under the tools instead of between them and the zoom. */
 @media (max-width: 1360px) { .float-look { top: 56px; left: 12px; transform: none; animation-name: float-in; } }
+/* While a tool shows its options next to the tools, the switch makes room for them the same way. */
+.stage:has(.float-draw) .float-look { top: 56px; left: 12px; transform: none; animation-name: float-in; }
 .float-basemap { bottom: 12px; left: 12px; gap: 10px; padding: 3px 10px 3px 3px; }
 .seg { display: flex; gap: 2px; }
 .seg button { height: 26px; padding: 0 10px; border: 0; border-radius: var(--r-md); background: none; font-size: 12px; font-weight: 600; color: var(--ink-2); transition: background-color var(--dur) ease, color var(--dur) ease; }
@@ -134,3 +142,9 @@
 .jc-picked { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 600; }
 .jc-templates { display: flex; flex-wrap: wrap; gap: 4px; }
 @media (max-width: 1360px) { .junction-card { top: 100px; max-height: calc(100% - 112px); } }
+
+/* Buildings in the way of the road being drawn: what to do with them, under the tools. */
+.float-conflict { top: 56px; left: 12px; flex-direction: column; align-items: flex-start; gap: 6px; padding: 8px 10px; border-color: color-mix(in srgb, var(--red) 55%, transparent); }
+.float-conflict b { color: var(--red-text); font-size: 12px; }
+.float-conflict .buttons { display: flex; flex-wrap: wrap; gap: 4px; }
+@media (max-width: 1360px) { .float-conflict { top: 100px; } }
