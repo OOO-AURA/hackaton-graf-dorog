@@ -271,17 +271,13 @@
 .sumo-missing code { font-size: 11px; user-select: text; }
 .sumo-missing .btn { justify-self: start; }
 
-/* «Зачем» explanations */
+/* Contextual help: the explanation uses the platform tooltip, so panel overflow cannot clip it. */
 .panel-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .nav-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .nav-head h2 { margin: 0; }
-.why { position: relative; flex: none; }
-.why summary { list-style: none; cursor: pointer; font-family: var(--font-body); font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink-2); padding: 2px 7px; border: 1px solid var(--line-strong); border-radius: 999px; }
-.why summary::-webkit-details-marker { display: none; }
-.why summary:hover, .why[open] summary { color: var(--ink); background: var(--hover); }
-.why-body { position: absolute; top: calc(100% + 6px); z-index: 30; width: min(300px, 80vw); margin: 0; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-sm); box-shadow: 0 8px 24px rgba(27, 17, 10, 0.16); font-family: var(--font-body); font-size: 12.5px; font-weight: 400; line-height: 1.45; letter-spacing: 0; text-transform: none; color: var(--ink); user-select: text; }
-.why-end .why-body { right: 0; }
-.why-start .why-body { left: 0; }
+.why { display: inline-grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 50%; color: var(--ink-2); cursor: help; }
+.why:hover, .why:focus-visible { color: var(--ink); background: var(--hover); }
+.why:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
 .dock-tabs .why { margin-left: auto; align-self: center; }
 .dock-tabs .why + .dock-toggle { margin-left: 8px; }
 
@@ -293,7 +289,6 @@
 .tour::after { content: ''; position: absolute; width: 10px; height: 10px; background: var(--panel); border: 1.5px solid var(--ink); transform: rotate(45deg); }
 .tour-left::after { right: -7px; top: 22px; border-left: 0; border-bottom: 0; }
 .tour-bottom::after { top: -7px; left: calc(50% - 5px); border-right: 0; border-bottom: 0; }
-.navigator .why-body { width: 200px; }
 .approach { padding: 6px 0; border-top: 1px solid var(--line, rgba(0,0,0,0.1)); }
 .approach:first-of-type { border-top: 0; }
 .approach-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 4px; }

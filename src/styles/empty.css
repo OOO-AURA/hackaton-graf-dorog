@@ -12,15 +12,10 @@
 .empty-card .display { font-size: clamp(64px, 9vw, 112px); text-transform: uppercase; margin: 10px 0 14px; letter-spacing: -0.02em; line-height: 0.84; }
 .empty-lead { font-size: var(--fs-lg); line-height: 1.45; max-width: 40ch; }
 .empty-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
-.spec { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--line-strong); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
-.spec li { display: flex; align-items: center; gap: 6px; }
-.spec .box { width: 10px; height: 10px; border: 1.5px solid var(--ink); }
 .stamp {
   position: absolute; display: inline-block; padding: 4px 10px; border: 2px solid var(--red-text); color: var(--red-text);
   font-family: var(--font-display); font-weight: 900; font-size: 18px; letter-spacing: 0.04em; text-transform: uppercase; transform: rotate(-6deg);
 }
-.empty-card .stamp { top: 22px; right: 22px; }
-
 .loading { position: relative; z-index: 1; display: grid; justify-items: center; gap: 10px; padding: 32px 40px; background: var(--panel); border: 1.5px solid var(--ink); border-radius: var(--r-lg); box-shadow: 8px 8px 0 var(--ink); }
 .loading-bars { display: flex; gap: 5px; height: 36px; align-items: flex-end; }
 .loading-bars i { width: 12px; height: 100%; border-radius: 2px; animation: bar 900ms var(--ease-out) infinite; transform-origin: bottom; }

@@ -5,8 +5,6 @@ import { openExample } from './fileActions';
 import { Icon } from './icons';
 import { AreaMenu } from './AreaMenu';
 
-const STEPS = ['Открыть .osm', 'Править граф', 'Проверить', 'Сохранить'] as const;
-
 /** Five stacked colour bars swept diagonally, the cassette-label motif of the style. */
 export function Ribbon({ className = '' }: { className?: string }) {
   return (
@@ -59,7 +57,6 @@ export function EmptyState() {
       <Ribbon className="empty-ribbon" />
       {loading ? <Loading label={loading} /> : (
         <div className="empty-card">
-          <p className="micro">Иркутск · граф УДС · OSM</p>
           <h1 className="display">Граф<br />дорог</h1>
           <p className="empty-lead">Откройте фрагмент OpenStreetMap, поправьте дороги и перекрёстки и сохраните файл для MATSim, SUMO и Webots.</p>
           <DraftOffer />
@@ -68,10 +65,6 @@ export function EmptyState() {
             <button className="btn btn-lg" onClick={() => void openExample()}>Пример из задания</button>
             <AreaMenu align="left" />
           </div>
-          <ol className="spec">
-            {STEPS.map((s, i) => <li key={s}><span className="box" aria-hidden="true" />{String(i + 1).padStart(2, '0')} {s}</li>)}
-          </ol>
-          <span className="stamp">hack-team10</span>
         </div>
       )}
     </div>

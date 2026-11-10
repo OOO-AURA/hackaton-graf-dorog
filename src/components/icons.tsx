@@ -32,6 +32,7 @@ const PATHS: Record<string, ReactNode> = {
   trash: <path d="M3.5 5.5h13M8 5.5V3.5h4v2M5 5.5l1 11h8l1-11" />,
   building: <><path d="M4 17V6.5L10 3l6 3.5V17z" /><path d="M8 17v-4h4v4M7.5 8h1M11.5 8h1M7.5 10.8h1M11.5 10.8h1" /></>,
   dock: <><rect x="2.5" y="3.5" width="15" height="13" rx="1" /><path d="M2.5 12h15" /></>,
+  info: <><circle cx="10" cy="10" r="7" /><path d="M10 9v5M10 6.2v.2" /></>,
 };
 
 export type IconName = keyof typeof PATHS;

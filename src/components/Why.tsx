@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { Icon } from './icons';
 
 /** What a panel is for, in plain words; one short paragraph. */
 export const WHY = {
@@ -17,23 +17,17 @@ export const WHY = {
 
 export type WhyId = keyof typeof WHY;
 
-/** «Зачем» button with a short explanation of the panel it sits in. */
+/** Compact contextual help. Native tooltips cannot overflow or be clipped by a panel. */
 export function Why({ id, align = 'end' }: { id: WhyId; align?: 'start' | 'end' }) {
-  const ref = useRef<HTMLDetailsElement>(null);
-  useEffect(() => {
-    const close = (e: Event) => {
-      const el = ref.current;
-      if (!el?.open) return;
-      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !el.contains(e.target as Node)) el.open = false;
-    };
-    document.addEventListener('pointerdown', close);
-    document.addEventListener('keydown', close);
-    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', close); };
-  }, []);
   return (
-    <details className={`why why-${align}`} ref={ref}>
-      <summary aria-label="Зачем эта панель">Зачем</summary>
-      <p className="why-body">{WHY[id]}</p>
-    </details>
+    <span
+      className={`why why-${align}`}
+      tabIndex={0}
+      role="note"
+      aria-label={`Справка: ${WHY[id]}`}
+      title={WHY[id]}
+    >
+      <Icon name="info" size={15} />
+    </span>
   );
 }
