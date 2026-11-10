@@ -1,4 +1,4 @@
-import { setNodeTags, waysOfNode } from '../osm/edit';
+import { moveNode, setNodeTags, waysOfNode } from '../osm/edit';
 import { withTag } from '../osm/tags';
 import type { OsmNode } from '../osm/types';
 import { useEditor } from '../state/store';
@@ -108,6 +108,13 @@ export function NodeInspector({ node }: { node: OsmNode }) {
           </ul>
         </Section>
       )}
+      <Section title="Положение" open={false}>
+        <div className="row">
+          <TextField label="Широта" type="number" value={node.lat.toFixed(7)} onCommit={(v) => { const lat = Number(v); if (Number.isFinite(lat) && Math.abs(lat) <= 85) apply((d) => moveNode(d, node.id, node.lon, lat)); }} />
+          <TextField label="Долгота" type="number" value={node.lon.toFixed(7)} onCommit={(v) => { const lon = Number(v); if (Number.isFinite(lon) && Math.abs(lon) <= 180) apply((d) => moveNode(d, node.id, lon, node.lat)); }} />
+        </div>
+        <p className="hint">Точнее на карте: стрелки сдвигают узел на 1 м, с Shift на 10 м. Седьмой знак после запятой — около сантиметра.</p>
+      </Section>
       <Section title="Все теги OSM" open={false} aside={<span className="mono count">{Object.keys(node.tags).length}</span>}>
         <TagTable tags={node.tags} onChange={(tags) => apply((d) => setNodeTags(d, node.id, tags))} />
       </Section>

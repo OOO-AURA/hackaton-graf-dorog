@@ -1,10 +1,11 @@
 import { hasRepairs, OsmParseError, parseOsmChecked, type OsmRepairs } from '../osm/parse';
 import { serializeOsm } from '../osm/serialize';
 import { commitDrawing } from '../osm/draw';
-import { deleteNode, deleteWay, flipDirection, reverseWay, splitWay, toggleSignal, waysOfNode } from '../osm/edit';
+import { deleteNode, deleteWay, flipDirection, moveNode, reverseWay, splitWay, toggleSignal, waysOfNode } from '../osm/edit';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { isBuilding } from '../osm/building';
-import { deleteBuilding } from '../osm/buildingEdit';
+import { deleteBuilding, reshape } from '../osm/buildingEdit';
+import { translate } from '../osm/buildingShape';
 import { buildingConflicts, cutBuildings, demolishBuildings, type BuildingConflict } from '../osm/clearance';
 import { isRailLine } from '../osm/rail';
 import { roundCorners } from '../osm/drawGeometry';
@@ -202,4 +203,29 @@ export function closeCordon(): void {
   });
   void refreshReport();
   s.notify(added ? `Добавлено кордонных разворотов: ${added}` : 'Разрезанных границей пар не найдено');
+}
+
+/** Metres in a degree of latitude. */
+const M_PER_DEG = 111_320;
+
+/**
+ * Moves the selected node or building by (east, north) metres: arrows nudge by a metre, with
+ * Shift by ten. Returns false when nothing movable is selected, so the arrows pan the map.
+ */
+export function nudgeSelected(east: number, north: number): boolean {
+  const s = useEditor.getState();
+  const sel = currentSelection(s);
+  if (!sel || sel.type === 'street' || s.mode === 'view') return false;
+  if (sel.type === 'node') {
+    const n = s.doc.nodes[sel.id];
+    if (!n) return false;
+    const lat = n.lat + north / M_PER_DEG;
+    const lon = n.lon + east / (M_PER_DEG * Math.cos((n.lat * Math.PI) / 180));
+    s.apply((d) => moveNode(d, sel.id, lon, lat));
+    return true;
+  }
+  const w = s.doc.ways[sel.id];
+  if (!w || !isBuilding(w.tags)) return false;
+  s.apply((d) => reshape(d, sel.id, (ring) => translate(ring, [east, north])));
+  return true;
 }

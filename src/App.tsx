@@ -9,6 +9,7 @@ import { useEditor } from './state/store';
 import { refreshReport } from './state/validation';
 import { startAutosave } from './state/draft';
 import { Guide } from './components/guide/Guide';
+import { ContextMenu } from './components/ContextMenu';
 import { useUi } from './state/ui';
 import { useHotkeys } from './state/useHotkeys';
 import { useCloseGuard } from './state/useCloseGuard';
@@ -94,6 +95,7 @@ export function App() {
       <BottomDock />
       <JunctionEditor />
       <Toast />
+      <ContextMenu />
       <Guide />
     </div>
   );

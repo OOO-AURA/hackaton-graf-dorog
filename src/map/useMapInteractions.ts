@@ -24,6 +24,33 @@ import { useCustomFlows } from '../sim/customFlows';
 
 const DRAG_THRESHOLD_PX = 3;
 
+/** Selects what is under the point as the select tool does; resolves once it is selected. */
+async function pickAt(map: MapLibreMap, point: { x: number; y: number }): Promise<void> {
+  const s = useEditor.getState();
+  const nodeId = pickNode(map, point);
+  if (nodeId) { s.select({ type: 'node', id: nodeId }); return; }
+  const way = pickWay(map, s.doc, point);
+  // In 3D a bridge deck is picked where it is drawn, above the ground; it wins over a road
+  // line under the cursor. Otherwise roads come before buildings: they are thin and lie
+  // under the buildings.
+  const id = await hitBuilding(map, point);
+  const st = useEditor.getState();
+  const picked = id && pickableWay(st.doc, id) ? st.doc.ways[id] : null;
+  if (picked && !isBuilding(picked.tags)) st.select({ type: 'way', id: picked.id });
+  // A click on a road picks the stretch between the junctions on either side of it.
+  else if (way) st.select({ type: 'way', id: way.wayId, piece: pieceAround(st.doc, way.wayId, way.index) ?? undefined });
+  else st.select(picked ? { type: 'way', id: picked.id } : null);
+}
+
+/** Right click with the select or view tool: picks what is under it and opens its menu. */
+function handleContext(map: MapLibreMap, e: MapMouseEvent): void {
+  const s = useEditor.getState();
+  if (zoneEditingActive() || (s.mode !== 'select' && s.mode !== 'view')) return;
+  e.preventDefault();
+  const at = { x: e.originalEvent.clientX, y: e.originalEvent.clientY };
+  void pickAt(map, e.point).then(() => useUi.getState().setContextMenu(useEditor.getState().selection ? at : null));
+}
+
 function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
   if (zoneEditingActive()) return;
   // Placing the ends of an own traffic flow: a click takes the node under it, or the point itself.
@@ -53,18 +80,7 @@ function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
   // The view tool picks like the select tool; the store keeps it from changing anything.
   switch (s.mode === 'view' ? 'select' : s.mode) {
     case 'select': {
-      if (nodeId) { s.select({ type: 'node', id: nodeId }); return; }
-      // In 3D a bridge deck is picked where it is drawn, above the ground; it wins over a road
-      // line under the cursor. Otherwise roads come before buildings: they are thin and lie
-      // under the buildings.
-      void hitBuilding(map, e.point).then((id) => {
-        const st = useEditor.getState();
-        const picked = id && pickableWay(st.doc, id) ? st.doc.ways[id] : null;
-        if (picked && !isBuilding(picked.tags)) st.select({ type: 'way', id: picked.id });
-        // A click on a road picks the stretch between the junctions on either side of it.
-        else if (way) st.select({ type: 'way', id: way.wayId, piece: pieceAround(st.doc, way.wayId, way.index) ?? undefined });
-        else st.select(picked ? { type: 'way', id: picked.id } : null);
-      });
+      void pickAt(map, e.point);
       return;
     }
     case 'signal': {
@@ -275,11 +291,17 @@ export function useMapInteractions(map: MapLibreMap | null, onPointer: (lon: num
       s.select({ type: 'node', id });
       useUi.getState().setJunctionEditor(id);
     };
+    const onContext = (e: MapMouseEvent) => handleContext(map, e);
+    const closeMenu = () => { if (useUi.getState().contextMenu) useUi.getState().setContextMenu(null); };
     map.on('click', onClick);
+    map.on('contextmenu', onContext);
+    map.on('movestart', closeMenu);
     map.on('dblclick', onDblClick);
     map.on('mousemove', onMove);
     return () => {
       map.off('click', onClick);
+      map.off('contextmenu', onContext);
+      map.off('movestart', closeMenu);
       map.off('dblclick', onDblClick);
       map.off('mousemove', onMove);
     };

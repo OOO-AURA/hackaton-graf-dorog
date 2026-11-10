@@ -8,7 +8,8 @@ import { useBuildingTool } from '../map/buildingTool';
 import { removePickedCorner } from '../map/useBuildingEditing';
 import { copySelected, duplicateSelected, pasteBuilding, selectedBuildingId } from './buildingActions';
 import { BUILDING_TEMPLATES } from '../osm/buildingShape';
-import { deleteSelection, openFile, saveOsm, finishDrawing, flipSelected, reverseSelected, splitAtSelected, toggleSignalSelected } from './actions';
+import { deleteSelection, openFile, saveOsm, finishDrawing, flipSelected, nudgeSelected, reverseSelected, splitAtSelected, toggleSignalSelected } from './actions';
+import { usePanels } from './panels';
 
 const MODE_KEYS: Readonly<Record<string, Mode>> = { h: 'view', v: 'select', d: 'draw', n: 'insert', t: 'signal', b: 'building' };
 
@@ -25,6 +26,8 @@ export const HOTKEYS: ReadonlyArray<[string, string]> = [
   ['S', 'Светофор в выбранном узле'],
   ['X', 'Разрезать дороги в выбранном узле'],
   ['P', 'Переключить 2D и 3D'],
+  ['Стрелки, Shift+стрелки', 'Сдвинуть выбранный узел или здание на 1 м / 10 м'],
+  ['⌘/Ctrl+F', 'Поиск улицы, перекрёстка или знака'],
   ['Delete / Backspace', 'Удалить выбранное'],
   ['⌘/Ctrl+Z, ⌘/Ctrl+Shift+Z', 'Отменить / Повторить'],
   ['⌘/Ctrl+O', 'Открыть файл'],
@@ -53,6 +56,7 @@ function handleKey(e: KeyboardEvent): void {
   // File shortcuts work even while typing in a field.
   if (mod && key === 's') { e.preventDefault(); void saveOsm(e.shiftKey); return; }
   if (mod && key === 'o') { e.preventDefault(); void openFile(); return; }
+  if (mod && key === 'f') { e.preventDefault(); focusSearch(); return; }
   if (isTyping(e.target)) return;
   const s = useEditor.getState();
   if ((e.ctrlKey || e.metaKey) && key === 'z') { e.preventDefault(); if (e.shiftKey) s.redo(); else s.undo(); return; }
@@ -95,9 +99,31 @@ function handleKey(e: KeyboardEvent): void {
   if (action) { e.preventDefault(); action(); }
 }
 
+/** Opens the navigator on its objects and puts the cursor in the search. */
+function focusSearch(): void {
+  usePanels.getState().set({ navOpen: true });
+  useUi.getState().setNavTab('objects');
+  requestAnimationFrame(() => {
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Поиск по объектам"]');
+    input?.focus();
+    input?.select();
+  });
+}
+
+const ARROWS: Readonly<Record<string, [number, number]>> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
+
+/** Arrows nudge the selected node or building; caught before the map, which pans on arrows. */
+function handleArrow(e: KeyboardEvent): void {
+  const d = ARROWS[e.key];
+  if (!d || isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+  const step = e.shiftKey ? 10 : 1;
+  if (nudgeSelected(d[0] * step, d[1] * step)) { e.preventDefault(); e.stopPropagation(); }
+}
+
 export function useHotkeys(): void {
   useEffect(() => {
     window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    window.addEventListener('keydown', handleArrow, true);
+    return () => { window.removeEventListener('keydown', handleKey); window.removeEventListener('keydown', handleArrow, true); };
   }, []);
 }

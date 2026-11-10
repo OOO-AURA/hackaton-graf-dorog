@@ -22,6 +22,7 @@ import { isolatePiece } from '../osm/pieces';
 import { LaneEditor } from './LaneEditor';
 import { SidewalkSection } from './SidewalkSection';
 import { useUi } from '../state/ui';
+import { haversine } from '../osm/geo';
 
 export const HIGHWAY_LABELS: Readonly<Record<string, string>> = {
   motorway: 'Автомагистраль', trunk: 'Скоростная', primary: 'Магистральная', secondary: 'Районная', tertiary: 'Улица местного значения',
@@ -51,6 +52,16 @@ function elevationHint(t: Tags): string {
   if (z === null) return 'Webots не строит дороги с отрицательным layer: в 3D её не будет. Если это дорога под мостом, а не настоящий тоннель, оставьте её на уровне 0.';
   if (z > 0) return `В 3D и в Webots дорога пройдёт на ${z} м над землёй (layer × 5 м). Подъезды в редакторе показаны насыпью с плавным подъёмом.`;
   return 'Дорога на уровне земли.';
+}
+
+/** Length along the nodes, metres or kilometres. */
+function formatLength(doc: OsmDoc, refs: readonly string[]): string {
+  let m = 0;
+  for (let i = 1; i < refs.length; i++) {
+    const a = doc.nodes[refs[i - 1]], b = doc.nodes[refs[i]];
+    if (a && b) m += haversine([a.lon, a.lat], [b.lon, b.lat]);
+  }
+  return m >= 1000 ? `${(m / 1000).toFixed(2)} км` : `${Math.round(m)} м`;
 }
 
 export function WayInspector({ way }: { way: OsmWay }) {
@@ -87,7 +98,7 @@ export function WayInspector({ way }: { way: OsmWay }) {
       <header className="insp-head">
         <span className="micro">Дорога</span>
         <h2 className="insp-title">{t.name || HIGHWAY_LABELS[t.highway ?? ''] || 'Без названия'}</h2>
-        <span className="mono insp-id">way {way.id} · {piece ? `участок между точками, ${piece.to - piece.from + 1} узл. из ${way.refs.length}` : `${way.refs.length} узл.`}</span>
+        <span className="mono insp-id">way {way.id} · {piece ? `участок ${formatLength(doc, way.refs.slice(piece.from, piece.to + 1))}, ${piece.to - piece.from + 1} узл. из ${way.refs.length}` : `${formatLength(doc, way.refs)}, ${way.refs.length} узл.`}</span>
         {piece && <button className="link" onClick={() => select({ type: 'way', id: way.id })}>Править всю линию</button>}
         {streetParts > 1 && <button className="link" onClick={() => select({ type: 'street', id: t.name })}>Вся улица: {streetParts} участков, править разом</button>}
       </header>
