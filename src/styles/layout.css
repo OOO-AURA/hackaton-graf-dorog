@@ -13,6 +13,12 @@
   --stage-bottom: var(--dock-total);
 }
 .app:has(.dock.open) { --dock-body-h: var(--dock-h); }
+/* The bottom panel slides open and shut; the free stage above it (map padding, floating controls)
+   follows, so nothing jumps. A registered length can be animated. */
+@property --dock-body-h { syntax: '<length>'; inherits: true; initial-value: 0px; }
+.app { transition: --dock-body-h 320ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+body.resizing-y .app { transition: none; }
+@media (prefers-reduced-motion: reduce) { .app { transition: none; } }
 .app.is-empty { --stage-left: 0px; --stage-right: 0px; --stage-bottom: 0px; }
 .app.is-empty .side, .app.is-empty .dock { visibility: hidden; }
 
@@ -98,6 +104,7 @@ body.resizing-y, body.resizing-y * { cursor: row-resize !important; user-select:
 .dock-tabs [role='tab'].on { color: var(--ink); }
 .dock-tabs [role='tab'].on::after { transform: scaleX(1); }
 .dock-toggle { margin-left: auto; align-self: center; }
+.dock-drawer { height: var(--dock-body-h, 0px); overflow: hidden; }
 .dock-body { height: var(--dock-h); overflow-y: auto; padding: var(--sp-2) var(--sp-4) var(--sp-3); border-top: 1px solid var(--line); scrollbar-width: thin; }
 .dock-empty { padding: var(--sp-2) 0; max-width: 60ch; }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } }

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useEditor } from '../state/store';
 import { useUi, type BottomTab } from '../state/ui';
 import { CheckPanel, useCheck } from './CheckPanel';
@@ -40,6 +40,9 @@ export const TAB_LABELS: Readonly<Record<BottomTab, string>> = {
   issues: 'Ошибки графа', check: 'Отчёт сервера', flows: 'Потоки', transit: 'Транспорт', scenarios: 'Сценарии', journal: 'Что изменено', errors: 'Журнал ошибок', submit: 'Чек-лист сдачи',
 };
 
+/** How long the panel takes to slide open or shut, ms (layout.css says the same). */
+const SLIDE_MS = 320;
+
 export function BottomDock() {
   const tab = useUi((s) => s.bottomTab);
   const open = useUi((s) => s.bottomOpen);
@@ -51,6 +54,14 @@ export function BottomDock() {
   const tabs = stepInfo(useUi((s) => s.step)).tabs;
 
   useEffect(() => { if (running) openBottom('check'); }, [running, openBottom]);
+  // The panel slides: its content stays while it closes and goes once it is down.
+  const [shown, setShown] = useState(open);
+  useEffect(() => {
+    if (open) { setShown(true); return undefined; }
+    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const t = window.setTimeout(() => setShown(false), reduce ? 0 : SLIDE_MS);
+    return () => window.clearTimeout(t);
+  }, [open]);
 
   return (
     <section className={`dock${open ? ' open' : ''}`} aria-label="Нижняя панель">
@@ -67,7 +78,8 @@ export function BottomDock() {
           <Icon name="chevron" style={{ transform: open ? 'none' : 'rotate(180deg)' }} />
         </button>
       </div>
-      {open && (
+      <div className="dock-drawer" aria-hidden={!open}>
+      {shown && (
         <div className="dock-body" role="tabpanel">
           {tab === 'issues' && <IssuesPanel />}
           {tab === 'check' && <CheckPanel />}
@@ -79,6 +91,7 @@ export function BottomDock() {
           {tab === 'submit' && <SubmitPanel />}
         </div>
       )}
+      </div>
     </section>
   );
 }
