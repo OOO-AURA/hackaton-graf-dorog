@@ -7,6 +7,7 @@ import { isLifted, isLiftedNode } from './elevation';
 import type { OsmDoc, Tags } from '../osm/types';
 import { along, cumulative, densify, frame, lengthOf, offsetLine, slice, type V } from './polyline';
 import { laneOffsetIn, plainSection, roadTapers, sectionAt, sectionOf, widthOf, type Travel } from './section';
+import { psvLanes } from '../osm/busLanes';
 
 /**
  * Geometry of lanes for the map: every lane as a thin line along its road, cut back at
@@ -87,6 +88,15 @@ export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<Line
     const features: Feature<LineString, Props>[] = [];
     const base = sectionOf(w.tags);
     const f = frame(nodes[0].lat);
+    // Lanes for route vehicles and taxis, and the solid line that keeps other traffic out of them.
+    const psv = { forward: psvLanes(w.tags, 'forward'), backward: psvLanes(w.tags, 'backward') };
+    const laneW17 = base.lane * pxPerMetreZ17(nodes[0].lat);
+    const busMark = (key: string) => {
+      const [travel, i] = key.split(':');
+      if (travel !== 'forward' && travel !== 'backward') return false;
+      const k = Number(i);
+      return psv[travel].has(k) || psv[travel].has(k + 1);
+    };
     const pts = nodes.map((n) => f.to(n.lon, n.lat));
     const dist = cumulative(pts);
     const total = dist[dist.length - 1];
@@ -106,8 +116,8 @@ export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<Line
       // taper stop where it starts.
       type Item = { key: string; offset: number; props: Props };
       const items = sections.map((sec) => [
-        ...sec.lanes.map((l): Item => ({ key: `lane:${l.travel}:${l.index}`, offset: l.offset, props: { way: w.id, kind: 'lane', color, loaded: vc !== null, raised } })),
-        ...sec.dividers.map((m): Item => ({ key: `mark:${m.key}`, offset: m.offset, props: { way: w.id, kind: 'divider', solid: m.solid, raised } })),
+        ...sec.lanes.map((l): Item => ({ key: `lane:${l.travel}:${l.index}`, offset: l.offset, props: { way: w.id, kind: 'lane', color, loaded: vc !== null, raised, psv: psv[l.travel].has(l.index), rev: l.travel === 'backward', w17: laneW17 } })),
+        ...sec.dividers.map((m): Item => ({ key: `mark:${m.key}`, offset: m.offset, props: { way: w.id, kind: 'divider', solid: m.solid || busMark(m.key), bus: busMark(m.key), raised } })),
       ]);
       const keys = [...new Set(items.flatMap((list) => list.map((x) => x.key)))];
       for (const key of keys) {

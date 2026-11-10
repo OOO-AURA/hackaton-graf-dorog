@@ -104,6 +104,24 @@ const roadOffset = ['interpolate', ['exponential', 2], ['zoom'], 15, 0, 16, ['/'
 const LANE_LINES = ['all', ['==', ['get', 'kind'], 'lane'], ['==', ['get', 'loaded'], true]];
 const DASHED_MARKS = ['all', ['==', ['get', 'kind'], 'divider'], ['!=', ['get', 'solid'], true]];
 const SOLID_MARKS = ['all', ['==', ['get', 'kind'], 'divider'], ['==', ['get', 'solid'], true]];
+const BUS_LANES = ['all', ['==', ['get', 'kind'], 'lane'], ['==', ['get', 'psv'], true]];
+
+/** The letter A painted on lanes for route vehicles (marking 1.23.1): white, a dark edge to read on any colour. */
+function addBusLaneImage(map: MapLibreMap): void {
+  if (map.hasImage('bus-lane-a')) return;
+  const size = 80;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.font = 'bold 64px Arial, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(20, 16, 12, 0.6)';
+  ctx.strokeText('A', size / 2, size / 2 + 4);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText('A', size / 2, size / 2 + 4);
+  map.addImage('bus-lane-a', ctx.getImageData(0, 0, size, size), { pixelRatio: 2 });
+}
 const LANE_MARK_MINZOOM = 16.5;
 /** Width of a lane marking in px; the road itself doubles per zoom step, so the marking does too. */
 const markWidth = (z16_5: number, z18: number, z20: number) => ['interpolate', ['exponential', 2], ['zoom'], 16.5, z16_5, 18, z18, 20, z20] as never;
@@ -184,6 +202,16 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 17, 1, 19, 2.2], 'line-opacity': 0.95 } });
   // Lane markings: a dark outline under a light line, so they read on any road colour and theme;
   // solid between the two directions, dashed between lanes going the same way.
+  // Lanes for route vehicles and taxis: a terracotta band with the letter A (marking 1.23.1) along it.
+  addBusLaneImage(map);
+  map.addLayer({ id: 'bus-lanes', type: 'line', source: 'lanes', minzoom: 15, filter: BUS_LANES as never, layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: { 'line-color': '#B4513F', 'line-opacity': 0.55, 'line-width': ['interpolate', ['exponential', 2], ['zoom'], 15, ['/', ['get', 'w17'], 4], 22, ['*', 32, ['get', 'w17']]] as never } });
+  map.addLayer({ id: 'bus-lane-letters', type: 'symbol', source: 'lanes', minzoom: 17, filter: BUS_LANES as never,
+    layout: {
+      'symbol-placement': 'line', 'symbol-spacing': 140, 'icon-image': 'bus-lane-a', 'icon-allow-overlap': true,
+      'icon-rotation-alignment': 'map', 'icon-pitch-alignment': 'map', 'icon-rotate': ['case', ['get', 'rev'], -90, 90],
+      'icon-size': ['interpolate', ['exponential', 2], ['zoom'], 17, ['/', ['get', 'w17'], 40], 22, ['/', ['*', 32, ['get', 'w17']], 40]] as never,
+    } });
   map.addLayer({ id: 'lane-marks-casing', type: 'line', source: 'lanes', minzoom: LANE_MARK_MINZOOM, filter: ['==', ['get', 'kind'], 'divider'],
     layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-width': markWidth(1.8, 3.2, 8), 'line-opacity': 0.55 } });
   map.addLayer({ id: 'lane-marks-dash', type: 'line', source: 'lanes', minzoom: LANE_MARK_MINZOOM, filter: DASHED_MARKS as never,
@@ -348,7 +376,7 @@ export function applyRoadColors(map: MapLibreMap, p: MapPalette, mode: RoadColor
   map.setPaintProperty('roads-arrows', 'icon-opacity', asphalt ? 0 : 1);
 }
 
-const ROAD_LAYERS = ['roads-casing', 'bridge-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line', 'lanes', 'lane-marks-casing', 'lane-marks-dash', 'lane-marks-solid', ...JUNCTION_LAYERS];
+const ROAD_LAYERS = ['roads-casing', 'bridge-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line', 'lanes', 'bus-lanes', 'bus-lane-letters', 'lane-marks-casing', 'lane-marks-dash', 'lane-marks-solid', ...JUNCTION_LAYERS];
 
 /** Applies the layer toggles from the bottom bar. Bridges and tunnels are filters on the road layers. */
 export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boolean>, view3d = false): void {
@@ -384,6 +412,8 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   // carries its own markings (mesh3d.ts).
   const flat = (filter: unknown[]) => (view3d ? ['all', filter, ['!=', ['get', 'raised'], true]] : filter) as never;
   map.setFilter('lanes', flat(LANE_LINES));
+  map.setFilter('bus-lanes', flat(BUS_LANES));
+  map.setFilter('bus-lane-letters', flat(BUS_LANES));
   map.setFilter('lane-marks-casing', flat(['==', ['get', 'kind'], 'divider']));
   map.setFilter('lane-marks-dash', flat(DASHED_MARKS));
   map.setFilter('lane-marks-solid', flat(SOLID_MARKS));
