@@ -98,3 +98,32 @@ describe('junction drawing', () => {
     expect(Math.abs(latA - latB) * 111_000).toBeLessThan(10);
   });
 });
+
+describe('lane arrows stay on the road', () => {
+  test('a short link into a junction gets no arrow, the long roads do', () => {
+    // Node 5 is a junction of a long road (1-5-2) and a 12 m link from node 6.
+    const doc = osm(`
+      <node id="1" lat="52.0" lon="103.998"/><node id="5" lat="52.0" lon="104.000"/><node id="2" lat="52.0" lon="104.002"/>
+      <node id="6" lat="52.000108" lon="104.000"/>
+      <way id="10"><nd ref="1"/><nd ref="5"/><nd ref="2"/><tag k="highway" v="secondary"/><tag k="lanes" v="2"/></way>
+      <way id="11"><nd ref="6"/><nd ref="5"/><tag k="highway" v="secondary_link"/><tag k="oneway" v="yes"/></way>`);
+    const { arrows } = junctionGeometry(doc, ['5'], null, STYLE);
+    expect(arrows.features.length).toBe(2);
+    // Both on the long road, at most a lane width from its axis, not out on the link.
+    expect(arrows.features.every((f) => Math.abs(f.geometry.coordinates[1] - 52) * 111_320 < 3.5)).toBe(true);
+  });
+});
+
+describe('lanes for route vehicles and taxis', () => {
+  test('the bus lane is flagged, and the line next to it is solid', () => {
+    const doc = osm(`
+      <node id="1" lat="52.0" lon="104.000"/><node id="2" lat="52.0" lon="104.003"/>
+      <way id="10"><nd ref="1"/><nd ref="2"/><tag k="highway" v="primary"/><tag k="oneway" v="yes"/><tag k="lanes" v="3"/><tag k="psv:lanes" v="yes|yes|designated"/></way>`);
+    const all = laneLines(doc, STYLE).features;
+    const lanes = all.filter((f) => f.properties.kind === 'lane');
+    expect(lanes.filter((f) => f.properties.psv)).toHaveLength(1);
+    const marks = all.filter((f) => f.properties.kind === 'divider');
+    expect(marks.filter((f) => f.properties.bus && f.properties.solid)).toHaveLength(1);
+    expect(marks.filter((f) => !f.properties.solid)).toHaveLength(1);
+  });
+});

@@ -8,6 +8,7 @@ import type { OsmDoc, Tags } from '../osm/types';
 import { along, cumulative, densify, frame, lengthOf, offsetLine, slice, type V } from './polyline';
 import { laneOffsetIn, plainSection, roadTapers, sectionAt, sectionOf, widthOf, type Travel } from './section';
 import { roadShifts, wayPoints } from './shift';
+import { psvLanes } from '../osm/busLanes';
 
 /**
  * Geometry of lanes for the map: every lane as a thin line along its road, cut back at
@@ -88,6 +89,15 @@ export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<Line
     const features: Feature<LineString, Props>[] = [];
     const base = sectionOf(w.tags);
     const f = frame(nodes[0].lat);
+    // Lanes for route vehicles and taxis, and the solid line that keeps other traffic out of them.
+    const psv = { forward: psvLanes(w.tags, 'forward'), backward: psvLanes(w.tags, 'backward') };
+    const laneW17 = base.lane * pxPerMetreZ17(nodes[0].lat);
+    const busMark = (key: string) => {
+      const [travel, i] = key.split(':');
+      if (travel !== 'forward' && travel !== 'backward') return false;
+      const k = Number(i);
+      return psv[travel].has(k) || psv[travel].has(k + 1);
+    };
     const pts = wayPoints(doc, w, f);
     const dist = cumulative(pts);
     const total = dist[dist.length - 1];
@@ -107,8 +117,8 @@ export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<Line
       // taper stop where it starts.
       type Item = { key: string; offset: number; props: Props };
       const items = sections.map((sec) => [
-        ...sec.lanes.map((l): Item => ({ key: `lane:${l.travel}:${l.index}`, offset: l.offset, props: { way: w.id, kind: 'lane', color, loaded: vc !== null, raised } })),
-        ...sec.dividers.map((m): Item => ({ key: `mark:${m.key}`, offset: m.offset, props: { way: w.id, kind: 'divider', solid: m.solid, raised } })),
+        ...sec.lanes.map((l): Item => ({ key: `lane:${l.travel}:${l.index}`, offset: l.offset, props: { way: w.id, kind: 'lane', color, loaded: vc !== null, raised, psv: psv[l.travel].has(l.index), rev: l.travel === 'backward', w17: laneW17 } })),
+        ...sec.dividers.map((m): Item => ({ key: `mark:${m.key}`, offset: m.offset, props: { way: w.id, kind: 'divider', solid: m.solid || busMark(m.key), bus: busMark(m.key), raised } })),
       ]);
       const keys = [...new Set(items.flatMap((list) => list.map((x) => x.key)))];
       for (const key of keys) {
@@ -134,11 +144,22 @@ export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<Line
 }
 
 /** Where the lane `index` of an arm meets the edge of the junction, and the arm's outward direction. */
+/** Points of an arm in the local frame, from the junction outwards. */
+function armPoints(doc: OsmDoc, arm: Arm, f: ReturnType<typeof frame>): V[] {
+  const way = doc.ways[arm.wayId];
+  // Drawn where it runs alongside a greater road (shift.ts), so lane ends sit on the drawn road.
+  const all = wayPoints(doc, way, f);
+  return arm.step === 1 ? all.slice(arm.index) : all.slice(0, arm.index + 1).reverse();
+}
+
+/** How much of an arm a lane end or an arrow may take: the rest belongs to the junction at its far end. */
+const ARM_SHARE = 0.45;
+const armLength = (doc: OsmDoc, arm: Arm, f: ReturnType<typeof frame>) => lengthOf(armPoints(doc, arm, f));
+
 function laneEnd(doc: OsmDoc, arm: Arm, coming: boolean, index: number, r: number, f: ReturnType<typeof frame>): { p: V; out: V } {
   const way = doc.ways[arm.wayId];
-  const all = wayPoints(doc, way, f);
-  const pts = arm.step === 1 ? all.slice(arm.index) : all.slice(0, arm.index + 1).reverse();
-  const { p, t } = along(pts, Math.min(r, lengthOf(pts) * 0.45));
+  const pts = armPoints(doc, arm, f);
+  const { p, t } = along(pts, Math.min(r, lengthOf(pts) * ARM_SHARE));
   // Coming in along an arm laid out with the way (+1) is travel against the way, and so on;
   // offsets are to the left of the way, which is the arm's own left only when step is +1.
   const travel = (arm.step === 1) === coming ? 'backward' : 'forward';
@@ -270,14 +291,20 @@ export function junctionGeometry(doc: OsmDoc, nodeIds: readonly string[], withEn
         });
       }
       const approach = lanes.approaches.find((ap) => armKey(ap.arm) === armKey(arm));
-      inEnds.forEach((e, i) => {
-        const p: V = [e.p[0] + out[0] * ARROW_BACK, e.p[1] + out[1] * ARROW_BACK];
-        arrows.push({
-          type: 'Feature',
-          properties: { node: nodeId, icon: arrowIcon(approach?.turns[i] ?? []), bearing: bearingOf([-out[0], -out[1]]), w17: w * px, raised: lifted || raisedWay(arm.wayId) },
-          geometry: { type: 'Point', coordinates: f.back(p) },
+      // Arrows stand on the lane itself, followed along the road: on a short or bent approach (a
+      // U-turn link) a point straight back from the stop line would land off the road, so a road
+      // too short to hold one gets none.
+      const back = r + ARROW_BACK;
+      if (armLength(doc, arm, f) * ARM_SHARE >= back) {
+        inEnds.forEach((_, i) => {
+          const at = laneEnd(doc, arm, true, i, back, f);
+          arrows.push({
+            type: 'Feature',
+            properties: { node: nodeId, icon: arrowIcon(approach?.turns[i] ?? []), bearing: bearingOf([-at.out[0], -at.out[1]]), w17: w * px, raised: lifted || raisedWay(arm.wayId) },
+            geometry: { type: 'Point', coordinates: f.back(at.p) },
+          });
         });
-      });
+      }
     }
     if (corners.length >= 3) {
       areas.push({ type: 'Feature', properties: { node: nodeId, edit, raised: lifted }, geometry: { type: 'Polygon', coordinates: [grow(hull(corners), AREA_MARGIN).map(f.back)] } });

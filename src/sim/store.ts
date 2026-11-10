@@ -6,6 +6,7 @@ import { isDesktop } from '../platform';
 import { useEditor } from '../state/store';
 import { useMacro } from '../macro/store';
 import { STRIDE, type DemandKind, type SimResult } from './types';
+import { flowsDemand, useCustomFlows } from './customFlows';
 
 export const SPEEDS = [1, 5, 10, 30, 60] as const;
 
@@ -22,6 +23,13 @@ export interface SignalPlan {
   minGreen?: number;
   maxGreen?: number;
   maxGap?: number;
+  /** Extra sections: a separate left-turn phase (green arrow to the left) before the main one. */
+  leftArrow?: boolean;
+  /** A green arrow to the right: right turns go in every green phase. */
+  rightArrow?: boolean;
+  /** A phase when all cars stand and only pedestrians cross, `pedSeconds` long. */
+  pedPhase?: boolean;
+  pedSeconds?: number;
 }
 
 export const ADAPTIVE_DEFAULTS = { minGreen: 8, maxGreen: 50, maxGap: 3 } as const;
@@ -30,7 +38,10 @@ export const ADAPTIVE_DEFAULTS = { minGreen: 8, maxGreen: 50, maxGap: 3 } as con
 export const planForSim = (p: SignalPlan) => ({
   cycle_s: p.cycle, main_share: p.mainShare, adaptive: p.mode === 'adaptive',
   min_green_s: p.minGreen ?? ADAPTIVE_DEFAULTS.minGreen, max_green_s: p.maxGreen ?? ADAPTIVE_DEFAULTS.maxGreen, max_gap_s: p.maxGap ?? ADAPTIVE_DEFAULTS.maxGap,
+  left_arrow: Boolean(p.leftArrow), right_arrow: Boolean(p.rightArrow), ped_phase: Boolean(p.pedPhase), ped_s: p.pedSeconds ?? PED_SECONDS,
 });
+
+export const PED_SECONDS = 15;
 
 /** What the desktop app found of the SUMO install (see sumo_status in sim.rs). */
 export interface SumoStatus { ok: boolean; version: string | null; bin: string; sumo_home: string | null; missing: string[] }
@@ -118,12 +129,17 @@ export async function runSimulation(): Promise<void> {
       if (!macro || useMacro.getState().error) throw new Error(useMacro.getState().error ?? 'Не удалось посчитать матрицу корреспонденций');
       od = { zones: macro.zones.map((z) => z.lonlat), od: macro.od };
     }
+    if (demand === 'custom') {
+      const flows = useCustomFlows.getState().flows;
+      if (!flows.length) throw new Error('Своих потоков пока нет: добавьте их в панели «Микро», кликнув на карте откуда и куда едут');
+      od = flowsDemand(flows);
+    }
     const doc = useEditor.getState().doc;
-    const extras = { transit: useTransit.getState().inSim ? transitDemand(transitRoutes(doc)) : [], pedestrians: useSim.getState().pedestrians,
+    const extras = { transit: useTransit.getState().inSim ? transitDemand(transitRoutes(doc)) : [], pedestrians: useSim.getState().pedestrians, rush_hour: demand === 'rush',
       signals: Object.entries(useSim.getState().plans).filter(([id]) => doc.nodes[id]?.tags.highway === 'traffic_signals')
         .map(([id, p]) => ({ node: id, lon: doc.nodes[id].lon, lat: doc.nodes[id].lat, ...planForSim(p) })) };
     const result = await invoke<SimResult>('simulate', { text: serializeOsm(doc), minutes, demand: od, extras });
-    useSim.setState({ result, playing: true });
+    useSim.setState({ result: demand === 'custom' ? { ...result, demand: 'custom' } : result, playing: true });
   } catch (err) {
     useSim.setState({ error: err instanceof Error ? err.message : String(err) });
   } finally {

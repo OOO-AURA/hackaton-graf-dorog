@@ -6,6 +6,8 @@ import { featureById, toggleNodeFeature } from './features';
 import { useEditor } from '../state/store';
 import { finishDrawing } from '../state/actions';
 import { hitBuilding, hitNode, hitWay } from './hit';
+import { drawTarget } from './drawSnap';
+import { curvePoints } from '../osm/drawGeometry';
 import { isBuilding } from '../osm/building';
 import { useBoxSelect } from './useBoxSelect';
 import { placeGhost, useBuildingGhost } from './buildingTool';
@@ -13,11 +15,22 @@ import { HANDLE_LAYERS, useBuildingEditing } from './useBuildingEditing';
 import { setPointer } from '../state/buildingActions';
 import { laneLinkAt, useLaneEditing } from './useLaneEditing';
 import { zoneEditingActive } from '../macro/useZoneEditing';
+import { mayJoin, pieceAround } from '../osm/pieces';
+import { ROAD_TEMPLATES } from '../osm/tags';
+import { useCustomFlows } from '../sim/customFlows';
 
 const DRAG_THRESHOLD_PX = 3;
 
 function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
   if (zoneEditingActive()) return;
+  // Placing the ends of an own traffic flow: a click takes the node under it, or the point itself.
+  const flows = useCustomFlows.getState();
+  if (flows.pick) {
+    const at = hitNode(map, e.point);
+    const n = at ? useEditor.getState().doc.nodes[at] : null;
+    flows.place(n ? { lon: n.lon, lat: n.lat } : { lon: e.lngLat.lng, lat: e.lngLat.lat });
+    return;
+  }
   const s = useEditor.getState();
   // At the junction being edited a click on a lane link picks it; Delete then forbids that turn.
   // Handles of the building being shaped act on their own (useBuildingEditing).
@@ -42,7 +55,8 @@ function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
         const st = useEditor.getState();
         const picked = id ? st.doc.ways[id] : null;
         if (picked && !isBuilding(picked.tags)) st.select({ type: 'way', id: picked.id });
-        else if (way) st.select({ type: 'way', id: way.wayId });
+        // A click on a road picks the stretch between the junctions on either side of it.
+        else if (way) st.select({ type: 'way', id: way.wayId, piece: pieceAround(st.doc, way.wayId, way.index) ?? undefined });
         else st.select(picked ? { type: 'way', id: picked.id } : null);
       });
       return;
@@ -82,11 +96,17 @@ function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
         const p = map.project([last.lon, last.lat]);
         if (Math.hypot(p.x - e.point.x, p.y - e.point.y) < DRAG_THRESHOLD_PX * 2) return;
       }
-      const { lng, lat } = e.lngLat;
-      const point = nodeId
-        ? { lon: s.doc.nodes[nodeId].lon, lat: s.doc.nodes[nodeId].lat, nodeId }
-        : way ? { lon: way.lon, lat: way.lat, wayId: way.wayId } : { lon: lng, lat };
-      s.setDrawing([...s.drawing, point]);
+      const ui = useUi.getState();
+      // In curve mode the first click after a point only bends the road; the next one ends the curve.
+      if (ui.drawCurve && last && !ui.curveControl) {
+        ui.setCurveControl({ lon: e.lngLat.lng, lat: e.lngLat.lat });
+        return;
+      }
+      const target = drawTarget(map, s.doc, e.point, e.lngLat, s.drawing, e.originalEvent.shiftKey, Boolean(ROAD_TEMPLATES[s.templateIndex]?.tags.railway));
+      const { snap: _snap, turn: _turn, length: _length, ...point } = target;
+      const bend = ui.drawCurve && last && ui.curveControl ? curvePoints(last, ui.curveControl, point) : [];
+      ui.setCurveControl(null);
+      s.setDrawing([...s.drawing, ...bend, point]);
     }
   }
 }
@@ -146,6 +166,8 @@ function useNodeDrag(map: MapLibreMap | null): void {
       const target = hitNode(map, e.point, id);
       if (!target) return;
       const s = useEditor.getState();
+      // A car road and a tram or railway track are separate networks: dropping one on the other does not join them.
+      if (!mayJoin(s.doc, id, target)) { s.notify('Автодорогу нельзя соединить с трамвайными или ж/д путями: узел оставлен рядом'); return; }
       s.applyLive((d) => mergeNodes(d, target, id));
       s.select({ type: 'node', id: target });
       s.notify('Узлы объединены в перекрёсток');
@@ -186,6 +208,8 @@ export function useMapInteractions(map: MapLibreMap | null, onPointer: (lon: num
       setPointer([e.lngLat.lng, e.lngLat.lat]);
       if (zoneEditingActive()) return;
       const s = useEditor.getState();
+      if (s.mode === 'draw') useUi.getState().setDrawTarget(drawTarget(map, s.doc, e.point, e.lngLat, s.drawing, e.originalEvent.shiftKey, Boolean(ROAD_TEMPLATES[s.templateIndex]?.tags.railway)));
+      else if (useUi.getState().drawTarget) useUi.getState().setDrawTarget(null);
       const placing = s.mode === 'draw' || s.mode === 'building';
       const hovering = !placing && (hitNode(map, e.point) || hitWay(map, s.doc, e.point));
       map.getCanvas().style.cursor = placing ? 'crosshair' : hovering ? 'pointer' : '';

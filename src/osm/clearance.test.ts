@@ -1,5 +1,5 @@
 import { parseOsm } from './parse';
-import { buildingConflicts, cutBuildings, demolishBuildings } from './clearance';
+import { buildingConflicts, cutBuildings, demolishBuildings, roadBuildingOverlaps } from './clearance';
 
 /**
  * Two 40 × 40 m buildings side by side around 104 E, 52 N: A (way 10) west, B (way 20) east.
@@ -68,5 +68,19 @@ describe('roads through buildings', () => {
     expect(d.ways['10']).toBeUndefined();
     expect(d.nodes['11']).toBeUndefined();
     expect(d.ways['20']).toBeDefined();
+  });
+});
+
+describe('roads under buildings', () => {
+  const near = (lanes: string) => parseOsm(`<osm version="0.6">${a.nodes}${a.way}
+    <node id="50" lat="${52 + 50 * M_LAT}" lon="${104 - 20 * M_LON}"/><node id="51" lat="${52 + 50 * M_LAT}" lon="${104 + 60 * M_LON}"/>
+    <way id="60"><nd ref="50"/><nd ref="51"/><tag k="highway" v="service"/><tag k="lanes" v="${lanes}"/></way></osm>`);
+  // The yard road runs 10 m north of the building: one lane fits, eight lanes (28 m) sink into it.
+  test('eight lanes in a yard run under the house next to it, one lane does not', () => {
+    const width = (w: { tags: Record<string, string> }) => Number(w.tags.lanes) * 3.5;
+    const wide = near('8');
+    expect(roadBuildingOverlaps(wide, [wide.ways['60']], width).map((o) => o.wayId)).toEqual(['60']);
+    const narrow = near('1');
+    expect(roadBuildingOverlaps(narrow, [narrow.ways['60']], width)).toEqual([]);
   });
 });

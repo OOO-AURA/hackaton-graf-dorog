@@ -56,8 +56,40 @@ function setOpacity(map: MapLibreMap, layer: string, k: number | unknown[]): voi
   }
 }
 
+/** In the walking lens paths and sidewalks are drawn bright and a little wider, so they read over the faded roads. */
+const WALK_COLOR = '#F4E7C2';
+const WALK_WIDEN = 1.5;
+const WALK_LAYERS = ['context', 'sidewalk-left', 'sidewalk-right'];
+const paintOriginals = new WeakMap<MapLibreMap, Map<string, unknown>>();
+
+function setPaint(map: MapLibreMap, layer: string, prop: string, value: ((orig: unknown) => unknown) | null): void {
+  if (!map.getLayer(layer)) return;
+  const store = paintOriginals.get(map) ?? new Map<string, unknown>();
+  paintOriginals.set(map, store);
+  const key = `${layer}|${prop}`;
+  if (!store.has(key)) store.set(key, map.getPaintProperty(layer, prop));
+  map.setPaintProperty(layer, prop, (value ? value(store.get(key)) : store.get(key)) as never);
+}
+
+/** A width scaled by `k`: a zoom curve has to stay the outer expression, so each of its stops is scaled. */
+function widen(width: unknown, k: number): unknown {
+  if (typeof width === 'number') return width * k;
+  if (Array.isArray(width) && width[0] === 'interpolate') {
+    return [...width.slice(0, 3), ...width.slice(3).map((v, i) => (i % 2 === 1 ? ['*', k, v] : v))];
+  }
+  return width;
+}
+
+function highlightWalking(map: MapLibreMap, on: boolean): void {
+  WALK_LAYERS.forEach((layer) => {
+    setPaint(map, layer, 'line-color', on ? () => WALK_COLOR : null);
+    setPaint(map, layer, 'line-width', on ? (orig) => widen(orig, WALK_WIDEN) : null);
+  });
+}
+
 export function applyLens(map: MapLibreMap, lens: Lens): void {
   const keep = KEEP[lens];
+  highlightWalking(map, lens === 'walk');
   (Object.keys(GROUPS) as Group[]).forEach((g) => {
     GROUPS[g].forEach((layer) => {
       if (lens === 'metro' && g === 'rail' && (layer === 'rail-base' || layer === 'rail-ties' || layer === 'rail-platform')) {

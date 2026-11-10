@@ -4,7 +4,7 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import { useEffect, useMemo, useState } from 'react';
 import { docBounds } from '../map/geojson';
 import { useEditor, type Basemap } from '../state/store';
-import { drawingConflicts, finishDrawing } from '../state/actions';
+import { builtPoints, drawingConflicts, finishDrawing } from '../state/actions';
 import { LAYER_IDS, useUi, type LayerId } from '../state/ui';
 import { THEMATIC, type RoadColorMode } from '../map/thematic';
 import { ROAD_TEMPLATES } from '../osm/tags';
@@ -53,8 +53,12 @@ function FloatingTools() {
   const points = useEditor((s) => s.drawing.length);
   const drawing = useEditor((s) => s.drawing);
   const doc = useEditor((s) => s.doc);
-  // Only the points already placed: that is what Enter would build.
-  const conflicts = useMemo(() => (mode === 'draw' && drawing.length > 1 ? drawingConflicts(doc, drawing, ROAD_TEMPLATES[template].tags) : []), [mode, drawing, doc, template]);
+  // Only the points already placed, rounded as they will be built: that is what Enter would build.
+  const conflicts = useMemo(() => {
+    if (mode !== 'draw' || drawing.length < 2) return [];
+    const tags = ROAD_TEMPLATES[template].tags;
+    return drawingConflicts(doc, builtPoints(drawing, tags), tags);
+  }, [mode, drawing, doc, template]);
   return (
     <>
       <div className="float float-tools" role="toolbar" aria-label="Инструменты">
@@ -66,6 +70,7 @@ function FloatingTools() {
         {mode === 'building' && <BuildingBar />}
         {mode === 'draw' && (
           <div className="float-draw">
+            <DrawShape />
             <button className="btn btn-ink" onClick={() => finishDrawing()} disabled={points < 2 || conflicts.length > 0}>Готово <kbd>Enter</kbd></button>
           </div>
         )}
@@ -80,6 +85,33 @@ function FloatingTools() {
           </div>
         </div>
       )}
+    </>
+  );
+}
+
+const SNAP_TEXT = { node: 'к узлу', way: 'к дороге', angle: 'ровный угол' } as const;
+
+/** Straight or curved road, and the length and turn of the segment under the pointer. */
+function DrawShape() {
+  const curve = useUi((s) => s.drawCurve);
+  const toggle = useUi((s) => s.toggleDrawCurve);
+  const target = useUi((s) => s.drawTarget);
+  const control = useUi((s) => s.curveControl);
+  const points = useEditor((s) => s.drawing.length);
+  const turn = target?.turn;
+  const readout = [
+    target?.length ? `${Math.round(target.length)} м` : '',
+    turn !== null && turn !== undefined ? `${turn > 0 ? 'вправо' : turn < 0 ? 'влево' : 'прямо'} ${Math.abs(Math.round(turn))}°` : '',
+    target?.snap ? SNAP_TEXT[target.snap] : '',
+  ].filter(Boolean).join(' · ');
+  const hint = curve ? (!points ? 'клик — начало' : control ? 'клик — конец дуги' : 'клик — куда изогнуть') : 'Shift — шаг 15°';
+  return (
+    <>
+      <span className="seg" role="radiogroup" aria-label="Форма дороги">
+        <button role="radio" aria-checked={!curve} className={!curve ? 'on' : ''} onClick={() => curve && toggle()} title="Отрезки; угол сам встаёт на 15°, 30°, 45°, 60°, 90°">Прямая</button>
+        <button role="radio" aria-checked={curve} className={curve ? 'on' : ''} onClick={() => !curve && toggle()} title="Дуга по трём кликам: начало, изгиб, конец. Изгиб далеко вперёд и конец рядом с началом дают разворот">Кривая</button>
+      </span>
+      <span className="draw-readout mono" aria-live="polite">{readout || hint}</span>
     </>
   );
 }
@@ -151,7 +183,7 @@ function ColorModeSwitch() {
   );
 }
 
-const LOOKS = [['engineering', 'Инженерия'], ['graph', 'Граф']] as const;
+const LOOKS = [['engineering', 'Инженерия'], ['scheme', 'Схема'], ['graph', 'Граф']] as const;
 
 /** Engineering plan (asphalt, markings, turn ribbons) or a graph coloured by road class. */
 function LookSwitch() {

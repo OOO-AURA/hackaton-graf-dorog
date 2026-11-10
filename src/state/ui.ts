@@ -1,13 +1,14 @@
 import { create } from 'zustand';
 import type { RoadColorMode } from '../map/thematic';
+import type { DrawTarget } from '../map/drawSnap';
 import type { Lens } from '../map/lens';
 
 export type Theme = 'light' | 'dark';
 export type ThemeChoice = Theme | 'system';
 export type Workspace = 'macro' | 'micro';
 /** How roads look: coloured by class like a graph, or as asphalt with markings like an engineering plan. */
-export type RoadLook = 'graph' | 'engineering';
-export type BottomTab = 'issues' | 'check' | 'flows' | 'transit' | 'scenarios' | 'journal';
+export type RoadLook = 'graph' | 'engineering' | 'scheme';
+export type BottomTab = 'issues' | 'check' | 'flows' | 'transit' | 'scenarios' | 'journal' | 'errors';
 export type LayerId = 'roads' | 'sidewalks' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs' | 'transit' | 'changes';
 
 export const LAYER_IDS: readonly LayerId[] = ['roads', 'sidewalks', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'tram', 'signs', 'transit', 'changes'];
@@ -64,6 +65,17 @@ interface UiState {
   /** A node is being dragged: costly map layers wait for it to be let go (see state/settled.ts). */
   dragging: boolean;
   setDragging: (dragging: boolean) => void;
+  /** Where the next point of the road being drawn would go, snapped (see map/drawSnap.ts). */
+  drawTarget: DrawTarget | null;
+  setDrawTarget: (target: DrawTarget | null) => void;
+  /** Curve mode: the click after a point bends the road (control point), the next one ends the curve. */
+  /** Junction whose card was closed: the card stays shut for it, the inspector stays open. */
+  junctionCardClosed: string | null;
+  setJunctionCardClosed: (nodeId: string | null) => void;
+  drawCurve: boolean;
+  toggleDrawCurve: () => void;
+  curveControl: { lon: number; lat: number } | null;
+  setCurveControl: (control: { lon: number; lat: number } | null) => void;
   /** Lane link picked on the map at the junction being edited; Delete forbids that turn. */
   laneLink: LaneLinkRef | null;
   setLaneLink: (link: LaneLinkRef | null) => void;
@@ -102,6 +114,14 @@ export const useUi = create<UiState>((set, get) => ({
   setRoadLook: (roadLook) => set({ roadLook }),
   dragging: false,
   setDragging: (dragging) => set({ dragging }),
+  drawTarget: null,
+  setDrawTarget: (drawTarget) => set({ drawTarget }),
+  junctionCardClosed: null,
+  setJunctionCardClosed: (junctionCardClosed) => set({ junctionCardClosed }),
+  drawCurve: false,
+  toggleDrawCurve: () => set({ drawCurve: !get().drawCurve, curveControl: null }),
+  curveControl: null,
+  setCurveControl: (curveControl) => set({ curveControl }),
   setThemeChoice: (themeChoice) => {
     try {
       if (themeChoice === 'system') localStorage.removeItem(THEME_KEY);

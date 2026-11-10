@@ -22,6 +22,7 @@ export const NODE_FEATURES: readonly NodeFeature[] = [
   { id: 'station', label: 'Ж/д станция', hint: 'railway=station, public_transport=station на узле пути. На карте значок и название, правится в инспекторе.', tags: { railway: 'station', public_transport: 'station' } },
   { id: 'halt', label: 'Остановочный пункт', hint: 'railway=halt: посадка без станционных путей, как платформа электрички.', tags: { railway: 'halt', public_transport: 'station' } },
   { id: 'tram_stop', label: 'Трамвайная остановка', hint: 'railway=tram_stop, public_transport=stop_position на узле трамвайного пути.', tags: { railway: 'tram_stop', public_transport: 'stop_position' } },
+  { id: 'bus_stop', label: 'Остановка ОТ', hint: 'Знак 5.16, highway=bus_stop и public_transport=platform на узле дороги: автобусы, троллейбусы, маршрутки. В инспекторе — название, карман и навес, видно маршруты, которые здесь останавливаются.', tags: { highway: 'bus_stop', public_transport: 'platform', bus: 'yes' } },
   { id: 'bump', label: 'Лежачий полицейский', hint: 'traffic_calming=bump. Отмечает искусственную неровность, машины перед ней сбрасывают скорость.', tags: { traffic_calming: 'bump' } },
 ];
 

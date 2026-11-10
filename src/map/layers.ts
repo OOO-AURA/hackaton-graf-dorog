@@ -12,7 +12,7 @@ import type { RoadLook } from '../state/ui';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'vehicle-shapes', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, ...RAIL_SOURCES, 'draw-conflicts', 'turns', 'changes', 'route', 'ghost', 'building-handles'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'vehicle-shapes', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, ...RAIL_SOURCES, 'draw-conflicts', 'sidewalks', 'issue-ways', 'custom-flows', 'turns', 'changes', 'route', 'ghost', 'building-handles'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
 export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes', ...RAIL_HIT_POINTS], roads: ['roads', 'roads-bridge', ...RAIL_HIT_LINES], buildings: ['buildings'], laneEnds: ['lane-ends'], laneLinks: ['lane-links', 'lane-ribbons'] } as const;
@@ -104,6 +104,24 @@ const roadOffset = ['interpolate', ['exponential', 2], ['zoom'], 15, 0, 16, ['/'
 const LANE_LINES = ['all', ['==', ['get', 'kind'], 'lane'], ['==', ['get', 'loaded'], true]];
 const DASHED_MARKS = ['all', ['==', ['get', 'kind'], 'divider'], ['!=', ['get', 'solid'], true]];
 const SOLID_MARKS = ['all', ['==', ['get', 'kind'], 'divider'], ['==', ['get', 'solid'], true]];
+const BUS_LANES = ['all', ['==', ['get', 'kind'], 'lane'], ['==', ['get', 'psv'], true]];
+
+/** The letter A painted on lanes for route vehicles (marking 1.23.1): white, a dark edge to read on any colour. */
+function addBusLaneImage(map: MapLibreMap): void {
+  if (map.hasImage('bus-lane-a')) return;
+  const size = 80;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.font = 'bold 64px Arial, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(20, 16, 12, 0.6)';
+  ctx.strokeText('A', size / 2, size / 2 + 4);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText('A', size / 2, size / 2 + 4);
+  map.addImage('bus-lane-a', ctx.getImageData(0, 0, size, size), { pixelRatio: 2 });
+}
 const LANE_MARK_MINZOOM = 16.5;
 /** Width of a lane marking in px; the road itself doubles per zoom step, so the marking does too. */
 const markWidth = (z16_5: number, z18: number, z20: number) => ['interpolate', ['exponential', 2], ['zoom'], 16.5, z16_5, 18, z18, 20, z20] as never;
@@ -154,9 +172,10 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   // Sidewalks along streets, beside the carriageway on each side that has one.
   const sideOffset = (prop: string) => ['interpolate', ['exponential', 2], ['zoom'], 15, ['/', ['get', prop], 4], 22, ['*', 32, ['get', prop]]] as never;
   const sideWidth = ['interpolate', ['exponential', 2], ['zoom'], 15, ['/', ['get', 's17'], 4], 22, ['*', 32, ['get', 's17']]] as never;
-  map.addLayer({ id: 'sidewalk-left', type: 'line', source: 'roads', minzoom: 15, filter: ['all', ['in', 'l', ['get', 'sw']], ['!', ['get', 'bridge']], ['!', ['get', 'tunnel']]] as never,
+  // Pieces of a street meeting end to end are one line here (map/sidewalks.ts), so bends are round.
+  map.addLayer({ id: 'sidewalk-left', type: 'line', source: 'sidewalks', minzoom: 15, filter: ['in', 'l', ['get', 'sw']] as never,
     layout: { 'line-join': 'round', 'line-cap': 'butt' }, paint: { 'line-width': sideWidth, 'line-offset': sideOffset('sl17') } });
-  map.addLayer({ id: 'sidewalk-right', type: 'line', source: 'roads', minzoom: 15, filter: ['all', ['in', 'r', ['get', 'sw']], ['!', ['get', 'bridge']], ['!', ['get', 'tunnel']]] as never,
+  map.addLayer({ id: 'sidewalk-right', type: 'line', source: 'sidewalks', minzoom: 15, filter: ['in', 'r', ['get', 'sw']] as never,
     layout: { 'line-join': 'round', 'line-cap': 'butt' }, paint: { 'line-width': sideWidth, 'line-offset': sideOffset('sr17') } });
   addRailLines(map);
   map.addLayer({ id: 'roads-casing', type: 'line', source: 'roads', filter: ['!', ['get', 'bridge']], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': laneWidth(2), 'line-offset': roadOffset } });
@@ -183,6 +202,16 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 17, 1, 19, 2.2], 'line-opacity': 0.95 } });
   // Lane markings: a dark outline under a light line, so they read on any road colour and theme;
   // solid between the two directions, dashed between lanes going the same way.
+  // Lanes for route vehicles and taxis: a terracotta band with the letter A (marking 1.23.1) along it.
+  addBusLaneImage(map);
+  map.addLayer({ id: 'bus-lanes', type: 'line', source: 'lanes', minzoom: 15, filter: BUS_LANES as never, layout: { 'line-cap': 'butt', 'line-join': 'round' },
+    paint: { 'line-color': '#B4513F', 'line-opacity': 0.55, 'line-width': ['interpolate', ['exponential', 2], ['zoom'], 15, ['/', ['get', 'w17'], 4], 22, ['*', 32, ['get', 'w17']]] as never } });
+  map.addLayer({ id: 'bus-lane-letters', type: 'symbol', source: 'lanes', minzoom: 17, filter: BUS_LANES as never,
+    layout: {
+      'symbol-placement': 'line', 'symbol-spacing': 140, 'icon-image': 'bus-lane-a', 'icon-allow-overlap': true,
+      'icon-rotation-alignment': 'map', 'icon-pitch-alignment': 'map', 'icon-rotate': ['case', ['get', 'rev'], -90, 90],
+      'icon-size': ['interpolate', ['exponential', 2], ['zoom'], 17, ['/', ['get', 'w17'], 40], 22, ['/', ['*', 32, ['get', 'w17']], 40]] as never,
+    } });
   map.addLayer({ id: 'lane-marks-casing', type: 'line', source: 'lanes', minzoom: LANE_MARK_MINZOOM, filter: ['==', ['get', 'kind'], 'divider'],
     layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-width': markWidth(1.8, 3.2, 8), 'line-opacity': 0.55 } });
   map.addLayer({ id: 'lane-marks-dash', type: 'line', source: 'lanes', minzoom: LANE_MARK_MINZOOM, filter: DASHED_MARKS as never,
@@ -214,6 +243,19 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 5, 18, 12], 'circle-color': changeColor as never, 'circle-opacity': 0.6 } });
   map.addLayer({ id: 'route-line', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: { 'line-color': '#7A4FA0', 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 4, 18, 10], 'line-opacity': 0.85 } });
+  // The selected road is tinted on top of its surface too, so it shows on asphalt and in any colour.
+  map.addLayer({ id: 'selection-tint', type: 'line', source: 'selection', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-width': ['interpolate', ['exponential', 2], ['zoom'], 13, 4, 18, 18, 21, 120], 'line-opacity': 0.32 } });
+  map.addLayer({ id: 'selection-edge', type: 'line', source: 'selection', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-width': 2, 'line-dasharray': [2, 1.5] } });
+  // Roads an issue is about: a red or orange glow under them, like the issue marker.
+  map.addLayer({ id: 'issue-ways', type: 'line', source: 'issue-ways', layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-width': ['interpolate', ['exponential', 2], ['zoom'], 13, 6, 18, 30], 'line-opacity': ['case', ['get', 'focused'], 0.7, 0.4], 'line-blur': 3 } }, 'roads-casing');
+  // Own traffic flows: a dashed line from where they come to where they go, a dot at each end.
+  map.addLayer({ id: 'custom-flow-line', type: 'line', source: 'custom-flows', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round' },
+    paint: { 'line-color': '#B06AF0', 'line-width': ['interpolate', ['linear'], ['get', 'vph'], 0, 2, 2000, 8], 'line-dasharray': [2, 1.5], 'line-opacity': 0.9 } });
+  map.addLayer({ id: 'custom-flow-ends', type: 'circle', source: 'custom-flows', filter: ['==', ['geometry-type'], 'Point'],
+    paint: { 'circle-radius': 7, 'circle-color': ['match', ['get', 'end'], 'from', '#3D9F47', '#E5392A'], 'circle-stroke-width': 2, 'circle-stroke-color': '#FFFFFF' } });
   map.addLayer({ id: 'selection-node', type: 'circle', source: 'selection', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 10, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 3 } });
   map.addLayer({ id: 'issues-halo', type: 'circle', source: 'issues', filter: ['any', ['get', 'focused'], ['!=', ['get', 'kind'], 'cordon']], paint: { 'circle-radius': ['case', ['get', 'focused'], 22, 13], 'circle-opacity': 0.18, 'circle-blur': 0.4 } });
   map.addLayer({ id: 'issues', type: 'circle', source: 'issues', paint: {
@@ -279,12 +321,23 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   // centre line; it turns red over buildings in its way, and those buildings turn red too.
   map.addLayer({ id: 'draw-conflict-fill', type: 'fill', source: 'draw-conflicts', paint: { 'fill-color': '#E5392A', 'fill-opacity': 0.45 } });
   map.addLayer({ id: 'draw-conflict-line', type: 'line', source: 'draw-conflicts', paint: { 'line-color': '#E5392A', 'line-width': 2 } });
-  map.addLayer({ id: 'draw-road-edge', type: 'line', source: 'draw', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' },
+  const ROAD_LINE = ['all', ['==', ['geometry-type'], 'LineString'], ['!', ['has', 'handle']]];
+  map.addLayer({ id: 'draw-handle', type: 'line', source: 'draw', filter: ['has', 'handle'], paint: { 'line-color': '#F2A33A', 'line-width': 1.5, 'line-dasharray': [2, 2] } });
+  map.addLayer({ id: 'draw-road-edge', type: 'line', source: 'draw', filter: ROAD_LINE as never, layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: { 'line-width': drawWidthExpr(3), 'line-opacity': 0.9 } });
-  map.addLayer({ id: 'draw-road', type: 'line', source: 'draw', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' },
+  map.addLayer({ id: 'draw-road', type: 'line', source: 'draw', filter: ROAD_LINE as never, layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: { 'line-width': drawWidthExpr(0), 'line-opacity': 0.85 } });
-  map.addLayer({ id: 'draw-line', type: 'line', source: 'draw', filter: ['==', ['geometry-type'], 'LineString'], paint: { 'line-width': 1.5, 'line-dasharray': [3, 3] } });
-  map.addLayer({ id: 'draw-points', type: 'circle', source: 'draw', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-stroke-width': 2 } });
+  map.addLayer({ id: 'draw-line', type: 'line', source: 'draw', filter: ROAD_LINE as never, paint: { 'line-width': 1.5, 'line-dasharray': [3, 3] } });
+  map.addLayer({ id: 'draw-points', type: 'circle', source: 'draw', filter: ['all', ['==', ['geometry-type'], 'Point'], ['!', ['has', 'marker']]], paint: { 'circle-radius': 5, 'circle-stroke-width': 2 } });
+  // The magnet: a ring on the node or road the next point joins, a dot on a round angle, a square
+  // handle for the bend of a curve.
+  map.addLayer({ id: 'draw-snap', type: 'circle', source: 'draw', filter: ['has', 'marker'],
+    paint: {
+      'circle-radius': ['match', ['get', 'marker'], 'node', 11, 'way', 8, 'control', 6, 'angle', 5, 4],
+      'circle-color': ['match', ['get', 'marker'], 'control', '#F2A33A', 'rgba(0,0,0,0)'],
+      'circle-stroke-width': ['match', ['get', 'marker'], 'free', 1.5, 2.5],
+      'circle-stroke-color': ['match', ['get', 'marker'], 'node', '#2CC7C9', 'way', '#4C8DF6', 'angle', '#F2A33A', 'control', '#FFFFFF', '#FFFFFF'],
+    } });
   applyPalette(map, p);
 }
 
@@ -308,6 +361,9 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
   set('lane-marks-dash', 'line-color', p.laneMark);
   set('lane-marks-solid', 'line-color', p.laneMark);
   set('selection-line', 'line-color', p.selection);
+  set('selection-tint', 'line-color', p.selection);
+  set('selection-edge', 'line-color', p.selection);
+  set('issue-ways', 'line-color', ['case', ['==', ['get', 'severity'], 'error'], p.error, p.warning]);
   set('nodes', 'circle-color', ['match', ['get', 'kind'], 'end', p.roads.secondary, 'vertex', p.vertex, p.nodeFill]);
   set('nodes', 'circle-stroke-color', p.nodeStroke);
   set('signals', 'circle-color', p.signal);
@@ -324,19 +380,30 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
 }
 
 /** Road colour by class or by one attribute; bridges keep the same colour as the road they carry. */
+/**
+ * The road map look: main roads (motorways, trunk and primary roads, and any road marked as the
+ * main road) wide and warm, district roads light, local streets and driveways plain, as city maps
+ * draw their hierarchy.
+ */
+const IS_MAIN = ['any', ['==', ['get', 'priority'], true], ['in', ['get', 'highway'], ['literal', ['motorway', 'trunk', 'primary']]]];
+const IS_DISTRICT = ['in', ['get', 'highway'], ['literal', ['secondary', 'tertiary']]];
+const schemeColor = (p: MapPalette) => ['case', IS_MAIN, p.schemeMain, IS_DISTRICT, p.schemeDistrict, p.schemeLocal];
+const schemeCasing = (p: MapPalette) => ['case', IS_MAIN, p.schemeMainEdge, p.schemeEdge];
+
 export function applyRoadColors(map: MapLibreMap, p: MapPalette, mode: RoadColorMode, look: RoadLook = 'graph'): void {
   // An attribute colouring wins over the look: it is asked for on purpose.
   const asphalt = mode === 'class' && look === 'engineering';
-  const color = mode !== 'class' ? thematicExpression(mode) : asphalt ? p.asphalt : roadColorExpression(p);
+  const scheme = mode === 'class' && look === 'scheme';
+  const color = mode !== 'class' ? thematicExpression(mode) : asphalt ? p.asphalt : scheme ? schemeColor(p) : roadColorExpression(p);
   map.setPaintProperty('roads', 'line-color', color as never);
   map.setPaintProperty('roads-bridge', 'line-color', color as never);
   // On asphalt the casing is the edge line of the carriageway.
-  map.setPaintProperty('roads-casing', 'line-color', (asphalt ? p.asphaltEdge : p.casing) as never);
+  map.setPaintProperty('roads-casing', 'line-color', (asphalt ? p.asphaltEdge : scheme ? schemeCasing(p) : p.casing) as never);
   // On a plan the arrows painted on the lanes show the direction; the graph arrows would clutter it.
-  map.setPaintProperty('roads-arrows', 'icon-opacity', asphalt ? 0 : 1);
+  map.setPaintProperty('roads-arrows', 'icon-opacity', 1);
 }
 
-const ROAD_LAYERS = ['roads-casing', 'bridge-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line', 'lanes', 'lane-marks-casing', 'lane-marks-dash', 'lane-marks-solid', ...JUNCTION_LAYERS];
+const ROAD_LAYERS = ['roads-casing', 'bridge-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line', 'lanes', 'bus-lanes', 'bus-lane-letters', 'lane-marks-casing', 'lane-marks-dash', 'lane-marks-solid', ...JUNCTION_LAYERS];
 
 /** Applies the layer toggles from the bottom bar. Bridges and tunnels are filters on the road layers. */
 export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boolean>, view3d = false): void {
@@ -372,6 +439,8 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   // carries its own markings (mesh3d.ts).
   const flat = (filter: unknown[]) => (view3d ? ['all', filter, ['!=', ['get', 'raised'], true]] : filter) as never;
   map.setFilter('lanes', flat(LANE_LINES));
+  map.setFilter('bus-lanes', flat(BUS_LANES));
+  map.setFilter('bus-lane-letters', flat(BUS_LANES));
   map.setFilter('lane-marks-casing', flat(['==', ['get', 'kind'], 'divider']));
   map.setFilter('lane-marks-dash', flat(DASHED_MARKS));
   map.setFilter('lane-marks-solid', flat(SOLID_MARKS));

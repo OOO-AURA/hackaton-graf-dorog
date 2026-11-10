@@ -7,7 +7,8 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { addEditorLayers, applyLayerVisibility, applyPalette, applyRoadColors, sceneColors, sceneOf, type SourceId } from '../map/layers';
 import { buildScene3d } from '../map/mesh3d';
 import { junctionGeometry, laneLines, pxPerMetreZ17, zebras, type LaneStyle } from '../map/lanesGeo';
-import { drawingConflicts, drawWidth } from '../state/actions';
+import { builtPoints, drawingConflicts, drawWidth } from '../state/actions';
+import { curvePoints } from '../osm/drawGeometry';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { junctions } from '../osm/lanes';
 import { signPoints } from '../osm/signs';
@@ -27,11 +28,13 @@ import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson, railGeoJson, sta
 import { useMapInteractions } from '../map/useMapInteractions';
 import { currentSelection, useEditor } from '../state/store';
 import { useSettledDoc } from '../state/settled';
+import { sidewalkLines } from '../map/sidewalks';
 import { streetWays } from '../osm/street';
 import { useBundle } from '../macro/bundleStore';
 import { diffFeatures, docDiff } from '../osm/diff';
 import { useRoute } from '../state/route';
 import type { OsmDoc } from '../osm/types';
+import { useCustomFlows } from '../sim/customFlows';
 
 const IRKUTSK_CENTER: [number, number] = [104.262, 52.26];
 
@@ -51,7 +54,12 @@ function selectionGeoJson(doc: OsmDoc, sel: ReturnType<typeof currentSelection>,
   if (multi.length) return { type: 'FeatureCollection', features: multi.filter((id) => doc.ways[id]).map((id) => wayLine(doc, id)) };
   if (!sel) return { type: 'FeatureCollection', features: [] };
   if (sel.type === 'street') return { type: 'FeatureCollection', features: streetWays(doc, sel.id).map((w) => wayLine(doc, w.id)) };
-  if (sel.type === 'way') return { type: 'FeatureCollection', features: [wayLine(doc, sel.id)] };
+  if (sel.type === 'way') {
+    const line = wayLine(doc, sel.id);
+    if (!sel.piece) return { type: 'FeatureCollection', features: [line] };
+    const coords = (line.geometry as { coordinates: number[][] }).coordinates.slice(sel.piece.from, sel.piece.to + 1);
+    return { type: 'FeatureCollection', features: [{ ...line, geometry: { type: 'LineString', coordinates: coords } }] };
+  }
   const n = doc.nodes[sel.id];
   return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [n.lon, n.lat] } }] };
 }
@@ -77,7 +85,9 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     const context = contextGeoJson(doc);
     setData(map, 'buildings', context.buildings);
     setData(map, 'context', context.lines);
-    setData(map, 'roads', roadsGeoJson(doc));
+    const roads = roadsGeoJson(doc);
+    setData(map, 'roads', roads);
+    setData(map, 'sidewalks', sidewalkLines(roads));
     setData(map, 'rails', railGeoJson(doc));
     setData(map, 'stations', stationGeoJson(doc));
   }, [map, doc]);
@@ -89,6 +99,21 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     setData(map, 'turns', { type: 'FeatureCollection', features: [...via].map((id) => ({ type: 'Feature', properties: { id }, geometry: { type: 'Point', coordinates: [doc.nodes[id].lon, doc.nodes[id].lat] } })) });
   }, [map, doc]);
 
+  // Own traffic flows from the micro panel, and the start of the one being placed.
+  const ownFlows = useCustomFlows((s) => s.flows);
+  const pendingFrom = useCustomFlows((s) => s.pendingFrom);
+  useEffect(() => {
+    if (!map) return;
+    const features = [
+      ...ownFlows.flatMap((f) => [
+        { type: 'Feature', properties: { vph: f.vph }, geometry: { type: 'LineString', coordinates: [[f.from.lon, f.from.lat], [f.to.lon, f.to.lat]] } },
+        { type: 'Feature', properties: { end: 'from' }, geometry: { type: 'Point', coordinates: [f.from.lon, f.from.lat] } },
+        { type: 'Feature', properties: { end: 'to' }, geometry: { type: 'Point', coordinates: [f.to.lon, f.to.lat] } },
+      ]),
+      ...(pendingFrom ? [{ type: 'Feature', properties: { end: 'from' }, geometry: { type: 'Point', coordinates: [pendingFrom.lon, pendingFrom.lat] } }] : []),
+    ];
+    setData(map, 'custom-flows', { type: 'FeatureCollection', features });
+  }, [map, ownFlows, pendingFrom]);
   const route = useRoute((s) => s.result);
   useEffect(() => {
     if (map) setData(map, 'route', { type: 'FeatureCollection', features: route?.found ? [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route.coords } }] : [] });
@@ -126,15 +151,27 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
       type: 'Feature', properties: { id: i.id, kind: i.kind, severity: i.severity, focused: i.id === focusIssue }, geometry: { type: 'Point', coordinates: i.at },
     }));
     setData(map, 'issues', { type: 'FeatureCollection', features });
-  }, [map, report, focusIssue]);
+    // The roads each issue is about, outlined under the road surface.
+    const lines = (report?.issues ?? []).flatMap((i) => i.wayIds.filter((id) => doc.ways[id]).map((id) => ({
+      type: 'Feature', properties: { severity: i.severity, focused: i.id === focusIssue },
+      geometry: { type: 'LineString', coordinates: doc.ways[id].refs.filter((r) => doc.nodes[r]).map((r) => [doc.nodes[r].lon, doc.nodes[r].lat]) },
+    })));
+    setData(map, 'issue-ways', { type: 'FeatureCollection', features: lines });
+  }, [map, report, focusIssue, doc]);
 
   // The road being drawn, as wide as it will be, up to the pointer; buildings in its way in red.
   const templateIndex = useEditor((s) => s.templateIndex);
+  // The pointer as it snaps (node, road, round angle) and, in curve mode, the bend being drawn.
+  const target = useUi((s) => s.drawTarget);
+  const control = useUi((s) => s.curveControl);
   const preview = useMemo(() => {
-    const points = [...drawing, ...(pointer && drawing.length ? [{ lon: pointer[0], lat: pointer[1] }] : [])];
+    const last = drawing[drawing.length - 1];
+    const end = target ?? (pointer ? { lon: pointer[0], lat: pointer[1] } : null);
+    const tail = last && end ? [...(control ? curvePoints(last, control, end) : []), end] : [];
     const tags = ROAD_TEMPLATES[templateIndex].tags;
+    const points = builtPoints([...drawing, ...tail], tags);
     return { points, tags, conflicts: points.length > 1 ? drawingConflicts(doc, points, tags) : [] };
-  }, [doc, drawing, pointer, templateIndex]);
+  }, [doc, drawing, pointer, templateIndex, target, control]);
   useEffect(() => {
     if (!map) return;
     const { points, tags, conflicts } = preview;
@@ -143,13 +180,19 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     const features = [
       ...(coords.length > 1 ? [{ type: 'Feature', properties: { w17, conflict: conflicts.length > 0, rail: Boolean(tags.railway) }, geometry: { type: 'LineString', coordinates: coords } }] : []),
       ...drawing.map((p) => ({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } })),
+      // What the pointer snaps to, and the handle of the bend in curve mode.
+      ...(target ? [{ type: 'Feature', properties: { marker: target.snap ?? 'free' }, geometry: { type: 'Point', coordinates: [target.lon, target.lat] } }] : []),
+      ...(control && drawing.length ? [
+        { type: 'Feature', properties: { marker: 'control' }, geometry: { type: 'Point', coordinates: [control.lon, control.lat] } },
+        { type: 'Feature', properties: { handle: true }, geometry: { type: 'LineString', coordinates: [[drawing[drawing.length - 1].lon, drawing[drawing.length - 1].lat], [control.lon, control.lat], ...(target ? [[target.lon, target.lat]] : [])] } },
+      ] : []),
     ];
     setData(map, 'draw', { type: 'FeatureCollection', features });
     const hit = new Set(conflicts.map((c) => c.wayId));
     setData(map, 'draw-conflicts', { type: 'FeatureCollection', features: [...hit].map((id) => ({
       type: 'Feature', properties: { id }, geometry: { type: 'Polygon', coordinates: [doc.ways[id].refs.map((r) => [doc.nodes[r].lon, doc.nodes[r].lat])] },
     })) });
-  }, [map, preview, drawing, doc]);
+  }, [map, preview, drawing, doc, target, control]);
   // In 3D the buildings in the way are tinted red on the scene, like the selection.
   useEffect(() => {
     if (!alive(map)) return;

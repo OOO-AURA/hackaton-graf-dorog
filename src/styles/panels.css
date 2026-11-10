@@ -425,3 +425,35 @@ button.link:hover { text-decoration: underline; }
 .switch:checked { background: var(--blue); }
 .switch:checked::after { transform: translateX(12px); }
 .switch:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.s-bus_stop { background: #1E5BB8; border-radius: 2px; box-shadow: 0 0 0 1.5px #fff inset; }
+.bus-lanes { display: grid; gap: 2px; }
+.stop-fields { display: grid; gap: 6px; margin-top: 6px; }
+.detach-row { display: flex; align-items: center; gap: 4px; }
+.detach-row > button:first-child { flex: 1; min-width: 0; }
+
+/* Error log */
+.error-log-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.error-log-head .hint { flex: 1; }
+.error-log-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 12px; }
+.error-log-list li { display: grid; grid-template-columns: 64px 84px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 2px 4px; border-radius: var(--r-sm); }
+.error-log-list li.app { background: var(--red-wash); }
+.error-log-list li.fixed { opacity: 0.55; }
+.error-log-list .link { text-align: left; }
+.error-kind { color: var(--ink-2); font-size: 11px; }
+.error-status { color: var(--ink-2); font-size: 11px; white-space: nowrap; }
+
+/* Own traffic flows */
+.flow-list { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 4px; }
+.flow-list li { display: grid; grid-template-columns: minmax(0, 1fr) 72px auto auto; gap: 6px; align-items: center; }
+.flow-list input { height: 26px; font-size: 12px; }
+.flow-pick { font-size: 12px; font-weight: 600; color: #B06AF0; }
+
+/* One-lane editor */
+.lane-strip button.lane { border: 0; cursor: pointer; font: inherit; color: inherit; }
+.lane-strip .lane.on { outline: 2px solid var(--pink, #E54489); outline-offset: -2px; }
+.lane-editor { display: grid; gap: 6px; margin: 8px 0; padding: 8px; border-radius: var(--r-md); background: var(--hover); }
+.lane-editor-head { display: flex; align-items: baseline; gap: 8px; }
+.lane-editor-head .hint { flex: 1; }
+.lane-turns { display: flex; flex-wrap: wrap; gap: 4px; }
+.lane-turns .jc-turn { --turn: #2CC7C9; }
+.signal-sections { display: grid; gap: 4px; margin: 8px 0; padding: 8px; border-radius: var(--r-md); background: var(--hover); }

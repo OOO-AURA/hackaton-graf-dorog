@@ -14,22 +14,30 @@ export interface WayHit {
   readonly lat: number;
 }
 
-const box = (p: { x: number; y: number }): [PointLike, PointLike] => [
-  [p.x - HIT_TOLERANCE_PX, p.y - HIT_TOLERANCE_PX],
-  [p.x + HIT_TOLERANCE_PX, p.y + HIT_TOLERANCE_PX],
+const box = (p: { x: number; y: number }, tol = HIT_TOLERANCE_PX): [PointLike, PointLike] => [
+  [p.x - tol, p.y - tol],
+  [p.x + tol, p.y + tol],
 ];
 
-export function hitNode(map: MapLibreMap, point: { x: number; y: number }, exclude?: string): string | null {
-  const features = map.queryRenderedFeatures(box(point), { layers: [...HIT_LAYERS.nodes] });
-  const ids = features.map((f) => String(f.properties?.id)).filter((id) => id !== exclude);
-  return ids[0] ?? null;
+/** Node under a point, the nearest one within `tol` px; drawing uses a wider magnet. */
+export function hitNode(map: MapLibreMap, point: { x: number; y: number }, exclude?: string, tol = HIT_TOLERANCE_PX): string | null {
+  const features = map.queryRenderedFeatures(box(point, tol), { layers: [...HIT_LAYERS.nodes] });
+  let best: { id: string; d: number } | null = null;
+  for (const f of features) {
+    const id = String(f.properties?.id);
+    if (id === exclude || f.geometry.type !== 'Point') continue;
+    const at = map.project(f.geometry.coordinates as [number, number]);
+    const d = Math.hypot(at.x - point.x, at.y - point.y);
+    if (!best || d < best.d) best = { id, d };
+  }
+  return best?.id ?? null;
 }
 
 /** Nearest point on any rendered road within tolerance, measured in screen pixels. */
-export function hitWay(map: MapLibreMap, doc: OsmDoc, point: { x: number; y: number }): WayHit | null {
+export function hitWay(map: MapLibreMap, doc: OsmDoc, point: { x: number; y: number }, tol = HIT_TOLERANCE_PX): WayHit | null {
   // In 3D bridges are decks of the scene layer: the flat line on the ground does not take clicks.
   const layers = in3d(map) ? HIT_LAYERS.roads.filter((l) => l !== 'roads-bridge') : [...HIT_LAYERS.roads];
-  const features = map.queryRenderedFeatures(box(point), { layers });
+  const features = map.queryRenderedFeatures(box(point, tol), { layers });
   let best: (WayHit & { dist2: number }) | null = null;
   for (const wayId of new Set(features.map((f) => String(f.properties?.id)))) {
     const way = doc.ways[wayId];

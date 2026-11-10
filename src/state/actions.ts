@@ -7,13 +7,16 @@ import { isBuilding } from '../osm/building';
 import { deleteBuilding } from '../osm/buildingEdit';
 import { buildingConflicts, cutBuildings, demolishBuildings, type BuildingConflict } from '../osm/clearance';
 import { isRailLine } from '../osm/rail';
+import { roundCorners } from '../osm/drawGeometry';
 import { roadWidthMetres } from '../map/lanesGeo';
 import type { DrawPoint } from '../osm/draw';
 import type { OsmDoc, Tags } from '../osm/types';
 import { addAllCordonConnectors } from '../osm/cordon';
 import { currentSelection, useEditor } from './store';
+import { useUi } from './ui';
 import { refreshReport } from './validation';
 import { askUser, baseName, downloadText, isDesktop, openOsmFile, saveOsmFile } from '../platform';
+import { isolatePiece } from '../osm/pieces';
 
 export function loadXml(xml: string, fileName: string, filePath: string | null = null): void {
   const { load, notify } = useEditor.getState();
@@ -97,6 +100,15 @@ const TRACK_WIDTH = 4;
 /** Width of what the template draws: the carriageway of a road, a track for a railway. */
 export const drawWidth = (tags: Tags) => (isRailLine(tags) ? TRACK_WIDTH : roadWidthMetres(tags));
 
+/** Radius the corners of a drawn road are rounded to, metres: wider roads turn wider, tracks widest. */
+const TRACK_CURVE_RADIUS = 60;
+const ROAD_RADIUS_PER_WIDTH = 2.5;
+const MIN_CORNER_RADIUS = 10;
+export const cornerRadius = (tags: Tags) => (isRailLine(tags) ? TRACK_CURVE_RADIUS : Math.max(MIN_CORNER_RADIUS, drawWidth(tags) * ROAD_RADIUS_PER_WIDTH));
+
+/** The points of a drawn road as it will be built: corners rounded. */
+export const builtPoints = (points: readonly DrawPoint[], tags: Tags): DrawPoint[] => roundCorners(points, cornerRadius(tags));
+
 /** Buildings the road being drawn runs into, for the points drawn so far. */
 export const drawingConflicts = (doc: OsmDoc, points: readonly DrawPoint[], tags: Tags): BuildingConflict[] =>
   buildingConflicts(doc, points, drawWidth(tags));
@@ -113,14 +125,15 @@ export function finishDrawing(choice?: unknown): void {
   const s = useEditor.getState();
   if (s.drawing.length < 2) { s.setDrawing([]); return; }
   const tags = ROAD_TEMPLATES[s.templateIndex].tags;
-  const conflicts = drawingConflicts(s.doc, s.drawing, tags);
+  // Corners drawn by hand are rounded, as on a real road; the preview showed it so.
+  const points = builtPoints(s.drawing, tags);
+  const conflicts = drawingConflicts(s.doc, points, tags);
   const clearance = typeof choice === 'string' && CLEARANCES.includes(choice) ? (choice as Clearance) : null;
   if (conflicts.length && !clearance) {
     s.notify(`Дорога задевает ${conflicts.length === 1 ? 'здание' : `здания: ${conflicts.length}`}. Выберите: срезать, снести или построить поверх`);
     return;
   }
   const ids = conflicts.map((c) => c.wayId);
-  const points = s.drawing;
   let wayId = '';
   s.apply((d) => {
     const cleared = clearance === 'cut' ? cutBuildings(d, ids, points, drawWidth(tags)) : clearance === 'demolish' ? demolishBuildings(d, ids) : d;
@@ -129,6 +142,7 @@ export function finishDrawing(choice?: unknown): void {
     return r.doc;
   });
   s.setDrawing([]);
+  useUi.getState().setCurveControl(null);
   if (wayId) s.select({ type: 'way', id: wayId });
   if (ids.length && clearance === 'cut') s.notify(`Дорога построена, зданий срезано по дороге: ${ids.length}`);
   if (ids.length && clearance === 'demolish') s.notify(`Дорога построена, зданий снесено: ${ids.length}`);
@@ -141,7 +155,8 @@ export function deleteSelection(): void {
   if (sel.type === 'street') return;
   // A building takes the corners only it used along; other ways keep their nodes.
   const building = sel.type === 'way' && s.doc.ways[sel.id] && isBuilding(s.doc.ways[sel.id].tags);
-  s.apply((d) => (sel.type === 'node' ? deleteNode(d, sel.id) : building ? deleteBuilding(d, sel.id) : deleteWay(d, sel.id)));
+  // A stretch picked between two junctions goes alone; the rest of the way stays.
+  s.apply((d) => (sel.type === 'node' ? deleteNode(d, sel.id) : building ? deleteBuilding(d, sel.id) : deleteWay(sel.piece ? isolatePiece(d, sel.id, sel.piece) : d, sel.id)));
   s.select(null);
 }
 
