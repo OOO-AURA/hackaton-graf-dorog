@@ -10,7 +10,7 @@ const YELLOW = '#F6C31B';
 
 /** Warning sign frame (1.x): white triangle, red border, point up. */
 const warning = (inner: string) =>
-  `<path d="M24 3 L46 42 H2 Z" fill="#fff"/><path d="M24 5.5 L44 40.5 H4 Z" fill="${RED}"/><path d="M24 13 L37.5 36.5 H10.5 Z" fill="#fff"/>${inner}`;
+  `<path d="M24 3 L46 42 H2 Z" fill="#fff"/><path d="M24 5 L44.6 41 H3.4 Z" fill="${RED}"/><path d="M24 14.5 L36.4 35.6 H11.6 Z" fill="#fff"/>${inner}`;
 
 /** Service sign frame (5.x): blue square with white edge. */
 const service = (inner: string) =>
@@ -36,18 +36,18 @@ const train = (fill: string, bg: string) =>
 
 export const SIGN_SVG: Record<string, string> = {
   // 1.8 «Светофорное регулирование».
-  signal: warning(`<rect x="20.5" y="17" width="7" height="17" rx="2" fill="${INK}"/><circle cx="24" cy="20.5" r="1.8" fill="${RED}"/><circle cx="24" cy="25.5" r="1.8" fill="${YELLOW}"/><circle cx="24" cy="30.5" r="1.8" fill="#2FA84F"/>`),
+  signal: warning(`<rect x="20.6" y="19" width="6.8" height="15.6" rx="1.6" fill="${INK}"/><circle cx="24" cy="22.2" r="1.9" fill="${RED}"/><circle cx="24" cy="26.8" r="1.9" fill="${YELLOW}"/><circle cx="24" cy="31.4" r="1.9" fill="#2FA84F"/>`),
   // 1.17 «Искусственная неровность».
-  bump: warning(`<path d="M13 33.5 H35" stroke="${INK}" stroke-width="2"/><path d="M17 33.5 Q24 22 31 33.5 Z" fill="${INK}"/>`),
+  bump: warning(`<path d="M13.5 33.6 H34.5" stroke="${INK}" stroke-width="1.8"/><path d="M18 33.6 Q24 25 30 33.6 Z" fill="${INK}"/>`),
   // 2.4 «Уступите дорогу».
-  give_way: `<path d="M2 6 H46 L24 45 Z" fill="#fff"/><path d="M4.6 7.5 H43.4 L24 42 Z" fill="${RED}"/><path d="M12.5 12 H35.5 L24 32.5 Z" fill="#fff"/>`,
+  give_way: `<path d="M2 6 H46 L24 45 Z" fill="#fff"/><path d="M4.6 7.5 H43.4 L24 42 Z" fill="${RED}"/><path d="M14 12.5 H34 L24 30.5 Z" fill="#fff"/>`,
   // 2.5 «Движение без остановки запрещено».
   stop: `<path d="M15.2 2 H32.8 L46 15.2 V32.8 L32.8 46 H15.2 L2 32.8 V15.2 Z" fill="#fff"/><path d="M16 4 H32 L44 16 V32 L32 44 H16 L4 32 V16 Z" fill="${RED}"/>` +
     `<text x="24" y="28.6" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="12.5" fill="#fff" letter-spacing="-0.3">STOP</text>`,
   // 2.1 «Главная дорога».
   main_road: `<path d="M24 2 L46 24 L24 46 L2 24 Z" fill="${INK}"/><path d="M24 4 L44 24 L24 44 L4 24 Z" fill="#fff"/><path d="M24 10 L38 24 L24 38 L10 24 Z" fill="${YELLOW}"/>`,
   // 5.19.1 «Пешеходный переход».
-  crossing: service(`<path d="M24 8 L41 39 H7 Z" fill="#fff"/><path d="M13 36 H16 M19 36 H22 M25 36 H28 M31 36 H34" stroke="${INK}" stroke-width="2.4"/>${pedestrian(23, 26, 0.82, INK)}`),
+  crossing: service(`<path d="M24 7 L42 40 H6 Z" fill="#fff"/><path d="M12.5 37.5 H35.5" stroke="${INK}" stroke-width="3.2" stroke-dasharray="2.6 1.6"/>${pedestrian(23.5, 25, 1.05, INK)}`),
   // 5.16 «Место остановки автобуса».
   bus_stop: service(bus('#fff', BLUE)),
   // 5.17 «Место остановки трамвая».

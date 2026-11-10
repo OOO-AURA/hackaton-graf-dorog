@@ -87,7 +87,7 @@ export const useUi = create<UiState>((set, get) => ({
   theme: resolveTheme(initialChoice),
   workspace: 'macro',
   bottomTab: 'issues',
-  bottomOpen: true,
+  bottomOpen: false,
   layers: Object.fromEntries(LAYER_IDS.map((id) => [id, !OFF_BY_DEFAULT.has(id)])) as Record<LayerId, boolean>,
   basemapOpacity: 0.7,
   loading: null,

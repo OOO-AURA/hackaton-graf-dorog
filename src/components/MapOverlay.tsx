@@ -3,10 +3,8 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import { useEffect, useState } from 'react';
 import { docBounds } from '../map/geojson';
 import { useEditor, type Basemap } from '../state/store';
-import { finishDrawing } from '../state/actions';
 import { LAYER_IDS, useUi, type LayerId } from '../state/ui';
 import { THEMATIC, type RoadColorMode } from '../map/thematic';
-import { ROAD_TEMPLATES } from '../osm/tags';
 import { Icon } from './icons';
 import { TOOLS } from './tools';
 import { EmptyState } from './EmptyState';
@@ -24,9 +22,6 @@ export const LAYER_LABELS: Readonly<Record<LayerId, string>> = {
 function FloatingTools() {
   const mode = useEditor((s) => s.mode);
   const setMode = useEditor((s) => s.setMode);
-  const template = useEditor((s) => s.templateIndex);
-  const setTemplate = useEditor((s) => s.setTemplate);
-  const points = useEditor((s) => s.drawing.length);
   return (
     <div className="float float-tools" role="toolbar" aria-label="Инструменты">
       {TOOLS.map((t) => (
@@ -34,14 +29,7 @@ function FloatingTools() {
           <Icon name={t.icon} size={18} />
         </button>
       ))}
-      {mode === 'draw' && (
-        <div className="float-draw">
-          <select value={template} onChange={(e) => setTemplate(Number(e.target.value))} aria-label="Шаблон дороги">
-            {ROAD_TEMPLATES.map((t, i) => <option key={t.label} value={i}>{i + 1} · {t.label}</option>)}
-          </select>
-          <button className="btn btn-ink" onClick={finishDrawing} disabled={points < 2}>Готово <kbd>Enter</kbd></button>
-        </div>
-      )}
+
     </div>
   );
 }

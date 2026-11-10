@@ -369,3 +369,39 @@ button.link:hover { text-decoration: underline; }
 .sign-tile:hover { background: var(--hover); color: var(--ink); }
 .sign-tile.on { border-color: var(--blue); background: var(--blue-wash); color: var(--ink); }
 .legend-sign { width: 16px; height: 16px; flex-shrink: 0; }
+
+/* Navigator tabs and groups */
+.navigator .nav-head { padding: 10px var(--sp-3) 0; }
+.panel-tabs { display: flex; gap: 0; padding: 0 var(--sp-2); border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.panel-tabs button { flex: 1; position: relative; height: 32px; border: 0; background: none; font-size: var(--fs-sm); font-weight: 600; color: var(--ink-2); }
+.panel-tabs button:hover { color: var(--ink); }
+.panel-tabs button.on { color: var(--ink); }
+.panel-tabs button.on::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px; background: var(--blue); border-radius: 2px; }
+.nav-tab-body { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+.nav-objects { display: flex; flex-direction: column; gap: 6px; padding: var(--sp-2) var(--sp-2) var(--sp-3); }
+.nav-group { border-radius: var(--r-md); background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.nav-group-head { display: flex; align-items: center; gap: 6px; width: 100%; height: 30px; padding: 0 8px; border: 0; background: none; font-size: var(--fs-sm); font-weight: 700; text-align: left; }
+.nav-group-head span:nth-child(2) { flex: 1; }
+.nav-group-head .count { color: var(--ink-2); font-weight: 500; font-size: 10.5px; }
+.nav-group-head:hover { background: var(--hover); border-radius: var(--r-md); }
+.nav-group-body { padding: 0 4px 6px; }
+.control-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.control-list button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 6px; border: 0; border-radius: var(--r-sm); background: none; font-size: var(--fs-sm); text-align: left; }
+.control-list button span:nth-child(2) { flex: 1; }
+.control-list button:hover { background: var(--hover); }
+.control-list .count { color: var(--ink-2); font-size: 10.5px; }
+.nav-layers { display: grid; gap: 6px; padding: var(--sp-3); }
+.lens-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+.lens-grid button { height: 28px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--field); font-size: 11.5px; font-weight: 600; color: var(--ink-2); }
+.lens-grid button.on { border-color: var(--blue); background: var(--blue-wash); color: var(--ink); }
+.layer-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.layer-list label { display: flex; align-items: center; gap: 8px; padding: 4px 4px; border-radius: var(--r-sm); font-size: var(--fs-sm); cursor: pointer; }
+.layer-list label:hover { background: var(--hover); }
+.navigator .nav-section { border-bottom: 0; }
+
+/* Tool pane in the inspector */
+.tool-pane { display: grid; gap: 10px; padding: 10px var(--sp-3) var(--sp-4); }
+.tool-pane-head { display: flex; justify-content: space-between; align-items: flex-start; }
+.tool-pane-head h3 { margin: 2px 0 0; font-size: 15px; font-weight: 700; }
+.tool-pane-status { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: var(--r-md); background: var(--blue-wash); font-size: var(--fs-sm); }
+.catalog { display: grid; gap: 8px; }
