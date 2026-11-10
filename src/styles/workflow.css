@@ -272,3 +272,11 @@
 .float-zoom .tool { width: 34px; height: 34px; }
 /* With the hint line shown above the capsule, the island stops above the hint too. */
 .stage:has(.float-hint) .island.open .island-inner { max-height: calc(100cqh - 200px); }
+/* On a short map (bottom panel up, low window) the tools and the zoom stop at the map's edge and scroll. */
+.float-tools, .float-zoom { max-height: calc(100cqh - 24px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.float-tools::-webkit-scrollbar, .float-zoom::-webkit-scrollbar { display: none; }
+.float-tools > *, .float-zoom > * { flex: none; }
+/* The hint keeps clear of the tools on the left (and the same room on the right, so it stays centred). */
+@container (min-width: 641px) {
+  .float-hint { max-width: min(720px, calc(100% - 2 * (var(--rail-w) + 36px))); }
+}
