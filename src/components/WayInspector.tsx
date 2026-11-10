@@ -8,7 +8,7 @@ import { TagTable } from './TagTable';
 import { Section } from './Section';
 import { Icon } from './icons';
 import { LaneStrip } from './LaneStrip';
-import { capacity, normTags, roadProfile } from '../osm/profile';
+import { capacity, lanesByDirection, normTags, roadProfile, withLaneCount } from '../osm/profile';
 import { RoadLevelFields } from './HeightFields';
 import { streetWays } from '../osm/street';
 import { webotsElevation } from '../osm/structures';
@@ -57,10 +57,13 @@ export function WayInspector({ way }: { way: OsmWay }) {
   const set = (key: string) => (value: string) => {
     const safe = safeInput(key, value);
     if (value.trim() && safe !== value.trim()) notify(safe ? `${key}: записано ${safe}, Webots принимает только целое число` : `${key}: значение «${value}» не подходит, тег не записан`);
-    apply((d) => setWayTag(d, way.id, key, safe));
+    if (key === 'lanes' || key === 'lanes:forward' || key === 'lanes:backward') apply((d) => setWayTags(d, way.id, withLaneCount(d.ways[way.id].tags, key, safe)));
+    else apply((d) => setWayTag(d, way.id, key, safe));
   };
   const dir = direction(t);
   const profile = roadProfile(t);
+  // What the map, SUMO and MATSim take per direction, shown where a count is not tagged.
+  const split = lanesByDirection(t);
 
   return (
     <div className="inspector">
@@ -83,11 +86,19 @@ export function WayInspector({ way }: { way: OsmWay }) {
         <LaneStrip tags={t} />
         <SelectField label="Движение" value={t.oneway === 'yes' || t.oneway === '-1' ? t.oneway : ''} options={ONEWAY_OPTIONS} onChange={set('oneway')} />
         <div className="row">
-          <TextField label="Полос всего" type="number" value={t.lanes ?? ''} onCommit={set('lanes')} placeholder="—" />
-          {dir === 'both' && <TextField label="Туда →" type="number" value={t['lanes:forward'] ?? ''} onCommit={set('lanes:forward')} />}
-          {dir === 'both' && <TextField label="Обратно ←" type="number" value={t['lanes:backward'] ?? ''} onCommit={set('lanes:backward')} />}
+          <TextField label="Полос всего" type="number" value={t.lanes ?? ''} onCommit={set('lanes')} placeholder={String(split.forward + split.backward)} />
+          {dir === 'both' && <TextField label="Туда →" type="number" value={t['lanes:forward'] ?? ''} onCommit={set('lanes:forward')} placeholder={String(split.forward)} />}
+          {dir === 'both' && <TextField label="Обратно ←" type="number" value={t['lanes:backward'] ?? ''} onCommit={set('lanes:backward')} placeholder={String(split.backward)} />}
         </div>
-        <TextField label="Повороты по полосам, turn:lanes" value={t['turn:lanes'] ?? ''} onCommit={set('turn:lanes')} placeholder="left|through|through;right" />
+        {dir === 'both' ? (
+          // On a two-way road each direction has its own list, from its own left: SUMO and the lane links read these.
+          <div className="row">
+            <TextField label="Повороты туда →" value={t['turn:lanes:forward'] ?? ''} onCommit={set('turn:lanes:forward')} placeholder="left|through" />
+            <TextField label="Повороты обратно ←" value={t['turn:lanes:backward'] ?? ''} onCommit={set('turn:lanes:backward')} placeholder="through|right" />
+          </div>
+        ) : (
+          <TextField label="Повороты по полосам, turn:lanes" value={t['turn:lanes'] ?? ''} onCommit={set('turn:lanes')} placeholder="left|through|through;right" />
+        )}
         <div className="buttons">
           <button className="btn" onClick={flipSelected} disabled={dir === 'both'} title="F"><Icon name="flip" /> Сменить направление <kbd>F</kbd></button>
           <button className="btn" onClick={reverseSelected} title="R"><Icon name="reverse" /> Развернуть линию <kbd>R</kbd></button>

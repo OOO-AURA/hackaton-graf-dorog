@@ -39,7 +39,8 @@ export function lanesByDirection(tags: Tags): { forward: number; backward: numbe
   if (dir !== 'both') return { forward: Math.max(1, total), backward: 0 };
   const f = int(tags['lanes:forward']);
   const b = int(tags['lanes:backward']);
-  if (f || b) return { forward: Math.max(1, f), backward: Math.max(1, b) };
+  // One direction tagged: the other gets what is left of the total.
+  if (f || b) return { forward: Math.max(1, f || total - b), backward: Math.max(1, b || total - f) };
   const half = Math.max(1, Math.floor(total / 2));
   return { forward: half, backward: Math.max(1, total - half) };
 }
@@ -59,4 +60,36 @@ export function normTags(tags: Tags): Tags {
   const { forward, backward } = lanesByDirection(tags);
   const width = ((forward + backward) * p.laneWidth).toFixed(1);
   return { ...tags, width: tags.width ?? width, maxspeed: tags.maxspeed ?? String(Math.min(p.designSpeed, 60)) };
+}
+
+/**
+ * Tags after setting one of the lane counts of a road, the others kept in step: a new total
+ * shares itself out between the two directions in the same proportion as before, a new count
+ * for one direction changes the total. Otherwise `lanes:forward` and `lanes:backward`, which
+ * win over `lanes`, would leave an edited total without effect.
+ */
+export function withLaneCount(tags: Tags, key: 'lanes' | 'lanes:forward' | 'lanes:backward', value: string | null): Tags {
+  const out: Record<string, string> = { ...tags };
+  const set = (k: string, v: string | null) => { if (v === null || v === '') delete out[k]; else out[k] = v; };
+  set(key, value);
+  if (direction(tags) !== 'both') return out;
+  const n = int(value ?? '');
+  const hasSplit = Boolean(tags['lanes:forward'] || tags['lanes:backward']);
+  if (key === 'lanes') {
+    if (!hasSplit) return out;
+    if (n < 2) { set('lanes:forward', null); set('lanes:backward', null); return out; }
+    const { forward, backward } = lanesByDirection(tags);
+    const f = Math.min(n - 1, Math.max(1, Math.round((n * forward) / (forward + backward))));
+    set('lanes:forward', String(f));
+    set('lanes:backward', String(n - f));
+    return out;
+  }
+  // A count for one direction: the other keeps what it had, and the total follows.
+  const { forward, backward } = lanesByDirection(tags);
+  const other = key === 'lanes:forward' ? 'lanes:backward' : 'lanes:forward';
+  if (!n) return out;
+  const kept = key === 'lanes:forward' ? backward : forward;
+  set(other, String(kept));
+  set('lanes', String(n + kept));
+  return out;
 }
