@@ -1,10 +1,11 @@
 import {
   addNode, connectCrossing, createWay, deleteNode, deleteWay, flipDirection, insertNodeInWay,
-  mergeNodes, moveNode, reverseWay, setWayTag, splitWay, toggleSignal,
+  joinWays, mergeNodes, moveNode, reverseWay, setWayTag, splitWay, toggleSignal,
 } from './edit';
 import { direction, reverseWayTags } from './tags';
 import { serializeOsm } from './serialize';
 import { smallDoc } from '../test/docs';
+import { EMPTY_DOC } from './types';
 
 describe('edit operations', () => {
   const doc = smallDoc();
@@ -101,5 +102,28 @@ describe('direction', () => {
     [{ junction: 'roundabout' }, 'forward'], [{ highway: 'motorway' }, 'forward'], [{}, 'both'],
   ])('%j → %s', (tags, expected) => {
     expect(direction(tags)).toBe(expected);
+  });
+});
+
+describe('joinWays', () => {
+  const mk = () => {
+    let d = EMPTY_DOC;
+    const ids: string[] = [];
+    for (let i = 0; i < 4; i++) { const r = addNode(d, 104 + i * 0.001, 52); d = r.doc; ids.push(r.id); }
+    const a = createWay(d, [ids[0], ids[1]], { highway: 'residential', oneway: 'yes' }); d = a.doc;
+    const b = createWay(d, [ids[2], ids[1]], { highway: 'residential', oneway: '-1' }); d = b.doc;
+    return { d, a: a.id, b: b.id, ids };
+  };
+  test('appends the other way, reversed with its direction, and deletes it', () => {
+    const { d, a, b, ids } = mk();
+    const r = joinWays(d, a, b)!;
+    expect(r.doc.ways[a].refs).toEqual([ids[0], ids[1], ids[2]]);
+    expect(r.doc.ways[b]).toBeUndefined();
+    expect(r.differing).toEqual([]);
+  });
+  test('refuses ways that do not touch', () => {
+    const { d, a, ids } = mk();
+    const c = createWay(d, [ids[2], ids[3]], { highway: 'residential' });
+    expect(joinWays(c.doc, a, c.id)).toBeNull();
   });
 });

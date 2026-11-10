@@ -145,3 +145,27 @@ export function connectCrossing(
   const refs = [...wayB.refs.slice(0, b.index + 1), first.id, ...wayB.refs.slice(b.index + 1)];
   return putWay(first.doc, touched({ ...wayB, refs }));
 }
+
+/**
+ * Joins two ways that meet end to end into the first one: the second is reversed if needed (its
+ * direction tags follow) and appended, then deleted. Refused (null) when they do not share an end,
+ * would close a ring, or the second is a member of a relation (a turn ban or a route would break).
+ */
+export function joinWays(doc: OsmDoc, keepId: string, otherId: string): { doc: OsmDoc; differing: string[] } | null {
+  const a0 = doc.ways[keepId], b0 = doc.ways[otherId];
+  if (!a0 || !b0 || keepId === otherId) return null;
+  if (Object.values(doc.relations).some((r) => r.members.some((m) => m.type === 'way' && m.ref === otherId))) return null;
+  const [aS, aE, bS, bE] = [a0.refs[0], a0.refs[a0.refs.length - 1], b0.refs[0], b0.refs[b0.refs.length - 1]];
+  if (aS === aE || bS === bE || (aS === bE && aE === bS)) return null;
+  let d = doc;
+  // Make the kept way end where the other starts.
+  if (aS === bS || aS === bE) d = reverseWay(d, keepId);
+  const a = d.ways[keepId];
+  const end = a.refs[a.refs.length - 1];
+  if (d.ways[otherId].refs[d.ways[otherId].refs.length - 1] === end) d = reverseWay(d, otherId);
+  const b = d.ways[otherId];
+  if (b.refs[0] !== end) return null;
+  const differing = [...new Set([...Object.keys(a.tags), ...Object.keys(b.tags)])].filter((k) => a.tags[k] !== b.tags[k]);
+  d = putWay(d, { ...a, refs: [...a.refs, ...b.refs.slice(1)] });
+  return { doc: deleteWay(d, otherId), differing };
+}

@@ -532,3 +532,5 @@ fieldset.insp-swap:disabled input, fieldset.insp-swap:disabled select, fieldset.
 .sign-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .sign-list li { display: grid; grid-template-columns: 30px 1fr auto auto; align-items: center; gap: 8px; padding: 4px 6px; border-radius: var(--r-md); background: var(--hover); font-size: 12px; }
 .sign-list input { width: 58px; }
+.multi-foot { display: grid; gap: 8px; padding: var(--sp-3) var(--sp-4) var(--sp-4); }
+.multi-foot .hint { margin: 0; }
