@@ -36,6 +36,10 @@ const SURFACE_OPTIONS = [['asphalt', 'Асфальт'], ['concrete', 'Бетон
 
 const ACCESS_OPTIONS = [['', 'Без ограничений'], ['no', 'Запрещено'], ['destination', 'Только к месту назначения']] as const;
 const BUS_OPTIONS = [['', 'Нет'], ['yes', 'Одна полоса']] as const;
+const YES_NO = [['', 'Не указано'], ['yes', 'Да'], ['no', 'Нет']] as const;
+const CYCLEWAY_OPTIONS = [['', 'Нет'], ['lane', 'Велополоса'], ['track', 'Отдельная велодорожка'], ['shared_lane', 'Общая полоса']] as const;
+const PARKING_OPTIONS = [['', 'Не указано'], ['no', 'Нет'], ['lane', 'На проезжей части'], ['street_side', 'Карманы у края']] as const;
+const MOTOR_OPTIONS = [['', 'Разрешено'], ['no', 'Запрещено'], ['destination', 'Только к месту назначения'], ['private', 'Только своим']] as const;
 
 
 /** What MATSim and SUMO will take as the speed of this road when maxspeed is missing or not a number. */
@@ -166,6 +170,29 @@ export function WayInspector({ way }: { way: OsmWay }) {
           <SelectField label="Грузовикам" value={t.hgv ?? ''} options={ACCESS_OPTIONS} onChange={set('hgv')} />
           <SelectField label="Автобусная полоса" value={t['lanes:bus'] ? 'yes' : ''} options={BUS_OPTIONS} onChange={(v) => apply((d) => setWayTag(d, way.id, 'lanes:bus', v ? '1' : null))} />
         </div>
+      </Section>
+      <Section title="Дополнительно" open={false}>
+        <div className="row">
+          <TextField label="Ширина проезжей части, м" type="number" value={t.width ?? ''} onCommit={set('width')} placeholder={profile ? String(Math.round(profile.laneWidth * (split.forward + split.backward) * 10) / 10) : '—'} />
+          <TextField label="Мин. скорость, км/ч" type="number" value={t.minspeed ?? ''} onCommit={set('minspeed')} placeholder="—" />
+        </div>
+        <div className="row">
+          <TextField label="Скорость грузовых, км/ч" type="number" value={t['maxspeed:hgv'] ?? ''} onCommit={set('maxspeed:hgv')} placeholder="—" />
+          <SelectField label="Машинам" value={t.motor_vehicle ?? ''} options={MOTOR_OPTIONS} onChange={set('motor_vehicle')} />
+        </div>
+        <div className="row">
+          <SelectField label="Обгон" value={t.overtaking ?? ''} options={YES_NO} onChange={set('overtaking')} />
+          <SelectField label="Освещение" value={t.lit ?? ''} options={YES_NO} onChange={set('lit')} />
+        </div>
+        <div className="row">
+          <SelectField label="Велосипедистам" value={t.cycleway ?? ''} options={CYCLEWAY_OPTIONS} onChange={set('cycleway')} />
+          <SelectField label="Парковка вдоль" value={t['parking:both'] ?? ''} options={PARKING_OPTIONS} onChange={set('parking:both')} />
+        </div>
+        <label className="check" title="junction=roundabout: движение по кольцу против часовой стрелки, въезжающие уступают. SUMO строит кольцо с приоритетом едущих по нему">
+          <input type="checkbox" checked={t.junction === 'roundabout'} onChange={(e) => set('junction')(e.target.checked ? 'roundabout' : '')} />
+          Кольцевое движение
+        </label>
+        <p className="hint">Ширину, кольцо и доступ машинам читает SUMO, ширину — ещё и Webots. Остальное — стандартные теги OSM для паспорта дороги.</p>
       </Section>
       <SidewalkSection way={way} apply={apply} />
       <Section title="Высота">
