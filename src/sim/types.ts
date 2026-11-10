@@ -24,7 +24,7 @@ export interface Signal {
 }
 
 /** Light random traffic, the evening rush hour, or trips from the macro model's OD matrix. */
-export type DemandKind = 'random' | 'rush' | 'od';
+export type DemandKind = 'random' | 'rush' | 'od' | 'custom';
 
 export interface SimResult {
   frames: SimFrame[];

@@ -142,3 +142,64 @@ export function cutBuildings(doc: OsmDoc, ids: readonly string[], road: readonly
   }
   return d;
 }
+
+/** Overlap below this is a road edge brushing a wall, not a road under a building, m². */
+const OVERLAP_ISSUE_M2 = 10;
+/** Grid cell of the building index, metres. */
+const GRID_M = 60;
+
+export interface RoadOverlap { readonly wayId: string; readonly buildingIds: readonly string[]; readonly overlap: number; readonly width: number }
+
+/** Passages through or under buildings are meant to be there. */
+const isPassage = (tags: Record<string, string>) => tags.tunnel === 'building_passage' || tags.covered === 'yes' || (tags.tunnel && tags.tunnel !== 'no') || (tags.bridge && tags.bridge !== 'no') || tags.layer?.startsWith('-');
+
+/**
+ * Roads whose carriageway, as wide as their lanes make it, runs under buildings: eight lanes drawn
+ * in a yard sink into the houses. `widthOf` gives a road's width in metres.
+ */
+export function roadBuildingOverlaps(doc: OsmDoc, roads: readonly OsmWay[], widthOf: (w: OsmWay) => number): RoadOverlap[] {
+  const lat0 = roads.find((w) => doc.nodes[w.refs[0]])?.refs.map((r) => doc.nodes[r]).find(Boolean)?.lat ?? 0;
+  const f = frame(lat0);
+  // Buildings in a grid by their bounding boxes, so each road looks only at the cells it crosses.
+  const grid = new Map<string, Array<{ id: string; ring: P[] }>>();
+  const cell = (x: number, y: number) => `${Math.floor(x / GRID_M)},${Math.floor(y / GRID_M)}`;
+  for (const w of Object.values(doc.ways)) {
+    if (!isClosedBuilding(w)) continue;
+    const ring = outline(doc, w, f);
+    if (!ring) continue;
+    const xs = ring.map((p) => p[0]); const ys = ring.map((p) => p[1]);
+    for (let gx = Math.floor(Math.min(...xs) / GRID_M); gx <= Math.floor(Math.max(...xs) / GRID_M); gx += 1) {
+      for (let gy = Math.floor(Math.min(...ys) / GRID_M); gy <= Math.floor(Math.max(...ys) / GRID_M); gy += 1) {
+        const k = `${gx},${gy}`;
+        grid.set(k, [...(grid.get(k) ?? []), { id: w.id, ring }]);
+      }
+    }
+  }
+  const out: RoadOverlap[] = [];
+  for (const road of roads) {
+    if (isPassage(road.tags)) continue;
+    const pts = road.refs.map((r) => doc.nodes[r]).filter(Boolean).map((n) => f.to(n.lon, n.lat));
+    if (pts.length < 2) continue;
+    const width = widthOf(road);
+    const strip = corridor(pts, width / 2);
+    const near = new Map<string, P[]>();
+    pts.forEach((p) => (grid.get(cell(p[0], p[1])) ?? []).forEach((b) => near.set(b.id, b.ring)));
+    // Long segments cross cells between their nodes too.
+    pts.slice(1).forEach((b, i) => {
+      const a = pts[i];
+      const steps = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / (GRID_M / 2));
+      for (let k = 1; k < steps; k += 1) {
+        const x = a[0] + ((b[0] - a[0]) * k) / steps; const y = a[1] + ((b[1] - a[1]) * k) / steps;
+        (grid.get(cell(x, y)) ?? []).forEach((bd) => near.set(bd.id, bd.ring));
+      }
+    });
+    let overlap = 0;
+    const hit: string[] = [];
+    near.forEach((ring, id) => {
+      const a = area(polygonClipping.intersection([ring], strip));
+      if (a > MIN_OVERLAP) { overlap += a; hit.push(id); }
+    });
+    if (overlap >= OVERLAP_ISSUE_M2) out.push({ wayId: road.id, buildingIds: hit, overlap, width });
+  }
+  return out;
+}

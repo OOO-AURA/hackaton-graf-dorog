@@ -12,7 +12,7 @@ import { VirtualList } from './VirtualList';
 import { useSettledDoc } from '../state/settled';
 
 const KIND_LABELS: Readonly<Record<Issue['kind'], string>> = {
-  isolated: 'Изолированные участки', trap: 'Тупики по направлению', cordon: 'Обрезано границей фрагмента', crossing: 'Пересечения без узла', 'near-nodes': 'Разорванные перекрёстки', 'false-tunnel': 'Ложные тоннели под мостами', speed: 'Разная скорость в MATSim и SUMO', 'webots-crash': 'Значения, на которых падает Webots', 'head-on': 'Встречные потоки упираются', 'wrong-uturn': 'Разворот в неправильную сторону',
+  isolated: 'Изолированные участки', trap: 'Тупики по направлению', cordon: 'Обрезано границей фрагмента', crossing: 'Пересечения без узла', 'near-nodes': 'Разорванные перекрёстки', 'false-tunnel': 'Ложные тоннели под мостами', speed: 'Разная скорость в MATSim и SUMO', 'webots-crash': 'Значения, на которых падает Webots', 'head-on': 'Встречные потоки упираются', 'wrong-uturn': 'Разворот в неправильную сторону', 'under-building': 'Дорога заходит под здания',
 };
 
 function applyFix(issue: Issue): void {

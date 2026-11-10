@@ -12,7 +12,7 @@ import type { RoadLook } from '../state/ui';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'vehicle-shapes', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, ...RAIL_SOURCES, 'draw-conflicts', 'sidewalks', 'issue-ways', 'turns', 'changes', 'route', 'ghost', 'building-handles'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'vehicle-shapes', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, ...RAIL_SOURCES, 'draw-conflicts', 'sidewalks', 'issue-ways', 'custom-flows', 'turns', 'changes', 'route', 'ghost', 'building-handles'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
 export const HIT_LAYERS = { nodes: ['signals', 'signs', 'crossings', 'nodes', ...RAIL_HIT_POINTS], roads: ['roads', 'roads-bridge', ...RAIL_HIT_LINES], buildings: ['buildings'], laneEnds: ['lane-ends'], laneLinks: ['lane-links', 'lane-ribbons'] } as const;
@@ -251,6 +251,11 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   // Roads an issue is about: a red or orange glow under them, like the issue marker.
   map.addLayer({ id: 'issue-ways', type: 'line', source: 'issue-ways', layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: { 'line-width': ['interpolate', ['exponential', 2], ['zoom'], 13, 6, 18, 30], 'line-opacity': ['case', ['get', 'focused'], 0.7, 0.4], 'line-blur': 3 } }, 'roads-casing');
+  // Own traffic flows: a dashed line from where they come to where they go, a dot at each end.
+  map.addLayer({ id: 'custom-flow-line', type: 'line', source: 'custom-flows', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round' },
+    paint: { 'line-color': '#B06AF0', 'line-width': ['interpolate', ['linear'], ['get', 'vph'], 0, 2, 2000, 8], 'line-dasharray': [2, 1.5], 'line-opacity': 0.9 } });
+  map.addLayer({ id: 'custom-flow-ends', type: 'circle', source: 'custom-flows', filter: ['==', ['geometry-type'], 'Point'],
+    paint: { 'circle-radius': 7, 'circle-color': ['match', ['get', 'end'], 'from', '#3D9F47', '#E5392A'], 'circle-stroke-width': 2, 'circle-stroke-color': '#FFFFFF' } });
   map.addLayer({ id: 'selection-node', type: 'circle', source: 'selection', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 10, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 3 } });
   map.addLayer({ id: 'issues-halo', type: 'circle', source: 'issues', filter: ['any', ['get', 'focused'], ['!=', ['get', 'kind'], 'cordon']], paint: { 'circle-radius': ['case', ['get', 'focused'], 22, 13], 'circle-opacity': 0.18, 'circle-blur': 0.4 } });
   map.addLayer({ id: 'issues', type: 'circle', source: 'issues', paint: {

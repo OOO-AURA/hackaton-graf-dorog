@@ -17,11 +17,20 @@ import { laneLinkAt, useLaneEditing } from './useLaneEditing';
 import { zoneEditingActive } from '../macro/useZoneEditing';
 import { mayJoin, pieceAround } from '../osm/pieces';
 import { ROAD_TEMPLATES } from '../osm/tags';
+import { useCustomFlows } from '../sim/customFlows';
 
 const DRAG_THRESHOLD_PX = 3;
 
 function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
   if (zoneEditingActive()) return;
+  // Placing the ends of an own traffic flow: a click takes the node under it, or the point itself.
+  const flows = useCustomFlows.getState();
+  if (flows.pick) {
+    const at = hitNode(map, e.point);
+    const n = at ? useEditor.getState().doc.nodes[at] : null;
+    flows.place(n ? { lon: n.lon, lat: n.lat } : { lon: e.lngLat.lng, lat: e.lngLat.lat });
+    return;
+  }
   const s = useEditor.getState();
   // At the junction being edited a click on a lane link picks it; Delete then forbids that turn.
   // Handles of the building being shaped act on their own (useBuildingEditing).

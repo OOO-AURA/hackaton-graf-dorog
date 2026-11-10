@@ -6,6 +6,7 @@ import { isDesktop } from '../platform';
 import { useEditor } from '../state/store';
 import { useMacro } from '../macro/store';
 import { STRIDE, type DemandKind, type SimResult } from './types';
+import { flowsDemand, useCustomFlows } from './customFlows';
 
 export const SPEEDS = [1, 5, 10, 30, 60] as const;
 
@@ -118,12 +119,17 @@ export async function runSimulation(): Promise<void> {
       if (!macro || useMacro.getState().error) throw new Error(useMacro.getState().error ?? 'Не удалось посчитать матрицу корреспонденций');
       od = { zones: macro.zones.map((z) => z.lonlat), od: macro.od };
     }
+    if (demand === 'custom') {
+      const flows = useCustomFlows.getState().flows;
+      if (!flows.length) throw new Error('Своих потоков пока нет: добавьте их в панели «Микро», кликнув на карте откуда и куда едут');
+      od = flowsDemand(flows);
+    }
     const doc = useEditor.getState().doc;
     const extras = { transit: useTransit.getState().inSim ? transitDemand(transitRoutes(doc)) : [], pedestrians: useSim.getState().pedestrians, rush_hour: demand === 'rush',
       signals: Object.entries(useSim.getState().plans).filter(([id]) => doc.nodes[id]?.tags.highway === 'traffic_signals')
         .map(([id, p]) => ({ node: id, lon: doc.nodes[id].lon, lat: doc.nodes[id].lat, ...planForSim(p) })) };
     const result = await invoke<SimResult>('simulate', { text: serializeOsm(doc), minutes, demand: od, extras });
-    useSim.setState({ result, playing: true });
+    useSim.setState({ result: demand === 'custom' ? { ...result, demand: 'custom' } : result, playing: true });
   } catch (err) {
     useSim.setState({ error: err instanceof Error ? err.message : String(err) });
   } finally {

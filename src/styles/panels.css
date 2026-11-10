@@ -441,3 +441,9 @@ button.link:hover { text-decoration: underline; }
 .error-log-list .link { text-align: left; }
 .error-kind { color: var(--ink-2); font-size: 11px; }
 .error-status { color: var(--ink-2); font-size: 11px; white-space: nowrap; }
+
+/* Own traffic flows */
+.flow-list { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 4px; }
+.flow-list li { display: grid; grid-template-columns: minmax(0, 1fr) 72px auto auto; gap: 6px; align-items: center; }
+.flow-list input { height: 26px; font-size: 12px; }
+.flow-pick { font-size: 12px; font-weight: 600; color: #B06AF0; }

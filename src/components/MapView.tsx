@@ -34,6 +34,7 @@ import { useBundle } from '../macro/bundleStore';
 import { diffFeatures, docDiff } from '../osm/diff';
 import { useRoute } from '../state/route';
 import type { OsmDoc } from '../osm/types';
+import { useCustomFlows } from '../sim/customFlows';
 
 const IRKUTSK_CENTER: [number, number] = [104.262, 52.26];
 
@@ -98,6 +99,21 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     setData(map, 'turns', { type: 'FeatureCollection', features: [...via].map((id) => ({ type: 'Feature', properties: { id }, geometry: { type: 'Point', coordinates: [doc.nodes[id].lon, doc.nodes[id].lat] } })) });
   }, [map, doc]);
 
+  // Own traffic flows from the micro panel, and the start of the one being placed.
+  const ownFlows = useCustomFlows((s) => s.flows);
+  const pendingFrom = useCustomFlows((s) => s.pendingFrom);
+  useEffect(() => {
+    if (!map) return;
+    const features = [
+      ...ownFlows.flatMap((f) => [
+        { type: 'Feature', properties: { vph: f.vph }, geometry: { type: 'LineString', coordinates: [[f.from.lon, f.from.lat], [f.to.lon, f.to.lat]] } },
+        { type: 'Feature', properties: { end: 'from' }, geometry: { type: 'Point', coordinates: [f.from.lon, f.from.lat] } },
+        { type: 'Feature', properties: { end: 'to' }, geometry: { type: 'Point', coordinates: [f.to.lon, f.to.lat] } },
+      ]),
+      ...(pendingFrom ? [{ type: 'Feature', properties: { end: 'from' }, geometry: { type: 'Point', coordinates: [pendingFrom.lon, pendingFrom.lat] } }] : []),
+    ];
+    setData(map, 'custom-flows', { type: 'FeatureCollection', features });
+  }, [map, ownFlows, pendingFrom]);
   const route = useRoute((s) => s.result);
   useEffect(() => {
     if (map) setData(map, 'route', { type: 'FeatureCollection', features: route?.found ? [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route.coords } }] : [] });
