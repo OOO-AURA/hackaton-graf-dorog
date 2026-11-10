@@ -58,7 +58,8 @@ export function signSnap(map: MapLibreMap, doc: OsmDoc, point: { x: number; y: n
 
 /** The sign that would be put, drawn half see-through where it would stand. */
 export function showSignGhost(map: MapLibreMap, snap: SignSnap | null, code: string | null, value?: number): void {
-  const src = map.getSource('sign-ghost') as GeoJSONSource | undefined;
+  // A removed map (hot reload, closing) has no style left to ask.
+  const src = map.style ? map.getSource('sign-ghost') as GeoJSONSource | undefined : undefined;
   if (!src) return;
   if (!snap || !code) { src.setData({ type: 'FeatureCollection', features: [] }); return; }
   const icon = `road-sign-ts:${code}${signDef(code)?.value ? `:${Math.round(value ?? signDef(code)!.value!.default)}` : ''}`;

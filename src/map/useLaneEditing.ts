@@ -27,7 +27,7 @@ export function laneLinkAt(map: MapLibreMap, p: { x: number; y: number }) {
 }
 
 const setDraft = (map: MapLibreMap, coords: Array<[number, number]>) =>
-  (map.getSource('draw') as GeoJSONSource | undefined)?.setData({
+  (map.style ? map.getSource('draw') as GeoJSONSource | undefined : undefined)?.setData({
     type: 'FeatureCollection',
     features: coords.length > 1 ? [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } }] : [],
   });

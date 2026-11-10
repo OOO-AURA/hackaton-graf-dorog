@@ -98,7 +98,8 @@ type Drag =
 export function useBuildingEditing(map: MapLibreMap | null): void {
   useEffect(() => {
     if (!map) return undefined;
-    const source = () => map.getSource('building-handles') as GeoJSONSource | undefined;
+    // A removed map (hot reload, closing) has no style left to ask.
+    const source = () => (map.style ? map.getSource('building-handles') as GeoJSONSource | undefined : undefined);
     const redraw = () => {
       const s = useEditor.getState();
       const pick = useBuildingCorner.getState().corner;

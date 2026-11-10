@@ -155,7 +155,8 @@ function ghostFeatures(g: Ghost | null, template: number) {
 export function useBuildingGhost(map: MapLibreMap | null): void {
   useEffect(() => {
     if (!map) return undefined;
-    const source = () => map.getSource('ghost') as GeoJSONSource | undefined;
+    // A removed map (hot reload, closing) has no style left to ask.
+    const source = () => (map.style ? map.getSource('ghost') as GeoJSONSource | undefined : undefined);
     let last: LonLat | null = null;
     const redraw = () => {
       const s = useEditor.getState();

@@ -153,5 +153,5 @@ export function setRailBright(map: MapLibreMap, on: boolean): void {
   if (st.bright === on && st.p) return;
   st.bright = on;
   railState.set(map, st);
-  if (st.p && map.getLayer('rail-base')) applyRailPalette(map, st.p);
+  if (st.p && map.style && map.getLayer('rail-base')) applyRailPalette(map, st.p);
 }
