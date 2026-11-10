@@ -122,7 +122,7 @@ export function sceneColors(p: MapPalette): Scene3dColors & { selection: Rgb } {
   const service = rgb(p.roads.service);
   return {
     building: rgb(p.building3d), deck: (h) => byHighway.get(h) ?? service,
-    deckSide: rgb(p.bridgeSide), pier: rgb(p.bridgeSide), portal: rgb(p.bridgeSide), selection: rgb(p.selection),
+    deckSide: rgb(p.bridgeSide), parapet: rgb(p.bridgeParapet), pier: rgb(p.bridgeSide), portal: rgb(p.bridgeSide), selection: rgb(p.selection),
   };
 }
 
