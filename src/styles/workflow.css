@@ -6,27 +6,30 @@
 @keyframes float-in-center { from { opacity: 0; transform: translate(-50%, 4px); } }
 
 /* Steps in the header */
-.steps { display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: var(--r-lg); background: var(--field); border: 1px solid var(--line); }
+.steps {
+  position: relative; display: flex; align-items: center; padding: 3px; border-radius: 999px;
+  background: color-mix(in srgb, var(--field) 85%, transparent); border: 1px solid var(--line); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+/* The thumb under the current step slides to the one picked. */
+.steps-thumb {
+  position: absolute; top: 3px; bottom: 3px; left: 0; border-radius: 999px; background: var(--ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 4px 12px -4px rgba(0, 0, 0, 0.35);
+  transition: transform 340ms cubic-bezier(0.2, 0.9, 0.25, 1.1), width 340ms cubic-bezier(0.2, 0.9, 0.25, 1.1);
+}
 .step {
-  position: relative; display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px 0 6px; border: 0; border-radius: var(--r-md);
-  background: none; color: var(--ink-2); font-size: var(--fs-sm); font-weight: 600; white-space: nowrap;
-  transition: background-color var(--dur) ease, color var(--dur) ease;
+  position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; height: 30px; min-width: 92px; padding: 0 16px; border: 0; border-radius: 999px;
+  background: none; color: var(--ink-2); font-size: 13px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; cursor: pointer;
+  transition: color 240ms ease;
 }
-.step:hover:not(.on) { background: var(--hover); color: var(--ink); }
-.step.on { background: var(--ink); color: var(--on-ink); }
-.step-n {
-  display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
-  border: 1.5px solid currentColor; font-size: 11px; font-weight: 700;
-}
-.step.on .step-n { background: var(--on-ink); color: var(--ink); border-color: var(--on-ink); }
-.step + .step::before { content: ''; position: absolute; left: -2px; top: 50%; width: 2px; height: 2px; border-radius: 50%; background: var(--line-strong); }
-.step .badge { margin-left: -2px; }
+.step:hover:not(.on) { color: var(--ink); }
+.step.on { color: var(--on-ink); }
+.step:focus-visible { outline: 2px solid #4C8DF6; outline-offset: 1px; }
+@media (prefers-reduced-motion: reduce) { .steps-thumb { transition: none; } }
 .help-btn { font-weight: 800; font-size: 15px; }
 /* A narrow window gives up the file name, the step numbers and the labels of the side buttons; the step names always stay. */
-@media (max-width: 1280px) { .step { padding: 0 9px 0 5px; } .step-label { font-size: 12px; } .file-name { display: none; } }
+@media (max-width: 1280px) { .step { padding: 0 12px; min-width: 0; } .step-label { font-size: 12px; } .file-name { display: none; } }
 @media (max-width: 1100px) {
-  .step-n { display: none; }
-  .step { padding: 0 9px; }
+  .step { padding: 0 10px; }
   .save-status { font-size: 0; gap: 0; }
   .file-actions > .btn:not(:first-child), .file-actions .area-menu { display: none; }
 }
@@ -62,7 +65,6 @@
 /* While a tool shows its options at the top left, the note keeps clear of them. */
 .stage:has(.float-draw) .float-view { left: auto; right: 60px; transform: none; justify-items: end; }
 /* In Micro the simulation bar takes the top centre and there are no tools at the left. */
-.float-view.is-micro { left: 12px; transform: none; justify-items: start; }
 
 /* Hint line at the bottom of the map */
 .float-hint {
@@ -220,3 +222,7 @@
 .pd-rules { justify-items: start; }
 .stage:has(.preset-dock) .float-hint { bottom: 68px; }
 @media (prefers-reduced-motion: reduce) { .preset-dock, .pd-body, .pd-card, .pd-tab { transition: none; } }
+
+/* In Micro the SUMO bar takes the top middle: the view island moves to the bottom left and opens upwards. */
+.float-view.is-micro { top: auto; bottom: 12px; left: 12px; transform: none; justify-items: start; }
+.float-view.is-micro .island { display: flex; flex-direction: column-reverse; }
