@@ -11,7 +11,7 @@ import type { OsmDoc, Tags } from './types';
  * `traffic_calming=bump`, 5.16 is a bus stop, a traffic light is `highway=traffic_signals`.
  */
 
-export type SignGroup = 'Светофоры' | 'Приоритет' | 'Запрещающие' | 'Предписывающие' | 'Особых предписаний' | 'Таблички';
+export type SignGroup = 'Светофоры' | 'Предупреждающие' | 'Приоритет' | 'Запрещающие' | 'Предписывающие' | 'Особых предписаний' | 'Таблички';
 
 export interface SignDef {
   readonly code: string;
@@ -24,12 +24,15 @@ export interface SignDef {
   readonly dir?: boolean;
 }
 
-export const SIGN_GROUPS: readonly SignGroup[] = ['Светофоры', 'Приоритет', 'Запрещающие', 'Предписывающие', 'Особых предписаний', 'Таблички'];
+export const SIGN_GROUPS: readonly SignGroup[] = ['Светофоры', 'Предупреждающие', 'Приоритет', 'Запрещающие', 'Предписывающие', 'Особых предписаний', 'Таблички'];
 
 export const SIGNS: readonly SignDef[] = [
   { code: 'signal', name: 'Светофор', group: 'Светофоры', tags: { highway: 'traffic_signals' } },
   { code: 'signal_ped', name: 'Пешеходный светофор', group: 'Светофоры', tags: { highway: 'crossing', crossing: 'traffic_signals' } },
   { code: '1.8', name: 'Светофорное регулирование', group: 'Светофоры', dir: true },
+  { code: '1.1', name: 'Ж/д переезд со шлагбаумом', group: 'Предупреждающие', dir: true },
+  { code: '1.2', name: 'Ж/д переезд без шлагбаума', group: 'Предупреждающие', dir: true },
+  { code: '1.22', name: 'Пешеходный переход', group: 'Предупреждающие', dir: true },
   { code: '2.1', name: 'Главная дорога', group: 'Приоритет', dir: true },
   { code: '2.2', name: 'Конец главной дороги', group: 'Приоритет', dir: true },
   { code: '2.4', name: 'Уступите дорогу', group: 'Приоритет', tags: { highway: 'give_way' }, dir: true },
@@ -51,6 +54,7 @@ export const SIGNS: readonly SignDef[] = [
   { code: '5.16', name: 'Остановка автобуса', group: 'Особых предписаний', tags: { highway: 'bus_stop', public_transport: 'platform', bus: 'yes' } },
   { code: '5.20', name: 'Искусственная неровность', group: 'Особых предписаний', tags: { traffic_calming: 'bump' } },
   { code: '5.21', name: 'Жилая зона', group: 'Особых предписаний', dir: true },
+  { code: '5.22', name: 'Конец жилой зоны', group: 'Особых предписаний', dir: true },
   { code: '5.5', name: 'Дорога с односторонним движением', group: 'Особых предписаний', dir: true },
   { code: '8.13', name: 'Направление главной дороги', group: 'Таблички', dir: true },
 ];

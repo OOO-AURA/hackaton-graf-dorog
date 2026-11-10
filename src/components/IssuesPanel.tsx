@@ -1,3 +1,4 @@
+import { applyRules, countsLine } from '../osm/rules';
 import { useMemo } from 'react';
 import { connectCrossing, mergeNodes, setWayTags, flipDirection, setWayTag } from '../osm/edit';
 import { groundTags } from '../osm/structures';
@@ -12,7 +13,7 @@ import { VirtualList } from './VirtualList';
 import { useSettledDoc } from '../state/settled';
 
 const KIND_LABELS: Readonly<Record<Issue['kind'], string>> = {
-  isolated: 'Изолированные участки', trap: 'Тупики по направлению', cordon: 'Обрезано границей фрагмента', crossing: 'Пересечения без узла', 'near-nodes': 'Разорванные перекрёстки', 'false-tunnel': 'Ложные тоннели под мостами', speed: 'Разная скорость в MATSim и SUMO', 'webots-crash': 'Значения, на которых падает Webots', 'head-on': 'Встречные потоки упираются', 'wrong-uturn': 'Разворот в неправильную сторону', 'under-building': 'Дорога заходит под здания',
+  isolated: 'Изолированные участки', trap: 'Тупики по направлению', cordon: 'Обрезано границей фрагмента', crossing: 'Пересечения без узла', 'near-nodes': 'Разорванные перекрёстки', 'false-tunnel': 'Ложные тоннели под мостами', speed: 'Разная скорость в MATSim и SUMO', 'webots-crash': 'Значения, на которых падает Webots', 'head-on': 'Встречные потоки упираются', 'wrong-uturn': 'Разворот в неправильную сторону', 'under-building': 'Дорога заходит под здания', pdd: 'Не по ПДД',
 };
 
 function applyFix(issue: Issue): void {
@@ -24,6 +25,7 @@ function applyFix(issue: Issue): void {
     if (fix.type === 'ground') return d.ways[fix.wayId] ? setWayTags(d, fix.wayId, groundTags(d.ways[fix.wayId].tags)) : d;
     if (fix.type === 'speed') return applyLegalSpeeds(d, [fix.wayId]);
     if (fix.type === 'sanitize') return sanitizeDoc(d, [fix.wayId]);
+    if (fix.type === 'pdd') return applyRules(d, { ways: new Set([fix.wayId]), nodes: new Set() }).doc;
     if (fix.type === 'flip') return flipDirection(d, fix.wayId);
     if (fix.type === 'oneway') return setWayTag(d, fix.wayId, 'oneway', fix.value);
     return connectCrossing(d, fix.a, fix.b, fix.at[0], fix.at[1]);
@@ -64,7 +66,8 @@ export function IssuesPanel() {
         <>
           {report.issues.length === 0 && <p className="ok">Ошибок не найдено</p>}
           <CordonHint />
-          <SpeedHint />
+          <PddHint />
+      <SpeedHint />
           {(Object.keys(KIND_LABELS) as Issue['kind'][]).map((kind) => {
             const items = report.issues.filter((i) => i.kind === kind);
             if (!items.length) return null;
@@ -81,6 +84,28 @@ export function IssuesPanel() {
         </>
       )}
     </div>
+  );
+}
+
+/** One click to bring the whole graph in line with the traffic rules. */
+function PddHint() {
+  const apply = useEditor((s) => s.apply);
+  const notify = useEditor((s) => s.notify);
+  const report = useEditor((s) => s.report);
+  const n = report?.issues.filter((i) => i.kind === 'pdd').length ?? 0;
+  if (!n) return null;
+  const fixAll = () => {
+    let line: string | null = null;
+    apply((d) => { const r = applyRules(d); line = countsLine(r.counts); return r.doc; });
+    notify(line ?? 'Граф уже по ПДД');
+    void refreshReport();
+  };
+  return (
+    <p className="hint cordon-hint">
+      {n} мест не по ПДД: на нерегулируемых перекрёстках не задан приоритет, у односторонних улиц нет 5.5 и 3.1, у жилых зон 5.21 и 5.22.
+      Знаки, поставленные вручную, кнопка не тронет.{' '}
+      <button className="btn btn-sm fix" onClick={fixAll}>Привести граф к ПДД</button>
+    </p>
   );
 }
 

@@ -116,7 +116,7 @@ function SignCards({ close }: { close: () => void }) {
           </div>
         </div>
       ))}
-      {(lens === 'all' || lens === 'signs') && <div className="pd-group pd-rules"><RuleSigns /></div>}
+      <div className="pd-group pd-rules"><RuleSigns /></div>
     </>
   );
 }

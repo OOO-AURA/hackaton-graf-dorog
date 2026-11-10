@@ -1,3 +1,4 @@
+import { gapName, pddGaps } from './rules';
 import { cordonEnds, reachable } from './cordon';
 import { largestGroup, strongComponents, weakComponents } from './components';
 import { haversine, projector, segmentIntersection, type LonLat } from './geo';
@@ -10,7 +11,7 @@ import { flowRuleIssues, type FlowFix } from './flowRules';
 import { roadBuildingOverlaps } from './clearance';
 import { roadWidthMetres } from '../map/lanesGeo';
 
-export type IssueKind = 'isolated' | 'trap' | 'cordon' | 'crossing' | 'near-nodes' | 'false-tunnel' | 'speed' | 'webots-crash' | 'head-on' | 'wrong-uturn' | 'under-building';
+export type IssueKind = 'isolated' | 'trap' | 'cordon' | 'crossing' | 'near-nodes' | 'false-tunnel' | 'speed' | 'webots-crash' | 'head-on' | 'wrong-uturn' | 'under-building' | 'pdd';
 
 export type IssueFix =
   | { type: 'connect'; a: { wayId: string; index: number }; b: { wayId: string; index: number }; at: LonLat }
@@ -18,6 +19,7 @@ export type IssueFix =
   | { type: 'ground'; wayId: string }
   | { type: 'speed'; wayId: string }
   | { type: 'sanitize'; wayId: string }
+  | { type: 'pdd'; wayId: string }
   | FlowFix;
 
 export interface Issue {
@@ -204,6 +206,16 @@ export function validate(doc: OsmDoc): ValidationReport {
       };
     }),
     ...flowRuleIssues(doc).map((f): Issue => ({ ...f, severity: 'error' })),
+    // Signs the traffic rules call for and the graph lacks, or ones they no longer need.
+    ...pddGaps(doc).map((g, i): Issue => {
+      const w = doc.ways[g.wayId];
+      const road = w?.tags.name || w?.tags.highway || 'дорога';
+      return {
+        id: `pdd:${g.code}:${g.wayId}:${i}`, kind: 'pdd', severity: 'warning', at: g.at, wayIds: g.wayId ? [g.wayId] : [], nodeIds: g.nodeId ? [g.nodeId] : [],
+        message: g.missing ? `${road}: по ПДД нужен знак ${gapName(g.code)}` : `${road}: знак ${gapName(g.code)} больше не нужен, на перекрёстке светофор`,
+        fix: g.wayId ? { type: 'pdd', wayId: g.wayId } : undefined,
+      };
+    }),
     // Roads whose lanes make them wider than the room between the houses.
     ...roadBuildingOverlaps(doc, ways.filter((w) => w.tags.lanes || w.tags.width), (w) => roadWidthMetres(w.tags)).map((o): Issue => {
       const w = doc.ways[o.wayId];

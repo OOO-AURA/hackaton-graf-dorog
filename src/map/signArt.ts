@@ -74,6 +74,9 @@ export function codeSvgBody(code: string, value?: number): string | undefined {
     case 'signal': return `<rect x="15" y="3" width="18" height="42" rx="5" fill="${INK}"/><circle cx="24" cy="12" r="5" fill="${RED}"/><circle cx="24" cy="24" r="5" fill="${YELLOW}"/><circle cx="24" cy="36" r="5" fill="#2FA84F"/>`;
     case 'signal_ped': return `<rect x="12" y="4" width="24" height="40" rx="5" fill="${INK}"/><rect x="16" y="8" width="16" height="15" rx="2" fill="#5a1210"/>${pedestrian(24, 16, 0.55, RED)}<rect x="16" y="25" width="16" height="15" rx="2" fill="#0f3a1c"/>${pedestrian(24, 33, 0.55, '#2FA84F')}`;
     case '1.8': return SIGN_SVG.signal;
+    case '1.1': return warning(`<path d="M16 33 H32 M17 33 V24 M31 33 V24 M15 24 H33" stroke="${INK}" stroke-width="2.2"/><path d="M17 27 L31 27" stroke="${INK}" stroke-width="1.4" stroke-dasharray="2 1.6"/>`);
+    case '1.2': return warning(`<rect x="17.5" y="20" width="13" height="11" rx="2.2" fill="${INK}"/><rect x="19.5" y="22" width="9" height="4" fill="#fff"/><path d="M18 33.5 H30" stroke="${INK}" stroke-width="1.8"/><path d="M20 31 L18.5 33.5 M28 31 L29.5 33.5" stroke="${INK}" stroke-width="1.6"/>`);
+    case '1.22': return warning(`${pedestrian(24, 28, 0.62, INK)}<path d="M15 34.5 H33" stroke="${INK}" stroke-width="1.6" stroke-dasharray="2.2 1.4"/>`);
     case '2.1': return SIGN_SVG.main_road;
     case '2.2': return `${SIGN_SVG.main_road}<path d="M12 36 L36 12" stroke="${INK}" stroke-width="2.4"/><path d="M14 38 L38 14" stroke="${INK}" stroke-width="1.2"/>`;
     case '2.4': return SIGN_SVG.give_way;
@@ -95,6 +98,7 @@ export function codeSvgBody(code: string, value?: number): string | undefined {
     case '5.16': return SIGN_SVG.bus_stop;
     case '5.20': return service(`<path d="M10 33 H38" stroke="#fff" stroke-width="2.4"/><path d="M15 33 Q24 18 33 33 Z" fill="#fff"/>`);
     case '5.21': return service(`<rect x="10" y="22" width="12" height="12" fill="#fff"/><path d="M8 23 L16 15 L24 23" fill="#fff"/>${pedestrian(31, 29, 0.7, '#fff')}`);
+    case '5.22': return `${service(`<rect x="10" y="22" width="12" height="12" fill="#fff"/><path d="M8 23 L16 15 L24 23" fill="#fff"/>${pedestrian(31, 29, 0.7, '#fff')}`)}<path d="M8 40 L40 8" stroke="${RED}" stroke-width="3"/>`;
     case '5.5': return service(`${arrow('M24 38 V16')}${head(24, 12, 0)}`);
     case '8.13': return `<rect x="3" y="10" width="42" height="28" rx="2" fill="#fff" stroke="${INK}" stroke-width="1.5"/><path d="M16 34 V24 H32 V16" stroke="${INK}" stroke-width="3.4" fill="none"/><path d="M24 34 V24" stroke="${INK}" stroke-width="1.6"/>`;
     default: return undefined;

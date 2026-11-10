@@ -181,7 +181,9 @@ export function roadBuildingOverlaps(doc: OsmDoc, roads: readonly OsmWay[], widt
     const pts = road.refs.map((r) => doc.nodes[r]).filter(Boolean).map((n) => f.to(n.lon, n.lat));
     if (pts.length < 2) continue;
     const width = widthOf(road);
-    const strip = corridor(pts, width / 2);
+    // polygon-clipping can fail on nearly touching edges (a node just added on the road): such a road is skipped, not the whole check.
+    let strip: ReturnType<typeof corridor>;
+    try { strip = corridor(pts, width / 2); } catch { continue; }
     const near = new Map<string, P[]>();
     pts.forEach((p) => (grid.get(cell(p[0], p[1])) ?? []).forEach((b) => near.set(b.id, b.ring)));
     // Long segments cross cells between their nodes too.
@@ -196,7 +198,8 @@ export function roadBuildingOverlaps(doc: OsmDoc, roads: readonly OsmWay[], widt
     let overlap = 0;
     const hit: string[] = [];
     near.forEach((ring, id) => {
-      const a = area(polygonClipping.intersection([ring], strip));
+      let a = 0;
+      try { a = area(polygonClipping.intersection([ring], strip)); } catch { return; }
       if (a > MIN_OVERLAP) { overlap += a; hit.push(id); }
     });
     if (overlap >= OVERLAP_ISSUE_M2) out.push({ wayId: road.id, buildingIds: hit, overlap, width });

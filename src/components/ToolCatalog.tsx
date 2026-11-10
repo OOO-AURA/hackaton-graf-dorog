@@ -1,5 +1,5 @@
 import { useEditor } from '../state/store';
-import { placeRuleSigns } from '../osm/signs';
+import { applyRules, countsLine } from '../osm/rules';
 
 /** Cross-section thumbnail of a road template: lanes, markings, sidewalks or rails. */
 export function Profile({ tags }: { tags: Record<string, string> }) {
@@ -67,25 +67,28 @@ export const gabarit = (tags: Record<string, string>) => {
   return `${lanes} пол. · ${tags.maxspeed ?? '—'} км/ч`;
 };
 
-/** Places priority signs by the traffic rules on every junction without a light. */
+/**
+ * The traffic rules: kept by themselves after every change of the network (on by default), and
+ * applied to the whole graph in one go (osm/rules.ts).
+ */
 export function RuleSigns() {
   const apply = useEditor((s) => s.apply);
   const notify = useEditor((s) => s.notify);
+  const auto = useEditor((s) => s.autoRules);
+  const setAuto = useEditor((s) => s.setAutoRules);
   const run = () => {
-    let counts = { giveWay: 0, mainRoads: 0 };
-    apply((d) => {
-      const r = placeRuleSigns(d);
-      counts = r;
-      return r.doc;
-    });
-    notify(counts.giveWay || counts.mainRoads
-      ? `Знаки по ПДД: «Уступи дорогу» на ${counts.giveWay} въездах, главная дорога на ${counts.mainRoads} участках`
-      : 'Новых знаков не нужно: на перекрёстках уже есть светофоры или знаки, либо дороги равнозначны');
+    let line: string | null = null;
+    apply((d) => { const r = applyRules(d); line = countsLine(r.counts); return r.doc; });
+    notify(line ?? 'Граф уже по ПДД: ставить нечего');
   };
   return (
-    <button className="btn btn-sm rule-signs" onClick={run} title="На перекрёстках без светофора дороги старшего класса становятся главными, второстепенные въезды получают «Уступи дорогу». Равнозначные дороги не трогаются: там правило правой руки.">
-      Расставить знаки по ПДД
-    </button>
+    <div className="rule-signs">
+      <label className="check" title="После каждой правки сети: приоритет на перекрёстках, скорость, одностороннее движение, жилые зоны, переходы и переезды">
+        <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Знаки по ПДД автоматически
+      </label>
+      <button className="btn btn-sm" onClick={run} title="Главная дорога и «Уступи дорогу» на нерегулируемых перекрёстках, скорость по ПДД, 5.5 и 3.1 на односторонних, 5.21/5.22 у жилых зон, переходы и переезды на пересечениях. Знаки, поставленные вручную, не трогаются.">
+        Привести граф к ПДД
+      </button>
+    </div>
   );
 }
-

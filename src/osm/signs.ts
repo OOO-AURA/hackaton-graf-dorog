@@ -22,7 +22,7 @@ export type ApproachControl = 'signal' | 'stop' | 'give_way' | null;
 export type SignKind = 'give_way' | 'stop' | 'main_road' | 'crossing' | `ts:${string}`;
 
 /** How far from a junction a light or sign on the approach still controls it, metres. */
-const CONTROL_REACH = 40;
+export const CONTROL_REACH = 40;
 /** Where a placed give-way sign stands, metres before the junction centre (beyond the widest road). */
 const SIGN_BACK_MIN = 10;
 const SIGN_BACK_MARGIN = 4;
@@ -42,8 +42,8 @@ const RANK: Readonly<Record<string, number>> = {
  * Yard driveways and living streets need no sign: whoever leaves them gives way anyway (ПДД 8.3,
  * 17.3), so only streets of this rank and up take part in the main road.
  */
-const STREET_RANK = RANK.residential;
-const rank = (tags: Tags) => {
+export const STREET_RANK = RANK.residential;
+export const rank = (tags: Tags) => {
   const h = tags.highway ?? '';
   return h.endsWith('_link') ? (RANK[h.slice(0, -5)] ?? 0) - 0.5 : RANK[h] ?? 0;
 };
@@ -66,7 +66,7 @@ const halfWidth = (tags: Tags) => {
 };
 
 /** Node ids along an arm, from the junction outwards. */
-function armRefs(way: OsmWay, arm: Arm): string[] {
+export function armRefs(way: OsmWay, arm: Arm): string[] {
   return arm.step === 1 ? way.refs.slice(arm.index) : way.refs.slice(0, arm.index + 1).reverse();
 }
 
@@ -96,7 +96,7 @@ export function approachControl(doc: OsmDoc, nodeId: string, arm: Arm): Approach
 const incomingDirection = (arm: Arm) => (arm.step === 1 ? 'backward' : 'forward');
 
 /** Puts a give-way (or stop) sign on the arm `back` metres from the junction, on a node there or a new one. */
-function addGiveWay(doc: OsmDoc, nodeId: string, arm: Arm, back: number, highway: 'give_way' | 'stop' = 'give_way', own?: Tags): OsmDoc {
+export function addGiveWay(doc: OsmDoc, nodeId: string, arm: Arm, back: number, highway: 'give_way' | 'stop' = 'give_way', own?: Tags): OsmDoc {
   const way = doc.ways[arm.wayId];
   const refs = armRefs(way, arm);
   const f = frame(doc.nodes[nodeId].lat);
@@ -118,7 +118,7 @@ function addGiveWay(doc: OsmDoc, nodeId: string, arm: Arm, back: number, highway
   return doc;
 }
 
-const signBack = (doc: OsmDoc, arms: readonly Arm[]) =>
+export const signBack = (doc: OsmDoc, arms: readonly Arm[]) =>
   Math.max(SIGN_BACK_MIN, Math.max(...arms.map((a) => halfWidth(doc.ways[a.wayId].tags))) + SIGN_BACK_MARGIN);
 
 /** The sign a driver sees coming into the junction along an arm: main road, give way, stop or none. */

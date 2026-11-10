@@ -6,6 +6,7 @@ import { streetWays } from '../osm/street';
 export type { DrawPoint };
 import { validate, type ValidationReport } from '../osm/validate';
 import type { Piece } from '../osm/pieces';
+import { applyRules, countsLine, networkChange } from '../osm/rules';
 
 /** `view` looks only: objects are picked and shown, nothing is changed. */
 export type Mode = 'view' | 'select' | 'draw' | 'insert' | 'signal' | 'building';
@@ -51,6 +52,9 @@ interface EditorState {
   beginGesture: () => void;
   /** Updates the document during a gesture without adding history entries. */
   applyLive: (edit: (doc: OsmDoc) => OsmDoc) => void;
+  /** Traffic rules applied by themselves after every change of the network (osm/rules.ts). */
+  autoRules: boolean;
+  setAutoRules: (on: boolean) => void;
   undo: () => void;
   redo: () => void;
   select: (selection: Selection) => void;
@@ -66,6 +70,28 @@ interface EditorState {
 }
 
 const pushPast = (past: OsmDoc[], doc: OsmDoc) => [...past, doc].slice(-HISTORY_LIMIT);
+
+/** What the rules did in the edit just made, until the end of this turn of the event loop. */
+let rulesLine: string | null = null;
+function showRulesLine(line: string | null): void {
+  if (!line) return;
+  rulesLine = line;
+  queueMicrotask(() => { rulesLine = null; });
+}
+
+const AUTO_RULES_KEY = 'graf.auto-rules';
+function readAutoRules(): boolean {
+  try { return localStorage.getItem(AUTO_RULES_KEY) !== 'off'; } catch { return true; }
+}
+
+/** The document after an edit with the traffic rules applied to what it changed, and what they did. */
+function withRules(on: boolean, before: OsmDoc, after: OsmDoc): { next: OsmDoc; line: string | null } {
+  if (!on || after === before) return { next: after, line: null };
+  const scope = networkChange(before, after);
+  if (!scope) return { next: after, line: null };
+  const r = applyRules(after, scope);
+  return { next: r.doc, line: countsLine(r.counts) };
+}
 
 /** In the view tool nothing may change: says so instead of applying an edit. */
 function viewOnly(get: () => { mode: Mode; notify: (m: string | null) => void }): boolean {
@@ -99,12 +125,26 @@ export const useEditor = create<EditorState>((set, get) => ({
   apply: (edit) => {
     if (viewOnly(get)) return;
     const { doc, past } = get();
-    const next = edit(doc);
-    if (next === doc) return;
-    set({ doc: next, past: pushPast(past, doc), future: [], report: null });
+    const changed = edit(doc);
+    if (changed === doc) return;
+    // The traffic rules follow every change of the network in the same step, so one undo takes both back.
+    const { next, line } = withRules(get().autoRules, doc, changed);
+    set({ doc: next, past: pushPast(past, doc), future: [], report: null, ...(line ? { message: line } : {}) });
+    showRulesLine(line);
   },
   beginGesture: () => { if (!viewOnly(get)) set(({ doc, past }) => ({ past: pushPast(past, doc), future: [] })); },
-  applyLive: (edit) => { if (!viewOnly(get)) set(({ doc }) => ({ doc: edit(doc), report: null })); },
+  applyLive: (edit) => {
+    if (viewOnly(get)) return;
+    const { doc } = get();
+    const { next, line } = withRules(get().autoRules, doc, edit(doc));
+    set({ doc: next, report: null, ...(line ? { message: line } : {}) });
+    showRulesLine(line);
+  },
+  autoRules: readAutoRules(),
+  setAutoRules: (autoRules) => {
+    try { localStorage.setItem(AUTO_RULES_KEY, autoRules ? 'on' : 'off'); } catch { /* storage off: holds for the session */ }
+    set({ autoRules });
+  },
   undo: () => {
     if (viewOnly(get)) return;
     const { past, doc, future } = get();
@@ -129,7 +169,8 @@ export const useEditor = create<EditorState>((set, get) => ({
     return report;
   },
   setFocusIssue: (focusIssue) => set({ focusIssue }),
-  notify: (message) => set({ message }),
+  // A message right after an edit keeps what the traffic rules did beside it.
+  notify: (message) => set({ message: message && rulesLine && message !== rulesLine ? `${message} · ${rulesLine}` : message }),
 }));
 
 // Headless checks in dev builds drive the editor through this, like the map through window.__map.
