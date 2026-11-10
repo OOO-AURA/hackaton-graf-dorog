@@ -3,6 +3,7 @@ import { useEditor } from '../state/store';
 import { useUi } from '../state/ui';
 import { setRouteInterval, transitRoutes, type TransitRoute } from '../transit/routes';
 import { useTransit } from '../transit/store';
+import { useSettledDoc } from '../state/settled';
 
 function RouteCard({ route }: { route: TransitRoute }) {
   const apply = useEditor((s) => s.apply);
@@ -32,7 +33,7 @@ function RouteCard({ route }: { route: TransitRoute }) {
 
 /** Bus and trolleybus routes of the fragment: list, highlight on the map, headway for SUMO. */
 export function TransitPanel() {
-  const doc = useEditor((s) => s.doc);
+  const doc = useSettledDoc();
   const routes = useMemo(() => transitRoutes(doc), [doc]);
   const { selected, select, inSim, setInSim } = useTransit();
   const layerOn = useUi((s) => s.layers.transit);

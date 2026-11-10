@@ -15,6 +15,7 @@ import { webotsElevation } from '../osm/structures';
 import { simulatorSpeeds } from '../osm/speeds';
 import { safeInput } from '../osm/pipelineSafety';
 import { SimulatorsSection } from './SimulatorsSection';
+import { useSettledDoc } from '../state/settled';
 
 export const HIGHWAY_LABELS: Readonly<Record<string, string>> = {
   motorway: 'Автомагистраль', trunk: 'Скоростная', primary: 'Магистральная', secondary: 'Районная', tertiary: 'Улица местного значения',
@@ -49,7 +50,7 @@ function elevationHint(t: Tags): string {
 export function WayInspector({ way }: { way: OsmWay }) {
   const apply = useEditor((s) => s.apply);
   const select = useEditor((s) => s.select);
-  const doc = useEditor((s) => s.doc);
+  const doc = useSettledDoc();
   const t = way.tags;
   const streetParts = t.name ? streetWays(doc, t.name).length : 0;
   const notify = useEditor((s) => s.notify);

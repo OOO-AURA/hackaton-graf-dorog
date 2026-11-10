@@ -2,6 +2,7 @@ import type { Feature, FeatureCollection, LineString, Point, Polygon } from 'geo
 import { buildingHeight as heightOf } from '../osm/building';
 import { direction, highwayColor, isDrivable } from '../osm/tags';
 import { nodeSymbol } from './features';
+import { isRailLine, isRailWay, stationKind } from '../osm/rail';
 import { thematicProps } from './thematic';
 import type { OsmDoc, OsmWay } from '../osm/types';
 import { pxPerMetreZ17 } from './lanesGeo';
@@ -88,19 +89,49 @@ export function contextGeoJson(doc: OsmDoc) {
     const c = coords(doc, w);
     if (w.tags.building && c.length >= 4) {
       polygons.push({ type: 'Feature', properties: { id: w.id, height: buildingHeight(w.tags) }, geometry: { type: 'Polygon', coordinates: [c] } });
-    } else if (w.tags.railway || w.tags.highway) {
-      lines.push({ type: 'Feature', properties: { id: w.id, kind: w.tags.railway ? 'rail' : 'path' }, geometry: { type: 'LineString', coordinates: c } });
+    } else if (w.tags.highway && !isRailWay(w.tags)) {
+      lines.push({ type: 'Feature', properties: { id: w.id, kind: 'path' }, geometry: { type: 'LineString', coordinates: c } });
     }
   });
   return { lines: collection(lines), buildings: collection(polygons) };
 }
 
-/** Nodes of the road graph: intersections, ends, signals; plus every vertex of the selected way. */
+const isYes = (v: string | undefined) => Boolean(v && v !== 'no');
+
+/** Railway tracks and platforms, an editable layer of their own. */
+export function railGeoJson(doc: OsmDoc) {
+  const features: Feature<LineString, Props>[] = [];
+  Object.values(doc.ways).forEach((w) => {
+    if (w.refs.length < 2 || !isRailWay(w.tags)) return;
+    features.push({
+      type: 'Feature',
+      properties: {
+        id: w.id, kind: isRailLine(w.tags) ? (w.tags.railway as string) : 'platform', service: w.tags.service ?? '',
+        bridge: isYes(w.tags.bridge), tunnel: isYes(w.tags.tunnel),
+      },
+      geometry: { type: 'LineString', coordinates: coords(doc, w) },
+    });
+  });
+  return collection(features);
+}
+
+/** Railway stations, halts and tram stops with their names. */
+export function stationGeoJson(doc: OsmDoc) {
+  const features: Feature<Point, Props>[] = [];
+  Object.values(doc.nodes).forEach((n) => {
+    const kind = stationKind(n.tags);
+    if (!kind) return;
+    features.push({ type: 'Feature', properties: { id: n.id, kind, name: n.tags.name ?? '' }, geometry: { type: 'Point', coordinates: [n.lon, n.lat] } });
+  });
+  return collection(features);
+}
+
+/** Nodes of the road and rail graphs: intersections, ends, signals; plus every vertex of the selected way. */
 export function nodesGeoJson(doc: OsmDoc, selectedWay: string | null) {
   const usage = new Map<string, number>();
   const ends = new Set<string>();
   Object.values(doc.ways).forEach((w) => {
-    if (!isDrivable(w.tags)) return;
+    if (!isDrivable(w.tags) && !isRailLine(w.tags)) return;
     w.refs.forEach((r) => usage.set(r, (usage.get(r) ?? 0) + 1));
     ends.add(w.refs[0]);
     ends.add(w.refs[w.refs.length - 1]);

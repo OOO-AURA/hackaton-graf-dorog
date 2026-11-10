@@ -19,9 +19,10 @@ import { useSim, vehiclesAt } from '../sim/store';
 import { losFeatures, signalFeatures } from '../sim/overlay';
 import { useMacro } from '../macro/store';
 import { useZoneEditing } from '../macro/useZoneEditing';
-import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson } from '../map/geojson';
+import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson, railGeoJson, stationGeoJson } from '../map/geojson';
 import { useMapInteractions } from '../map/useMapInteractions';
 import { currentSelection, useEditor } from '../state/store';
+import { useSettledDoc } from '../state/settled';
 import { streetWays } from '../osm/street';
 import { useBundle } from '../macro/bundleStore';
 import { diffFeatures, docDiff } from '../osm/diff';
@@ -73,6 +74,8 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     setData(map, 'buildings', context.buildings);
     setData(map, 'context', context.lines);
     setData(map, 'roads', roadsGeoJson(doc));
+    setData(map, 'rails', railGeoJson(doc));
+    setData(map, 'stations', stationGeoJson(doc));
   }, [map, doc]);
 
   useEffect(() => {
@@ -88,13 +91,15 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
   }, [map, route]);
 
   const baseDoc = useEditor((s) => s.baseDoc);
+  const settledDoc = useSettledDoc();
   const changesOn = useUi((s) => s.layers.changes);
   useEffect(() => {
     // The diff walks every object, so it runs only while the layer is shown.
-    if (map) setData(map, 'changes', { type: 'FeatureCollection', features: changesOn ? diffFeatures(docDiff(baseDoc, doc), baseDoc, doc) : [] });
-  }, [map, doc, baseDoc, changesOn]);
+    if (map) setData(map, 'changes', { type: 'FeatureCollection', features: changesOn ? diffFeatures(docDiff(baseDoc, settledDoc), baseDoc, settledDoc) : [] });
+  }, [map, settledDoc, baseDoc, changesOn]);
 
-  const routes = useMemo(() => transitRoutes(doc), [doc]);
+  const settled = useSettledDoc();
+  const routes = useMemo(() => transitRoutes(settled), [settled]);
   const transitSel = useTransit((s) => s.selected);
   useEffect(() => {
     if (map) setData(map, 'transit', transitGeoJson(routes, transitSel));
@@ -143,7 +148,8 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
 
 /** Lanes, links across junctions and, at the selected junction, the lane ends. */
 function useLanes(map: MapLibreMap | null): void {
-  const doc = useEditor((s) => s.doc);
+  // Worked out for the whole map: while a node is dragged they wait for it to be let go.
+  const doc = useSettledDoc();
   const selection = useEditor((s) => currentSelection(s));
   const theme = useUi((s) => s.theme);
   const flows = useMacro((s) => s.result?.flows);
@@ -191,8 +197,9 @@ function useMapLook(map: MapLibreMap | null): void {
   useEffect(() => { if (alive(map)) applyBasemapTone(map, theme, opacity); }, [map, theme, opacity]);
   const view3dOn = useUi((s) => s.view3d);
   useEffect(() => { if (alive(map)) applyLayerVisibility(map, layers, view3dOn); }, [map, layers, view3dOn]);
-  // The 3D mesh is built only while 3D is on, and again on every edit or theme change.
-  const doc3d = useEditor((s) => s.doc);
+  // The 3D mesh is built only while 3D is on, and again on every edit or theme change; a node
+  // being dragged moves on the 2D layers, the mesh follows when it is let go.
+  const doc3d = useSettledDoc();
   useEffect(() => {
     if (!alive(map)) return;
     sceneOf(map)?.setMesh(view3dOn ? buildScene3d(doc3d, sceneColors(MAP_PALETTE[theme], look)) : null);

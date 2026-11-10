@@ -2,10 +2,11 @@ import { isDrivable } from '../osm/tags';
 import { useEditor } from '../state/store';
 import { Section } from './Section';
 import { BuildingHeightFields, RoadLevelFields } from './HeightFields';
+import { useSettledDoc } from '../state/settled';
 
 /** Several ways selected with a frame: their height is set for all of them at once. */
 export function MultiInspector({ ids }: { ids: readonly string[] }) {
-  const doc = useEditor((s) => s.doc);
+  const doc = useSettledDoc();
   const selectMany = useEditor((s) => s.selectMany);
   const buildings = ids.filter((id) => doc.ways[id]?.tags.building);
   const roads = ids.filter((id) => doc.ways[id] && isDrivable(doc.ways[id].tags));
