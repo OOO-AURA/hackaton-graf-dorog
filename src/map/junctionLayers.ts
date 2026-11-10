@@ -1,5 +1,6 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { provideTurnArrows, TURN_ARROW_HEIGHT } from './turnArrows';
+import { addRoadSignImages } from './roadSigns';
 
 /**
  * Map layers of junctions, drawn like an engineering plan: the junction outline, zebras and stop
@@ -8,17 +9,25 @@ import { provideTurnArrows, TURN_ARROW_HEIGHT } from './turnArrows';
  * zoom 16.5, where lanes are wide enough to tell apart.
  */
 
-export const JUNCTION_SOURCES = ['junction-areas', 'stop-lines', 'lane-arrows', 'zebras'] as const;
+export const JUNCTION_SOURCES = ['junction-areas', 'stop-lines', 'lane-arrows', 'zebras', 'road-signs'] as const;
 export const JUNCTION_LAYERS = [
-  'junction-area-fill', 'junction-area-line', 'zebra-base', 'zebra-stripes', 'stop-lines', 'lane-ribbons', 'lane-links', 'lane-arrows', 'lane-ends',
+  'junction-area-fill', 'junction-area-line', 'zebra-base', 'zebra-stripes', 'stop-lines', 'yield-lines', 'lane-ribbons', 'lane-links', 'lane-arrows', 'lane-ends',
 ] as const;
+/**
+ * Lane arrows of a bridge or tunnel approach stand on the deck or in the tube; in 3D their flat
+ * copies would lie on the ground under it. The junction itself is on the ground (the deck comes
+ * down at its edge), so its ribbons and lines stay.
+ */
+export const UNDER_DECK_LAYERS = ['lane-arrows'] as const;
+/** Signs are drawn in 2D only. */
+export const SIGN_LAYER = 'road-signs';
 
 export const TURN_COLORS = { through: '#2CC7C9', right: '#4C8DF6', left: '#F2A33A', uturn: '#E86AB4' } as const;
 const turnColor = ['match', ['get', 'group'], 'right', TURN_COLORS.right, 'left', TURN_COLORS.left, 'uturn', TURN_COLORS.uturn, TURN_COLORS.through];
 
 const MINZOOM = 16.5;
-/** How long an arrow is on the road, in lane widths. */
-const ARROW_LANES = 1.7;
+/** How long an arrow is on the road, in lane widths; its width then stays inside the lane. */
+const ARROW_LANES = 1.35;
 
 /**
  * A width of `w17` px at zoom 17 (a size in metres), doubling per zoom step like the roads, and
@@ -40,8 +49,11 @@ export function addJunctionLayers(map: MapLibreMap): void {
     paint: { 'line-color': '#F2C230', 'line-width': metres() } });
   map.addLayer({ id: 'zebra-stripes', type: 'line', source: 'zebras', minzoom: MINZOOM, layout: LINE,
     paint: { 'line-color': '#FFFFFF', 'line-width': metres(), 'line-dasharray': [0.18, 0.18] } });
-  map.addLayer({ id: 'stop-lines', type: 'line', source: 'stop-lines', minzoom: MINZOOM, layout: LINE,
+  map.addLayer({ id: 'stop-lines', type: 'line', source: 'stop-lines', minzoom: MINZOOM, layout: LINE, filter: ['==', ['get', 'kind'], 'stop'],
     paint: { 'line-color': '#FFFFFF', 'line-width': metres(1, 1.5), 'line-opacity': 0.95 } });
+  // Give-way line 1.13: a row of short white marks across the lanes.
+  map.addLayer({ id: 'yield-lines', type: 'line', source: 'stop-lines', minzoom: MINZOOM, layout: LINE, filter: ['==', ['get', 'kind'], 'yield'],
+    paint: { 'line-color': '#FFFFFF', 'line-width': metres(1, 1.5), 'line-dasharray': [0.7, 0.7], 'line-opacity': 0.95 } });
   map.addLayer({ id: 'lane-ribbons', type: 'line', source: 'lane-links', minzoom: MINZOOM, layout: LINE,
     paint: { 'line-color': turnColor as never, 'line-width': metres(0.85), 'line-opacity': ['case', ['get', 'picked'], 0.6, ['get', 'edit'], 0.34, 0.2] } });
   map.addLayer({ id: 'lane-links', type: 'line', source: 'lane-links', minzoom: MINZOOM, layout: { 'line-cap': 'round', 'line-join': 'round' },
@@ -55,6 +67,12 @@ export function addJunctionLayers(map: MapLibreMap): void {
       'icon-image': ['get', 'icon'], 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-pitch-alignment': 'map',
       'icon-allow-overlap': true, 'icon-ignore-placement': true,
       'icon-size': metres(ARROW_LANES / TURN_ARROW_HEIGHT),
+    } });
+  addRoadSignImages(map);
+  map.addLayer({ id: SIGN_LAYER, type: 'symbol', source: 'road-signs', minzoom: 16,
+    layout: {
+      'icon-image': ['concat', 'road-sign-', ['get', 'sign']], 'icon-allow-overlap': true, 'icon-ignore-placement': true,
+      'icon-size': ['interpolate', ['linear'], ['zoom'], 16, 0.7, 18, 1, 20, 1.5],
     } });
   map.addLayer({ id: 'lane-ends', type: 'circle', source: 'lane-ends', minzoom: 16,
     paint: {

@@ -119,9 +119,13 @@ def tls_centre(t):
 
 
 def program(plan):
-    """Static program for the traffic light nearest to the OSM node: yellow and all-red keep their
-    length, the rest of the cycle goes to green phases, `share` of it to the main ones."""
-    lon, lat, cycle, share = plan
+    """Program for the traffic light nearest to the OSM node: yellow and all-red keep their
+    length, the rest of the cycle goes to green phases, `share` of it to the main ones. An adaptive
+    plan is a SUMO actuated program: each green lasts between its min and max and ends once the gap
+    between cars at the stop line is over max-gap, so the busier direction keeps the green."""
+    lon, lat, cycle, share = plan[:4]
+    adaptive = len(plan) > 4 and plan[4] > 0
+    min_green, max_green, max_gap = (plan[5], plan[6], plan[7]) if len(plan) > 7 else (8.0, 50.0, 3.0)
     x, y = to_xy(lon, lat)
     best = None
     for t in net.getTrafficLights():
@@ -155,8 +159,18 @@ def program(plan):
         durations[i] = max(5.0, green_time * share / len(main))
     for i in side:
         durations[i] = max(5.0, green_time * (1 - share) / len(side))
-    body = "".join(f'    <phase duration="{d:.0f}" state="{st}"/>\n' for d, (_, st) in zip(durations, phases))
-    xml = f'  <tlLogic id="{t.getID()}" type="static" programID="graf" offset="0">\n{body}  </tlLogic>\n'
+    if adaptive:
+        def phase(i, d, st):
+            if not is_green[i]:
+                return f'    <phase duration="{d:.0f}" state="{st}"/>\n'
+            start = min(max(d, min_green), max_green)
+            return f'    <phase duration="{start:.0f}" minDur="{min_green:.0f}" maxDur="{max_green:.0f}" state="{st}"/>\n'
+        body = "".join(phase(i, d, st) for i, (d, (_, st)) in enumerate(zip(durations, phases)))
+        params = f'    <param key="max-gap" value="{max_gap:.1f}"/>\n    <param key="detector-gap" value="2.0"/>\n'
+        xml = f'  <tlLogic id="{t.getID()}" type="actuated" programID="graf" offset="0">\n{params}{body}  </tlLogic>\n'
+    else:
+        body = "".join(f'    <phase duration="{d:.0f}" state="{st}"/>\n' for d, (_, st) in zip(durations, phases))
+        xml = f'  <tlLogic id="{t.getID()}" type="static" programID="graf" offset="0">\n{body}  </tlLogic>\n'
     return {"tls": t.getID(), "xml": xml, "cycle": round(sum(durations))}
 
 

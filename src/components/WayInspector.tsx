@@ -92,6 +92,10 @@ export function WayInspector({ way }: { way: OsmWay }) {
           <button className="btn" onClick={flipSelected} disabled={dir === 'both'} title="F"><Icon name="flip" /> Сменить направление <kbd>F</kbd></button>
           <button className="btn" onClick={reverseSelected} title="R"><Icon name="reverse" /> Развернуть линию <kbd>R</kbd></button>
         </div>
+        <label className="check" title="priority_road=designated. На перекрёстках без светофора у въездов этой дороги стоит знак 2.1">
+          <input type="checkbox" checked={t.priority_road === 'designated'} onChange={(e) => set('priority_road')(e.target.checked ? 'designated' : '')} />
+          Главная дорога (знак 2.1)
+        </label>
       </Section>
       {profile && (
         <Section title="Профиль по СП">

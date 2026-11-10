@@ -8,6 +8,7 @@ import { addEditorLayers, applyLayerVisibility, applyPalette, applyRoadColors, s
 import { buildScene3d } from '../map/mesh3d';
 import { junctionGeometry, laneLines, zebras, type LaneStyle } from '../map/lanesGeo';
 import { junctions } from '../osm/lanes';
+import { signPoints } from '../osm/signs';
 import { vcColor } from '../macro/compute';
 import { loadCamera, saveCamera } from '../map/camera';
 import { applyBasemapTone, BASE_STYLE } from '../map/style';
@@ -159,6 +160,7 @@ function useLanes(map: MapLibreMap | null): void {
   const editing = selection?.type === 'node' && nodes.includes(selection.id) ? selection.id : null;
   useEffect(() => { if (map) setData(map, 'lanes', laneLines(doc, style)); }, [map, doc, style]);
   useEffect(() => { if (map) setData(map, 'zebras', zebras(doc)); }, [map, doc]);
+  useEffect(() => { if (map) setData(map, 'road-signs', signPoints(doc)); }, [map, doc]);
   useEffect(() => {
     if (!map) return;
     const { ends, links, areas, stops, arrows } = junctionGeometry(doc, nodes, editing, style);

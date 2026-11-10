@@ -2,6 +2,7 @@ import type { Feature, FeatureCollection, LineString, Point, Polygon } from 'geo
 import { armKey, armsAt, junctionLanes, junctions, turnSide, type Arm, type Turn } from '../osm/lanes';
 import { lanesByDirection } from '../osm/profile';
 import { isDrivable } from '../osm/tags';
+import { approachControl } from '../osm/signs';
 import type { OsmDoc, OsmWay, Tags } from '../osm/types';
 
 /**
@@ -84,8 +85,10 @@ export function roadWidthMetres(tags: Tags): number {
 
 const halfWidth = (tags: Tags) => roadWidthMetres(tags) / 2;
 
+const isRaised = (tags: Tags) => Boolean((tags.bridge && tags.bridge !== 'no') || (tags.tunnel && tags.tunnel !== 'no'));
+
 /** How far from the centre of a junction its lanes end. */
-function junctionRadius(doc: OsmDoc, nodeId: string): number {
+export function junctionRadius(doc: OsmDoc, nodeId: string): number {
   return Math.max(...armsAt(doc, nodeId).map((a) => halfWidth(doc.ways[a.wayId].tags)), 3) + JUNCTION_MARGIN;
 }
 
@@ -157,7 +160,7 @@ export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<Line
     if (!isDrivable(w.tags) || w.refs.length < 2) continue;
     const { forward, backward } = travelLanes(w.tags);
     const vc = style.load(w.id);
-    const raised = Boolean((w.tags.bridge && w.tags.bridge !== 'no') || (w.tags.tunnel && w.tags.tunnel !== 'no'));
+    const raised = isRaised(w.tags);
     const marks = dividerOffsets(w.tags);
     for (const piece of pieces(w)) {
       const nodes = piece.refs.map((r) => doc.nodes[r]).filter(Boolean);
@@ -274,6 +277,7 @@ export function junctionGeometry(doc: OsmDoc, nodeIds: readonly string[], withEn
     const lanes = junctionLanes(doc, nodeId);
     const endOf = (arm: Arm, coming: boolean, i: number) => laneEnd(doc, arm, coming, i, r, f);
     const edit = nodeId === withEnds;
+    const raisedWay = (wayId: string) => isRaised(doc.ways[wayId]?.tags ?? {});
     lanes.links.forEach((l) => {
       const a = endOf(l.from, true, l.fromLane);
       const b = endOf(l.to, false, l.toLane);
@@ -282,6 +286,7 @@ export function junctionGeometry(doc: OsmDoc, nodeIds: readonly string[], withEn
         properties: {
           node: nodeId, from: armKey(l.from), lane: l.fromLane, to: armKey(l.to), turn: l.turn, group: turnGroup(l.turn),
           w17: laneWidth(doc.ways[l.from.wayId].tags) * px, color: style.color(style.load(l.from.wayId)), edit,
+          raised: raisedWay(l.from.wayId) || raisedWay(l.to.wayId),
         },
         geometry: { type: 'LineString', coordinates: curve(a, b).map(f.back) },
       });
@@ -304,13 +309,21 @@ export function junctionGeometry(doc: OsmDoc, nodeIds: readonly string[], withEn
       const lo = inEnds[proj.indexOf(Math.min(...proj))].p;
       const hi = inEnds[proj.indexOf(Math.max(...proj))].p;
       const at = (p: V, side: number, back: number): V => [p[0] + across[0] * side * (w / 2) + out[0] * back, p[1] + across[1] * side * (w / 2) + out[1] * back];
-      stops.push({ type: 'Feature', properties: { node: nodeId, w17: 0.5 * px }, geometry: { type: 'LineString', coordinates: [at(lo, -1, STOP_BACK), at(hi, 1, STOP_BACK)].map(f.back) } });
+      // A stop line only where traffic has to stop: a light or a stop sign; a give-way sign has its
+      // own dashed line (marking 1.13). A junction with neither has no line at all, as on the street.
+      const control = approachControl(doc, nodeId, arm);
+      if (control) {
+        stops.push({
+          type: 'Feature', properties: { node: nodeId, w17: (control === 'give_way' ? 0.6 : 0.4) * px, kind: control === 'give_way' ? 'yield' : 'stop', raised: raisedWay(arm.wayId) },
+          geometry: { type: 'LineString', coordinates: [at(lo, -1, STOP_BACK), at(hi, 1, STOP_BACK)].map(f.back) },
+        });
+      }
       const approach = lanes.approaches.find((ap) => armKey(ap.arm) === armKey(arm));
       inEnds.forEach((e, i) => {
         const p: V = [e.p[0] + out[0] * ARROW_BACK, e.p[1] + out[1] * ARROW_BACK];
         arrows.push({
           type: 'Feature',
-          properties: { node: nodeId, icon: arrowIcon(approach?.turns[i] ?? []), bearing: bearingOf([-out[0], -out[1]]), w17: w * px },
+          properties: { node: nodeId, icon: arrowIcon(approach?.turns[i] ?? []), bearing: bearingOf([-out[0], -out[1]]), w17: w * px, raised: raisedWay(arm.wayId) },
           geometry: { type: 'Point', coordinates: f.back(p) },
         });
       });

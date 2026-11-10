@@ -68,14 +68,21 @@ describe('junction drawing', () => {
     expect(links.features.every((f) => Number(f.properties.w17) > 5)).toBe(true);
   });
 
-  test('the junction gets an outline, a stop line on every approach and an arrow on every lane coming in', () => {
+  test('the junction gets an outline and an arrow on every lane coming in, but no stop line without a light', () => {
     const { areas, stops, arrows } = geo();
     expect(areas.features).toHaveLength(1);
     expect(areas.features[0].geometry.type).toBe('Polygon');
-    expect(stops.features).toHaveLength(4);
+    expect(stops.features).toHaveLength(0);
     expect(arrows.features).toHaveLength(4);
     // One lane per direction takes every turn the junction offers.
     expect(arrows.features[0].properties.icon).toBe('turn-arrow:left-through-right');
+  });
+
+  test('a junction with a traffic light has a stop line on every approach', () => {
+    const lit = { ...CROSS, nodes: { ...CROSS.nodes, '5': { ...CROSS.nodes['5'], tags: { highway: 'traffic_signals' } } } };
+    const { stops } = junctionGeometry(lit, ['5'], null, STYLE);
+    expect(stops.features).toHaveLength(4);
+    expect(stops.features.every((f) => f.properties.kind === 'stop')).toBe(true);
   });
 
   test('a crossing on a road is a zebra across it, as wide as the road', () => {

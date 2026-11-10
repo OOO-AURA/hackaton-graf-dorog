@@ -2,7 +2,8 @@ import earcut from 'earcut';
 import { isDrivable } from '../osm/tags';
 import type { OsmDoc, OsmWay } from '../osm/types';
 import { buildingHeight, LAYER_STEP } from '../osm/height';
-import { dividerOffsets } from './lanesGeo';
+import { dividerOffsets, junctionRadius } from './lanesGeo';
+import { junctions } from '../osm/lanes';
 
 /**
  * Geometry of the 3D view in local metres around an origin: x east, y south (the way Web
@@ -240,6 +241,29 @@ export function densify(pts: readonly P2[], step: number): P2[] {
 }
 
 const RAMP_STEP = 3;
+/** A bridge too short to keep a deck after cutting it back at junctions is left whole. */
+const MIN_DECK = 6;
+
+/** The part of a polyline from `from` metres to `to` metres along it. */
+function cut(pts: readonly P2[], from: number, to: number): P2[] {
+  const d = cumulative(pts);
+  const at = (x: number): P2 => {
+    const i = Math.max(0, Math.min(pts.length - 2, d.findIndex((v) => v >= x) - 1));
+    const k = (x - d[i]) / ((d[i + 1] - d[i]) || 1);
+    return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * k, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * k];
+  };
+  return [at(from), ...pts.filter((_, i) => d[i] > from && d[i] < to), at(to)];
+}
+
+/**
+ * A bridge that ends at a junction stops where the junction's lanes do, so the deck comes down
+ * at its edge and the turn ribbons on the ground carry its lanes on instead of hiding under it.
+ */
+function trimAtJunctions(pts: P2[], startCut: number, endCut: number): P2[] {
+  const total = cumulative(pts)[pts.length - 1] ?? 0;
+  if (total - startCut - endCut < MIN_DECK) return pts;
+  return cut(pts, startCut, total - endCut);
+}
 
 function addBridge(solid: Buf, shadows: Buf, mask: Buf, raw: P2[], tags: Record<string, string>, colors: Scene3dColors) {
   const pts = densify(raw, RAMP_STEP);
@@ -519,13 +543,15 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
   const buildings = groups.reduce((a, b) => Math.max(a, b), 0);
   const pickIds = buildingWays.map((w) => w.id);
 
+  const junctionNodes = new Set(junctions(doc));
+  const cutAt = (id: string | undefined) => (id && junctionNodes.has(id) ? junctionRadius(doc, id) : 0);
   Object.values(doc.ways).forEach((w) => {
     const pts = pointsOf(w);
     if (pts.length < 2 || w.tags.building) return;
     if (!isDrivable(w.tags)) return;
     if (isBridge(w)) {
       const start = structures.length;
-      addBridge(structures, shadows, mask, pts, w.tags, colors);
+      addBridge(structures, shadows, mask, trimAtJunctions(pts, cutAt(w.refs[0]), cutAt(w.refs[w.refs.length - 1])), w.tags, colors);
       pickIds.push(w.id);
       structures.fill(start, 11, pickIds.length);
       return;

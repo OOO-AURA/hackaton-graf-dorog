@@ -2,7 +2,7 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { LayerId } from '../state/ui';
 import { ROAD_CLASSES, roadColorExpression, type MapPalette } from './palette';
 import { Scene3dLayer, SCENE3D_LAYER } from './scene3d';
-import { addJunctionLayers, JUNCTION_LAYERS, JUNCTION_SOURCES } from './junctionLayers';
+import { addJunctionLayers, JUNCTION_LAYERS, JUNCTION_SOURCES, SIGN_LAYER, UNDER_DECK_LAYERS } from './junctionLayers';
 import type { Rgb, Scene3dColors } from './mesh3d';
 import { thematicExpression, type RoadColorMode } from './thematic';
 import type { RoadLook } from '../state/ui';
@@ -286,6 +286,8 @@ export function applyRoadColors(map: MapLibreMap, p: MapPalette, mode: RoadColor
   map.setPaintProperty('roads-bridge', 'line-color', color as never);
   // On asphalt the casing is the edge line of the carriageway.
   map.setPaintProperty('roads-casing', 'line-color', (asphalt ? p.asphaltEdge : ['case', ['get', 'bridge'], p.bridgeCasing, p.casing]) as never);
+  // On a plan the arrows painted on the lanes show the direction; the graph arrows would clutter it.
+  map.setPaintProperty('roads-arrows', 'icon-opacity', asphalt ? 0 : 1);
 }
 
 const ROAD_LAYERS = ['roads-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line', 'lanes', 'lane-marks-casing', 'lane-marks-dash', 'lane-marks-solid', ...JUNCTION_LAYERS];
@@ -325,4 +327,6 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   map.setFilter('lane-marks-casing', flat(['==', ['get', 'kind'], 'divider']));
   map.setFilter('lane-marks-dash', flat(DASHED_MARKS));
   map.setFilter('lane-marks-solid', flat(SOLID_MARKS));
+  UNDER_DECK_LAYERS.forEach((id) => map.setFilter(id, (view3d ? ['!=', ['get', 'raised'], true] : null) as never));
+  show(SIGN_LAYER, on.signs && !view3d);
 }

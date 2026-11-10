@@ -10,7 +10,7 @@ import type { TurnGroup } from './lanesGeo';
 const PREFIX = 'turn-arrow:';
 /** Drawn at four device pixels per CSS pixel, so arrows stay sharp when the map is close in. */
 const RATIO = 4;
-const W = 48;
+const W = 40;
 const H = 72;
 const SHAFT = 6;
 const HEAD = 9;
