@@ -404,7 +404,9 @@ struct ZoneEdges {
 const NETCONVERT_ARGS: &[&str] = &["--geometry.remove", "--ramps.guess", "--junctions.join", "--tls.guess-signals", "--tls.discard-simple",
     "--tls.join", "--tls.default-type", "actuated", "--roundabouts.guess",
     // Lane connections from turn:lanes, as the editor's junction view draws them.
-    "--osm.turn-lanes"];
+    "--osm.turn-lanes",
+    // Lanes for route vehicles and taxis (psv:lanes): only buses and taxis may use them.
+    "--osm.lane-access"];
 
 /// Sidewalks along urban roads and zebra crossings where OSM has them or junctions need them.
 const PEDESTRIAN_ARGS: &[&str] = &["--sidewalks.guess", "--crossings.guess", "--osm.sidewalks", "--osm.crossings"];

@@ -16,6 +16,7 @@ import { simulatorSpeeds } from '../osm/speeds';
 import { safeInput } from '../osm/pipelineSafety';
 import { SimulatorsSection } from './SimulatorsSection';
 import { useSettledDoc } from '../state/settled';
+import { BusLaneFields } from './BusParts';
 
 export const HIGHWAY_LABELS: Readonly<Record<string, string>> = {
   motorway: 'Автомагистраль', trunk: 'Скоростная', primary: 'Магистральная', secondary: 'Районная', tertiary: 'Улица местного значения',
@@ -108,6 +109,7 @@ export function WayInspector({ way }: { way: OsmWay }) {
           <input type="checkbox" checked={t.priority_road === 'designated'} onChange={(e) => set('priority_road')(e.target.checked ? 'designated' : '')} />
           Главная дорога (знак 2.1)
         </label>
+        <BusLaneFields way={way} />
       </Section>
       {profile && (
         <Section title="Профиль по СП">

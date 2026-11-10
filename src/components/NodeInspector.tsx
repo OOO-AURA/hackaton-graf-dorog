@@ -15,6 +15,7 @@ import { RouteSection } from './RouteSection';
 import { isJunction } from '../osm/turns';
 import { LaneTurnsSection } from './LaneTurnsSection';
 import { useSettledDoc } from '../state/settled';
+import { StopSection } from './BusParts';
 
 const NODE_KIND_OPTIONS = [
   ['', 'Обычный узел'], ['traffic_signals', 'Светофор'], ['crossing', 'Пешеходный переход'],
@@ -47,6 +48,7 @@ export function NodeInspector({ node }: { node: OsmNode }) {
         <SelectField label="Тип" value={node.tags.highway ?? ''} options={NODE_KIND_OPTIONS} onChange={setTag('highway')} />
         {isSignal && <SelectField label="Светофор действует" value={node.tags['traffic_signals:direction'] ?? ''} options={SIGNAL_DIRECTION_OPTIONS} onChange={setTag('traffic_signals:direction')} />}
         {node.tags.highway === 'crossing' && <SelectField label="Переход" value={node.tags.crossing ?? ''} options={CROSSING_OPTIONS} onChange={setTag('crossing')} />}
+        {node.tags.highway === 'bus_stop' && <StopSection node={node} />}
         <div className="row">
           <SelectField label="Неровность" value={node.tags.traffic_calming ?? ''} options={CALMING_OPTIONS} onChange={setTag('traffic_calming')} />
         </div>
