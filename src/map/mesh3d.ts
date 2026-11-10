@@ -2,7 +2,7 @@ import earcut from 'earcut';
 import { isDrivable } from '../osm/tags';
 import type { OsmDoc, OsmWay } from '../osm/types';
 import { buildingHeight, LAYER_STEP } from '../osm/height';
-import { dividerOffsets } from './lanesGeo';
+import { roadTapers, sectionAt, sectionOf, widthOf, type CrossSection, type Taper } from './section';
 
 /**
  * Geometry of the 3D view in local metres around an origin: x east, y south (the way Web
@@ -79,12 +79,9 @@ export function bridgeHeight(tags: Record<string, string>): number {
   return (Number.isFinite(layer) && layer > 0 ? layer : 1) * LAYER_HEIGHT;
 }
 
+/** Carriageway width, the same as the 2D road and its lanes. */
 export function roadWidth(tags: Record<string, string>): number {
-  const width = Number.parseFloat(tags.width ?? '');
-  if (Number.isFinite(width) && width > 0) return width;
-  const lanes = Number.parseInt(tags.lanes ?? '', 10);
-  const oneway = tags.oneway === 'yes' || tags.oneway === '1' || tags.oneway === '-1' || tags.junction === 'roundabout';
-  return (Number.isFinite(lanes) && lanes > 0 ? lanes : oneway ? 1 : 2) * LANE_WIDTH;
+  return widthOf(sectionOf(tags));
 }
 
 type P2 = [number, number];
@@ -128,8 +125,12 @@ function leftNormal(a: P2, b: P2): P2 {
   return [-dy / l, dx / l];
 }
 
-/** Offsets of a polyline to both sides, mitred at the vertices (mitre capped at 3×). */
-function offsets(pts: readonly P2[], half: number): { left: P2[]; right: P2[] } {
+/**
+ * Offsets of a polyline to both sides, mitred at the vertices (mitre capped at 3×): `left` by `a`
+ * along leftNormal (with y south, the right of travel), `right` by `b` the other way. Either is a
+ * distance for the whole line or one per point.
+ */
+function offsets(pts: readonly P2[], a: number | readonly number[], b: number | readonly number[] = a): { left: P2[]; right: P2[] } {
   const left: P2[] = [];
   const right: P2[] = [];
   pts.forEach((p, i) => {
@@ -140,11 +141,25 @@ function offsets(pts: readonly P2[], half: number): { left: P2[]; right: P2[] } 
     n = [n[0] / l, n[1] / l];
     const ref = n1 ?? n0!;
     const cos = Math.max(1 / 3, n[0] * ref[0] + n[1] * ref[1]);
-    const d = half / cos;
-    left.push([p[0] + n[0] * d, p[1] + n[1] * d]);
-    right.push([p[0] - n[0] * d, p[1] - n[1] * d]);
+    const da = (typeof a === 'number' ? a : a[i]) / cos;
+    const db = (typeof b === 'number' ? b : b[i]) / cos;
+    left.push([p[0] + n[0] * da, p[1] + n[1] * da]);
+    right.push([p[0] - n[0] * db, p[1] - n[1] * db]);
   });
   return { left, right };
+}
+
+/** Cross-sections at every point of a way's polyline, tapers included. */
+function sectionsAlong(pts: readonly P2[], tags: Record<string, string>, tapers: readonly Taper[] | undefined): { dist: number[]; sections: CrossSection[] } {
+  const dist = cumulative(pts);
+  const total = dist[dist.length - 1];
+  const base = sectionOf(tags);
+  return { dist, sections: dist.map((d) => sectionAt(base, tapers, d, total)) };
+}
+
+/** Carriageway edges along a way: `left` here is the right of travel (y points south). */
+function carriageway(pts: readonly P2[], sections: readonly CrossSection[], extra = 0) {
+  return offsets(pts, sections.map((c) => c.right + extra), sections.map((c) => c.left + extra));
 }
 
 type V3 = readonly [number, number, number];
@@ -240,6 +255,10 @@ export function densify(pts: readonly P2[], step: number): P2[] {
 }
 
 const RAMP_STEP = 3;
+/** Point spacing on a deck that narrows, so its edges and merging markings bend smoothly. */
+const TAPER_STEP = 1.5;
+/** Length of the dashes of lane markings on a deck. */
+const DASH = 3;
 
 /**
  * Underside of the deck at deck height `z`. On the ramps the slab would reach below the ground,
@@ -250,12 +269,12 @@ export const deckBottom = (z: number) => Math.max(z - DECK_THICKNESS, Math.min(z
 /** Parapets grow with the deck from nothing where it meets the road to full height 2 m up. */
 export const parapetAt = (z: number) => PARAPET * Math.max(0, Math.min(1, z / 2));
 
-function addBridge(solid: Buf, shadows: Buf, mask: Buf, raw: P2[], tags: Record<string, string>, colors: Scene3dColors) {
-  const pts = densify(raw, RAMP_STEP);
-  const half = roadWidth(tags) / 2;
-  const z = deckProfile(cumulative(pts), bridgeHeight(tags));
-  const { left, right } = offsets(pts, half);
-  const outer = offsets(pts, half + PARAPET_WIDTH);
+function addBridge(solid: Buf, shadows: Buf, mask: Buf, raw: P2[], tags: Record<string, string>, tapers: readonly Taper[] | undefined, colors: Scene3dColors) {
+  const pts = densify(raw, tapers ? TAPER_STEP : RAMP_STEP);
+  const { dist, sections } = sectionsAlong(pts, tags, tapers);
+  const z = deckProfile(dist, bridgeHeight(tags));
+  const { left, right } = carriageway(pts, sections);
+  const outer = carriageway(pts, sections, PARAPET_WIDTH);
   for (let i = 0; i < pts.length - 1; i += 1) {
     const [l0, l1, r0, r1] = [left[i], left[i + 1], right[i], right[i + 1]];
     const [z0, z1] = [z[i], z[i + 1]];
@@ -279,21 +298,14 @@ function addBridge(solid: Buf, shadows: Buf, mask: Buf, raw: P2[], tags: Record<
     ribbon(mask, l0, l1, r0, r1, z0 + 0.05, z1 + 0.05);
     addShadow(shadows, [ol0, ol1, or0, or1], z0, z1);
   }
-  addMarkings(solid, pts, z, tags, colors);
+  addMarkings(solid, pts, z, dist, sections, colors);
   addPiers(solid, pts, z, colors);
 }
 
-/** A polyline moved sideways by `d` metres along leftNormal (which, with y south, is to the right of travel). */
-function shifted(pts: readonly P2[], d: number): P2[] {
-  if (d === 0) return pts.map((p) => [p[0], p[1]]);
-  const o = offsets(pts, Math.abs(d));
-  return d > 0 ? o.left : o.right;
-}
-
-/** A flat band `width` wide around `centre`, `lift` above the deck; `keep` drops pieces for dashes. */
-function band(buf: Buf, c: Rgb, pts: readonly P2[], z: readonly number[], centre: number, width: number, lift: number, keep: (i: number) => boolean) {
-  const a = shifted(pts, centre - width / 2);
-  const b = shifted(pts, centre + width / 2);
+/** A flat band `width` wide around `centre[i]` (metres along leftNormal), `lift` above the deck; `keep` drops pieces. */
+function band(buf: Buf, c: Rgb, pts: readonly P2[], z: readonly number[], centre: readonly number[], width: number, lift: number, keep: (i: number) => boolean) {
+  const { left: a } = offsets(pts, centre.map((x) => x - width / 2));
+  const { left: b } = offsets(pts, centre.map((x) => x + width / 2));
   for (let i = 0; i < pts.length - 1; i += 1) {
     if (!keep(i)) continue;
     quad(buf, c, 0, [a[i][0], a[i][1], z[i] + lift], [a[i + 1][0], a[i + 1][1], z[i + 1] + lift], [b[i + 1][0], b[i + 1][1], z[i + 1] + lift], [b[i][0], b[i][1], z[i] + lift]);
@@ -301,15 +313,19 @@ function band(buf: Buf, c: Rgb, pts: readonly P2[], z: readonly number[], centre
 }
 
 /**
- * Lane markings on the deck, where the 2D ones would lie hidden under it. The deck points are
- * RAMP_STEP apart, so dropping every other piece gives dashes of that length.
+ * Lane markings on the deck, where the 2D ones would lie hidden under it: the same markings as
+ * in 2D, ending where lanes merge on a deck that narrows.
  */
-function addMarkings(solid: Buf, pts: readonly P2[], z: readonly number[], tags: Record<string, string>, colors: Scene3dColors) {
-  for (const m of dividerOffsets(tags)) {
+function addMarkings(solid: Buf, pts: readonly P2[], z: readonly number[], dist: readonly number[], sections: readonly CrossSection[], colors: Scene3dColors) {
+  const keys = new Set(sections.flatMap((s) => s.dividers.map((m) => m.key)));
+  for (const key of keys) {
+    const at = sections.map((s) => s.dividers.find((m) => m.key === key));
     // lanesGeo counts offsets to the left of travel with y north; here y points south.
-    const centre = -m.offset;
-    band(solid, colors.markCasing, pts, z, centre, MARK_CASING, MARK_LIFT, () => true);
-    band(solid, colors.mark, pts, z, centre, MARK_WIDTH, MARK_LIFT * 2, (i) => m.solid || i % 2 === 0);
+    const centre = at.map((m) => -(m?.offset ?? 0));
+    const solidLine = at.some((m) => m?.solid);
+    const present = (i: number) => Boolean(at[i] && at[i + 1]);
+    band(solid, colors.markCasing, pts, z, centre, MARK_CASING, MARK_LIFT, present);
+    band(solid, colors.mark, pts, z, centre, MARK_WIDTH, MARK_LIFT * 2, (i) => present(i) && (solidLine || Math.floor((dist[i] + dist[i + 1]) / 2 / DASH) % 2 === 0));
   }
 }
 
@@ -509,6 +525,7 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
   const underground = new Buf();
   const shadows = new Buf();
   const mask = new Buf();
+  const tapers = roadTapers(doc);
 
   // How many drivable non-tunnel ways touch each node: a tunnel end there is a portal.
   const openAir = new Map<string, number>();
@@ -536,7 +553,7 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     if (!isDrivable(w.tags)) return;
     if (isBridge(w)) {
       const start = structures.length;
-      addBridge(structures, shadows, mask, pts, w.tags, colors);
+      addBridge(structures, shadows, mask, pts, w.tags, tapers.get(w.id), colors);
       pickIds.push(w.id);
       structures.fill(start, 11, pickIds.length);
       return;
@@ -556,8 +573,10 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     }
     // Yard driveways and parking aisles are drawn thin, like paths, and do not cut buildings.
     if (w.tags.highway === 'service') return;
-    const { left, right } = offsets(pts, roadWidth(w.tags) / 2);
-    for (let i = 0; i < pts.length - 1; i += 1) ribbon(mask, left[i], left[i + 1], right[i], right[i + 1], 0, 0);
+    const wayTapers = tapers.get(w.id);
+    const line = wayTapers ? densify(pts, TAPER_STEP) : pts;
+    const { left, right } = carriageway(line, sectionsAlong(line, w.tags, wayTapers).sections);
+    for (let i = 0; i < line.length - 1; i += 1) ribbon(mask, left[i], left[i + 1], right[i], right[i + 1], 0, 0);
   });
 
   return { origin, buildings, pickIds, solid: solid.array, structures: structures.array, underground: underground.array, shadows: shadows.array, roadMask: mask.array };

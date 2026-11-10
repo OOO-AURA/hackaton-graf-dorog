@@ -105,6 +105,12 @@ const laneWidth = (extra: unknown = 0) => [
   22, ['+', ['*', 32, ['get', 'w17']], extra],
 ] as never;
 
+/**
+ * Sideways shift of a road line in px: a two-way road with more lanes one way lies off-centre
+ * (`o17` px to the right at zoom 17), so its lanes fall inside it. None while roads are drawn thin.
+ */
+const roadOffset = ['interpolate', ['exponential', 2], ['zoom'], 15, 0, 16, ['/', ['get', 'o17'], 2], 22, ['*', 32, ['get', 'o17']]] as never;
+
 /** Lane lines are shown once the flows give them a load; lane markings always. */
 const LANE_LINES = ['all', ['==', ['get', 'kind'], 'lane'], ['==', ['get', 'loaded'], true]];
 const DASHED_MARKS = ['all', ['==', ['get', 'kind'], 'divider'], ['!=', ['get', 'solid'], true]];
@@ -143,20 +149,22 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   map.addLayer({ id: 'buildings', type: 'fill', source: 'buildings', paint: { 'fill-opacity': 0.55 } });
   map.addLayer({ id: 'context', type: 'line', source: 'context', filter: ['!=', ['get', 'kind'], 'rail'], paint: { 'line-width': 1, 'line-dasharray': [2, 2] } });
   map.addLayer({ id: 'tram', type: 'line', source: 'context', filter: ['==', ['get', 'kind'], 'rail'], paint: { 'line-width': 2, 'line-dasharray': [3, 1.5] } });
-  map.addLayer({ id: 'roads-casing', type: 'line', source: 'roads', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': laneWidth(['case', ['get', 'bridge'], 5, 2]) } });
+  map.addLayer({ id: 'roads-casing', type: 'line', source: 'roads', filter: ['!', ['get', 'bridge']], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': laneWidth(2), 'line-offset': roadOffset } });
+  // Bridge outlines end square with the deck, not in a half-disc over the road it lands on.
+  map.addLayer({ id: 'bridge-casing', type: 'line', source: 'roads', filter: ['get', 'bridge'], layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-width': laneWidth(5), 'line-offset': roadOffset } });
   map.addLayer({
     id: 'roads', type: 'line', source: 'roads', filter: ['!', ['get', 'bridge']], layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-width': laneWidth(), 'line-opacity': ['case', ['get', 'tunnel'], 0.45, 1] },
+    paint: { 'line-width': laneWidth(), 'line-offset': roadOffset, 'line-opacity': ['case', ['get', 'tunnel'], 0.45, 1] },
   });
   // A blurred copy shifted down-right reads as the deck standing above the ground.
   map.addLayer({
     id: 'bridge-shadow', type: 'line', source: 'roads', filter: ['get', 'bridge'], layout: { 'line-cap': 'butt', 'line-join': 'round' },
-    paint: { 'line-width': laneWidth(4), 'line-blur': ['interpolate', ['linear'], ['zoom'], 14, 2, 18, 8], 'line-translate': [4, 5], 'line-translate-anchor': 'viewport' },
+    paint: { 'line-width': laneWidth(4), 'line-offset': roadOffset, 'line-blur': ['interpolate', ['linear'], ['zoom'], 14, 2, 18, 8], 'line-translate': [4, 5], 'line-translate-anchor': 'viewport' },
   }, 'roads-casing');
-  map.addLayer({ id: 'roads-bridge', type: 'line', source: 'roads', filter: ['get', 'bridge'], layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-width': laneWidth() } });
+  map.addLayer({ id: 'roads-bridge', type: 'line', source: 'roads', filter: ['get', 'bridge'], layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-width': laneWidth(), 'line-offset': roadOffset } });
   map.addLayer({ id: 'selection-line', type: 'line', source: 'selection', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-width': ['interpolate', ['exponential', 2], ['zoom'], 13, 6, 18, 26], 'line-opacity': 0.55 } }, 'roads-casing');
   map.addLayer({
-    id: 'roads-arrows', type: 'symbol', source: 'roads', filter: ['!=', ['get', 'dir'], 'both'], minzoom: 15,
+    id: 'roads-arrows', type: 'symbol', source: 'roads', filter: ['all', ['!=', ['get', 'dir'], 'both'], ['!', ['get', 'taper']]], minzoom: 15,
     layout: { 'symbol-placement': 'line', 'symbol-spacing': 60, 'icon-image': 'arrow', 'icon-allow-overlap': true, 'icon-rotate': ['case', ['==', ['get', 'dir'], 'backward'], 180, 0] },
   });
   // Lanes close in: thin lines in the colour of their load, links across junctions, lane ends at
@@ -265,7 +273,8 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
   set('buildings', 'fill-outline-color', p.buildingLine);
   set('context', 'line-color', p.path);
   set('tram', 'line-color', p.tram);
-  set('roads-casing', 'line-color', ['case', ['get', 'bridge'], p.bridgeCasing, p.casing]);
+  set('roads-casing', 'line-color', p.casing);
+  set('bridge-casing', 'line-color', p.bridgeCasing);
   set('roads', 'line-color', roadColorExpression(p));
   set('roads-bridge', 'line-color', roadColorExpression(p));
   set('bridge-shadow', 'line-color', p.bridgeShadow);
@@ -293,7 +302,7 @@ export function applyRoadColors(map: MapLibreMap, p: MapPalette, mode: RoadColor
   map.setPaintProperty('roads-bridge', 'line-color', color as never);
 }
 
-const ROAD_LAYERS = ['roads-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line', 'lanes', 'lane-marks-casing', 'lane-marks-dash', 'lane-marks-solid', 'lane-links', 'lane-ends'];
+const ROAD_LAYERS = ['roads-casing', 'bridge-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line', 'lanes', 'lane-marks-casing', 'lane-marks-dash', 'lane-marks-solid', 'lane-links', 'lane-ends'];
 
 /** Applies the layer toggles from the bottom bar. Bridges and tunnels are filters on the road layers. */
 export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boolean>, view3d = false): void {
@@ -320,9 +329,10 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   const structure: unknown[] = ['all'];
   if (!on.bridges || view3d) structure.push(['!', ['get', 'bridge']]);
   if (!on.tunnels) structure.push(['!', ['get', 'tunnel']]);
-  map.setFilter('roads-casing', structure as never);
+  map.setFilter('roads-casing', ['all', ['!', ['get', 'bridge']], structure] as never);
+  map.setFilter('bridge-casing', ['all', ['get', 'bridge'], structure] as never);
   map.setFilter('roads', ['all', ['!', ['get', 'bridge']], structure] as never);
-  map.setFilter('roads-arrows', ['all', ['!=', ['get', 'dir'], 'both'], structure] as never);
+  map.setFilter('roads-arrows', ['all', ['!=', ['get', 'dir'], 'both'], ['!', ['get', 'taper']], structure] as never);
   // In 3D bridge and tunnel lanes would lie on the ground under their deck or tube; the deck
   // carries its own markings (mesh3d.ts).
   const flat = (filter: unknown[]) => (view3d ? ['all', filter, ['!=', ['get', 'raised'], true]] : filter) as never;

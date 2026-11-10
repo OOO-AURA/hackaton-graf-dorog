@@ -1,8 +1,9 @@
 import type { Feature, FeatureCollection, LineString, Point } from 'geojson';
 import { armKey, armsAt, junctionLanes, junctions, type Arm } from '../osm/lanes';
-import { lanesByDirection } from '../osm/profile';
 import { isDrivable } from '../osm/tags';
-import type { OsmDoc, OsmWay, Tags } from '../osm/types';
+import type { OsmDoc, Tags } from '../osm/types';
+import { along, cumulative, densify, frame, lengthOf, offsetLine, slice, type V } from './polyline';
+import { laneOffsetIn, plainSection, roadTapers, sectionAt, sectionOf, widthOf, type Travel } from './section';
 
 /**
  * Geometry of lanes for the map: every lane as a thin line along its road, cut back at
@@ -12,71 +13,30 @@ import type { OsmDoc, OsmWay, Tags } from '../osm/types';
  */
 
 type Props = Record<string, string | number | boolean>;
-type V = [number, number];
 
-const LANE_WIDTH = 3.5;
 /** How far lanes stop short of the junction centre, beyond the widest road there. */
 const JUNCTION_MARGIN = 2;
 const CURVE_POINTS = 14;
-
-const M_PER_DEG = (Math.PI / 180) * 6_371_000;
-
-/** Local frame around a point: metres east and north. */
-function frame(lat0: number) {
-  const k = Math.cos((lat0 * Math.PI) / 180);
-  return {
-    to: (lon: number, lat: number): V => [lon * M_PER_DEG * k, lat * M_PER_DEG],
-    back: ([x, y]: V): V => [x / (M_PER_DEG * k), y / M_PER_DEG],
-  };
-}
-
-function travelLanes(tags: Tags): { forward: number; backward: number } {
-  const { forward, backward } = lanesByDirection(tags);
-  return tags.oneway === '-1' ? { forward: 0, backward: forward } : { forward, backward };
-}
-
-/** Lane width of a road: its `width` shared out, else 3.5 m. */
-function laneWidth(tags: Tags): number {
-  const { forward, backward } = travelLanes(tags);
-  const w = Number.parseFloat(tags.width ?? '');
-  return Number.isFinite(w) && w > 0 ? Math.max(2.5, Math.min(4.5, w / Math.max(1, forward + backward))) : LANE_WIDTH;
-}
+/** Points along a taper this far apart, so merging lanes bend smoothly. */
+const TAPER_STEP = 1.5;
 
 /**
  * Offset of a lane centre from the way's line, metres, positive to the left of the way's
  * direction. Lanes count from the left in their own direction of travel; on a two-way road
  * forward lanes keep to the right of the line and backward ones to the left.
  */
-export function laneOffset(tags: Tags, travel: 'forward' | 'backward', index: number): number {
-  const { forward, backward } = travelLanes(tags);
-  const w = laneWidth(tags);
-  if (forward && backward) return travel === 'forward' ? -(index + 0.5) * w : (index + 0.5) * w;
-  const n = forward || backward;
-  const fromLeft = ((n - 1) / 2 - index) * w;
-  return travel === 'forward' ? fromLeft : -fromLeft;
-}
-
-/** A marking between two lanes: solid between the two directions, dashed between lanes of one. */
-export interface LaneDivider {
-  /** Metres from the way's line, positive to the left of the way's direction, like laneOffset. */
-  readonly offset: number;
-  readonly solid: boolean;
+export function laneOffset(tags: Tags, travel: Travel, index: number): number {
+  return laneOffsetIn(sectionOf(tags), travel, index);
 }
 
 /** Lane markings of a road, the centre line first on a two-way road. */
-export function dividerOffsets(tags: Tags): LaneDivider[] {
-  const { forward, backward } = travelLanes(tags);
-  const w = laneWidth(tags);
-  const between = (n: number, sign: number) => Array.from({ length: Math.max(0, n - 1) }, (_, k) => ({ offset: sign * (k + 1) * w, solid: false }));
-  if (forward && backward) return [{ offset: 0, solid: true }, ...between(forward, -1), ...between(backward, 1)];
-  const n = forward || backward;
-  return Array.from({ length: Math.max(0, n - 1) }, (_, k) => ({ offset: (n / 2 - (k + 1)) * w, solid: false }));
+export function dividerOffsets(tags: Tags): Array<{ offset: number; solid: boolean }> {
+  return plainSection(sectionOf(tags)).dividers.map(({ offset, solid }) => ({ offset, solid }));
 }
 
 /** Carriageway width in metres: its lanes side by side. */
 export function roadWidthMetres(tags: Tags): number {
-  const { forward, backward } = travelLanes(tags);
-  return (forward + backward) * laneWidth(tags);
+  return widthOf(sectionOf(tags));
 }
 
 const halfWidth = (tags: Tags) => roadWidthMetres(tags) / 2;
@@ -84,46 +44,6 @@ const halfWidth = (tags: Tags) => roadWidthMetres(tags) / 2;
 /** How far from the centre of a junction its lanes end. */
 function junctionRadius(doc: OsmDoc, nodeId: string): number {
   return Math.max(...armsAt(doc, nodeId).map((a) => halfWidth(doc.ways[a.wayId].tags)), 3) + JUNCTION_MARGIN;
-}
-
-/** Point at distance `d` along a polyline, and the unit direction there. */
-function along(pts: readonly V[], d: number): { p: V; t: V } {
-  let rest = d;
-  for (let i = 0; i + 1 < pts.length; i += 1) {
-    const [a, b] = [pts[i], pts[i + 1]];
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    const t: V = len ? [(b[0] - a[0]) / len, (b[1] - a[1]) / len] : [1, 0];
-    if (rest <= len || i + 2 === pts.length) {
-      const k = Math.min(rest, len);
-      return { p: [a[0] + t[0] * k, a[1] + t[1] * k], t };
-    }
-    rest -= len;
-  }
-  return { p: pts[0], t: [1, 0] };
-}
-
-const lengthOf = (pts: readonly V[]) => pts.slice(1).reduce((s, p, i) => s + Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]), 0);
-
-/** The part of a polyline between distances `from` and `to`. */
-function slice(pts: readonly V[], from: number, to: number): V[] {
-  const out: V[] = [along(pts, from).p];
-  let d = 0;
-  for (let i = 0; i + 1 < pts.length; i += 1) {
-    d += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
-    if (d > from && d < to) out.push(pts[i + 1]);
-  }
-  out.push(along(pts, to).p);
-  return out;
-}
-
-/** A polyline moved sideways by `off` metres, positive to the left. */
-function offsetLine(pts: readonly V[], off: number): V[] {
-  return pts.map((p, i) => {
-    const a = pts[Math.max(0, i - 1)];
-    const b = pts[Math.min(pts.length - 1, i + 1)];
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-    return [p[0] - ((b[1] - a[1]) / len) * off, p[1] + ((b[0] - a[0]) / len) * off];
-  });
 }
 
 export interface LaneStyle {
@@ -138,42 +58,57 @@ export interface LaneStyle {
  */
 export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<LineString, Props> {
   const radius = new Map(junctions(doc).map((id) => [id, junctionRadius(doc, id)]));
+  const tapers = roadTapers(doc);
   const features: Feature<LineString, Props>[] = [];
-  const pieces = (w: OsmWay) => {
+  for (const w of Object.values(doc.ways)) {
+    if (!isDrivable(w.tags) || w.refs.length < 2) continue;
+    const nodes = w.refs.map((r) => doc.nodes[r]);
+    if (nodes.some((n) => !n)) continue;
+    const vc = style.load(w.id);
+    const raised = Boolean((w.tags.bridge && w.tags.bridge !== 'no') || (w.tags.tunnel && w.tags.tunnel !== 'no'));
+    const base = sectionOf(w.tags);
+    const wayTapers = tapers.get(w.id);
+    const f = frame(nodes[0].lat);
+    const pts = nodes.map((n) => f.to(n.lon, n.lat));
+    const dist = cumulative(pts);
+    const total = dist[dist.length - 1];
     // Pieces of the way between junctions, each cut back by the junction radius at its ends.
-    const out: Array<{ refs: string[]; cutStart: number; cutEnd: number }> = [];
     let start = 0;
     w.refs.forEach((r, i) => {
       if (i === 0 || (!radius.has(r) && i < w.refs.length - 1)) return;
-      out.push({ refs: w.refs.slice(start, i + 1), cutStart: radius.get(w.refs[start]) ?? 0, cutEnd: radius.get(r) ?? 0 });
+      const from = dist[start] + (radius.get(w.refs[start]) ?? 0);
+      const to = dist[i] - (radius.get(r) ?? 0);
       start = i;
+      if (to - from <= 0.5) return;
+      let line = slice(pts, from, to);
+      if (wayTapers) line = densify(line, TAPER_STEP);
+      const d = cumulative(line).map((x) => from + x);
+      const sections = d.map((x) => sectionAt(base, wayTapers, x, total));
+      const geometry = (offs: number[]) => ({ type: 'LineString' as const, coordinates: offsetLine(line, offs).map(f.back) });
+      for (const lane of sections[0].lanes) {
+        const offs = sections.map((sec) => sec.lanes.find((l) => l.travel === lane.travel && l.index === lane.index)!.offset);
+        features.push({ type: 'Feature', properties: { way: w.id, kind: 'lane', color: style.color(vc), loaded: vc !== null, raised }, geometry: geometry(offs) });
+      }
+      // A marking runs while it is in the cross-section: the ones between merging lanes stop at the taper.
+      const keys = new Set(sections.flatMap((sec) => sec.dividers.map((m) => m.key)));
+      for (const key of keys) {
+        let run: number[] = [];
+        let solid = false;
+        const flush = () => {
+          if (run.length >= 2) {
+            const sub = run.map((i) => line[i]);
+            const offs = run.map((i) => sections[i].dividers.find((m) => m.key === key)!.offset);
+            features.push({ type: 'Feature', properties: { way: w.id, kind: 'divider', solid, raised }, geometry: { type: 'LineString', coordinates: offsetLine(sub, offs).map(f.back) } });
+          }
+          run = [];
+        };
+        sections.forEach((sec, i) => {
+          const m = sec.dividers.find((x) => x.key === key);
+          if (m) { run.push(i); solid = m.solid; } else flush();
+        });
+        flush();
+      }
     });
-    return out;
-  };
-  for (const w of Object.values(doc.ways)) {
-    if (!isDrivable(w.tags) || w.refs.length < 2) continue;
-    const { forward, backward } = travelLanes(w.tags);
-    const vc = style.load(w.id);
-    const raised = Boolean((w.tags.bridge && w.tags.bridge !== 'no') || (w.tags.tunnel && w.tags.tunnel !== 'no'));
-    const marks = dividerOffsets(w.tags);
-    for (const piece of pieces(w)) {
-      const nodes = piece.refs.map((r) => doc.nodes[r]).filter(Boolean);
-      if (nodes.length < 2) continue;
-      const f = frame(nodes[0].lat);
-      const pts = nodes.map((n) => f.to(n.lon, n.lat));
-      const len = lengthOf(pts);
-      if (len <= piece.cutStart + piece.cutEnd + 0.5) continue;
-      const line = slice(pts, piece.cutStart, len - piece.cutEnd);
-      const lineAt = (off: number) => ({ type: 'LineString' as const, coordinates: offsetLine(line, off).map(f.back) });
-      for (const [travel, n] of [['forward', forward], ['backward', backward]] as const) {
-        for (let i = 0; i < n; i += 1) {
-          features.push({ type: 'Feature', properties: { way: w.id, kind: 'lane', color: style.color(vc), loaded: vc !== null, raised }, geometry: lineAt(laneOffset(w.tags, travel, i)) });
-        }
-      }
-      for (const m of marks) {
-        features.push({ type: 'Feature', properties: { way: w.id, kind: 'divider', solid: m.solid, raised }, geometry: lineAt(m.offset) });
-      }
-    }
   }
   return { type: 'FeatureCollection', features };
 }

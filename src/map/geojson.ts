@@ -3,11 +3,15 @@ import { buildingHeight as heightOf } from '../osm/building';
 import { direction, highwayColor, isDrivable } from '../osm/tags';
 import { nodeSymbol } from './features';
 import { thematicProps } from './thematic';
-import { roadWidthMetres } from './lanesGeo';
+import type { OsmDoc, OsmWay } from '../osm/types';
+import { cumulative, frame, slice } from './polyline';
+import { roadTapers, sectionAt, sectionOf, taperBreaks, type Taper } from './section';
+
+/** How far road pieces reach into their neighbours, metres. */
+const OVERLAP = 0.3;
 
 /** Screen pixels per metre at zoom 17 on MapLibre's 512 px tiles. */
 const pxPerMetreZ17 = (lat: number) => 2 ** 17 / (78271.517 * Math.cos((lat * Math.PI) / 180));
-import type { OsmDoc, OsmWay } from '../osm/types';
 
 type Props = Record<string, string | number | boolean>;
 
@@ -16,33 +20,60 @@ const coords = (doc: OsmDoc, w: OsmWay) =>
 
 const lanesOf = (w: OsmWay) => Number.parseInt(w.tags.lanes ?? '', 10) || (direction(w.tags) === 'both' ? 2 : 1);
 
-function roadFeature(doc: OsmDoc, w: OsmWay): Feature<LineString, Props> {
-  return {
-    type: 'Feature',
-    id: Number(w.id),
-    properties: {
-      id: w.id,
-      color: highwayColor(w.tags.highway ?? ''),
-      highway: (w.tags.highway ?? '').replace(/_link$/, ''),
-      lanes: lanesOf(w),
-      // Width in screen pixels at zoom 17 (it doubles with every zoom step), so that close in the
-      // road is as wide as its lanes.
-      w17: roadWidthMetres(w.tags) * pxPerMetreZ17(doc.nodes[w.refs[0]]?.lat ?? 52),
-      dir: direction(w.tags),
-      bridge: Boolean(w.tags.bridge && w.tags.bridge !== 'no'),
-      tunnel: Boolean(w.tags.tunnel && w.tags.tunnel !== 'no'),
-      name: w.tags.name ?? '',
-      ...thematicProps(w.tags),
-    },
-    geometry: { type: 'LineString', coordinates: coords(doc, w) },
+/**
+ * The road of a way as line features: one for the whole way, or, where it narrows into the next
+ * road, the way up to the taper and short pieces of shrinking width along it. Widths are in screen
+ * pixels at zoom 17 (doubling with every zoom step), so that close in the road is as wide as its
+ * lanes: `w17` the carriageway, `o17` how far its middle lies to the right of the way's line
+ * (a two-way road with more lanes one way is off-centre).
+ */
+function roadFeatures(doc: OsmDoc, w: OsmWay, tapers: readonly Taper[] | undefined): Feature<LineString, Props>[] {
+  const props: Props = {
+    id: w.id,
+    color: highwayColor(w.tags.highway ?? ''),
+    highway: (w.tags.highway ?? '').replace(/_link$/, ''),
+    lanes: lanesOf(w),
+    dir: direction(w.tags),
+    bridge: Boolean(w.tags.bridge && w.tags.bridge !== 'no'),
+    tunnel: Boolean(w.tags.tunnel && w.tags.tunnel !== 'no'),
+    name: w.tags.name ?? '',
+    ...thematicProps(w.tags),
   };
+  const lonLat = coords(doc, w) as Array<[number, number]>;
+  const px = pxPerMetreZ17(lonLat[0]?.[1] ?? 52);
+  const f = frame(lonLat[0]?.[1] ?? 52);
+  const pts = lonLat.map(([lon, lat]) => f.to(lon, lat));
+  const total = cumulative(pts)[pts.length - 1] ?? 0;
+  const base = sectionOf(w.tags);
+  const feature = (from: number, to: number, taper: boolean): Feature<LineString, Props> => {
+    const sec = sectionAt(base, tapers, (from + to) / 2, total);
+    return {
+      type: 'Feature',
+      id: Number(w.id),
+      properties: { ...props, w17: (sec.left + sec.right) * px, o17: ((sec.right - sec.left) / 2) * px, taper },
+      // Pieces overlap a little: square-ended bridge pieces would show hairline seams between them.
+      geometry: { type: 'LineString', coordinates: taper || from > 0 || to < total ? slice(pts, Math.max(0, from - OVERLAP), Math.min(total, to + OVERLAP)).map(f.back) : lonLat },
+    };
+  };
+  if (!tapers?.length) return [feature(0, total, false)];
+  const out: Feature<LineString, Props>[] = [];
+  const startLen = tapers.find((t) => t.atStart)?.length ?? 0;
+  const endLen = tapers.find((t) => !t.atStart)?.length ?? 0;
+  out.push(feature(startLen, total - endLen, false));
+  const breaks = taperBreaks(tapers, total);
+  for (let i = 0; i + 1 < breaks.length; i += 1) {
+    const [a, b] = [breaks[i], breaks[i + 1]];
+    if (b - a > 1e-6 && (b <= startLen + 1e-6 || a >= total - endLen - 1e-6)) out.push(feature(a, b, true));
+  }
+  return out;
 }
 
 const collection = <G extends LineString | Point | Polygon>(features: Feature<G, Props>[]): FeatureCollection<G, Props> =>
   ({ type: 'FeatureCollection', features });
 
 export function roadsGeoJson(doc: OsmDoc) {
-  return collection(Object.values(doc.ways).filter((w) => isDrivable(w.tags) && w.refs.length > 1).map((w) => roadFeature(doc, w)));
+  const tapers = roadTapers(doc);
+  return collection(Object.values(doc.ways).filter((w) => isDrivable(w.tags) && w.refs.length > 1).flatMap((w) => roadFeatures(doc, w, tapers.get(w.id))));
 }
 
 /** Building height in metres as Webots will build it, including its defaults per building type (see osm/building.ts). */
