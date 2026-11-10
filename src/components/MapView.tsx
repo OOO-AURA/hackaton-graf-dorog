@@ -4,7 +4,12 @@ import { useTransit } from '../transit/store';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import maplibregl, { type GeoJSONSource, type Map as MapLibreMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { applyRoadColors, addEditorLayers, applyLayerVisibility, applyPalette, type SourceId } from '../map/layers';
+import { addEditorLayers, applyLayerVisibility, applyPalette, applyRoadColors, sceneColors, sceneOf, type SourceId } from '../map/layers';
+import { buildScene3d } from '../map/mesh3d';
+import { junctionGeometry, laneLines, type LaneStyle } from '../map/lanesGeo';
+import { junctions } from '../osm/lanes';
+import { vcColor } from '../macro/compute';
+import { loadCamera, saveCamera } from '../map/camera';
 import { applyBasemapTone, BASE_STYLE } from '../map/style';
 import { MAP_PALETTE } from '../map/palette';
 import { useUi } from '../state/ui';
@@ -17,7 +22,6 @@ import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson } from '../map/ge
 import { useMapInteractions } from '../map/useMapInteractions';
 import { currentSelection, useEditor } from '../state/store';
 import { streetWays } from '../osm/street';
-import { bridgeFeatures } from '../map/bridges3d';
 import { useBundle } from '../macro/bundleStore';
 import { diffFeatures, docDiff } from '../osm/diff';
 import { useRoute } from '../state/route';
@@ -33,16 +37,17 @@ const setData = (map: MapLibreMap, id: SourceId, data: unknown) => {
 };
 
 const wayLine = (doc: OsmDoc, id: string) => ({
-  type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: doc.ways[id].refs.map((r) => [doc.nodes[r].lon, doc.nodes[r].lat]) },
+  type: 'Feature', properties: {},
+  geometry: { type: 'LineString', coordinates: doc.ways[id].refs.filter((r) => doc.nodes[r]).map((r) => [doc.nodes[r].lon, doc.nodes[r].lat]) },
 });
 
-function selectionGeoJson(doc: OsmDoc, sel: ReturnType<typeof currentSelection>) {
+function selectionGeoJson(doc: OsmDoc, sel: ReturnType<typeof currentSelection>, multi: readonly string[]) {
+  if (multi.length) return { type: 'FeatureCollection', features: multi.filter((id) => doc.ways[id]).map((id) => wayLine(doc, id)) };
   if (!sel) return { type: 'FeatureCollection', features: [] };
   if (sel.type === 'street') return { type: 'FeatureCollection', features: streetWays(doc, sel.id).map((w) => wayLine(doc, w.id)) };
-  const geometry = sel.type === 'node'
-    ? { type: 'Point', coordinates: [doc.nodes[sel.id].lon, doc.nodes[sel.id].lat] }
-    : { type: 'LineString', coordinates: doc.ways[sel.id].refs.map((r) => [doc.nodes[r].lon, doc.nodes[r].lat]) };
-  return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry }] };
+  if (sel.type === 'way') return { type: 'FeatureCollection', features: [wayLine(doc, sel.id)] };
+  const n = doc.nodes[sel.id];
+  return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [n.lon, n.lat] } }] };
 }
 
 /** While zones are being placed, the centroids come from the editor state, not from the last result. */
@@ -88,12 +93,6 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     if (map) setData(map, 'changes', { type: 'FeatureCollection', features: changesOn ? diffFeatures(docDiff(baseDoc, doc), baseDoc, doc) : [] });
   }, [map, doc, baseDoc, changesOn]);
 
-  const view3d = useUi((s) => s.view3d);
-  useEffect(() => {
-    // Decks and ramps are only drawn in 3D, so they are not rebuilt on every edit in 2D.
-    if (map) setData(map, 'bridges3d', view3d ? bridgeFeatures(doc) : { type: 'FeatureCollection', features: [] });
-  }, [map, doc, view3d]);
-
   const routes = useMemo(() => transitRoutes(doc), [doc]);
   const transitSel = useTransit((s) => s.selected);
   useEffect(() => {
@@ -104,9 +103,17 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     if (map) setData(map, 'nodes', nodesGeoJson(doc, selectedWay));
   }, [map, doc, selectedWay]);
 
+  const multi = useEditor((s) => s.multi);
   useEffect(() => {
-    if (map) setData(map, 'selection', selectionGeoJson(doc, selection));
-  }, [map, doc, selection]);
+    if (map) setData(map, 'selection', selectionGeoJson(doc, selection, multi));
+  }, [map, doc, selection, multi]);
+  // Selected buildings are tinted in 3D too.
+  const theme = useUi((s) => s.theme);
+  useEffect(() => {
+    if (!alive(map)) return;
+    const ids = multi.length ? multi : selection?.type === 'way' ? [selection.id] : [];
+    sceneOf(map)?.setSelected(ids, sceneColors(MAP_PALETTE[theme]).selection);
+  }, [map, doc, selection, multi, theme]);
 
   useEffect(() => {
     if (!map) return;
@@ -133,6 +140,38 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
   }, [map, basemap]);
 }
 
+/** Lanes, links across junctions and, at the selected junction, the lane ends. */
+function useLanes(map: MapLibreMap | null): void {
+  const doc = useEditor((s) => s.doc);
+  const selection = useEditor((s) => currentSelection(s));
+  const theme = useUi((s) => s.theme);
+  const flows = useMacro((s) => s.result?.flows);
+  const picked = useUi((s) => s.laneLink);
+  const style = useMemo<LaneStyle>(() => {
+    const load = new Map<string, number>();
+    for (const f of (flows?.features ?? []) as Array<{ properties: { kind: string; way?: string; vc?: number } }>) {
+      const p = f.properties;
+      if (p.kind === 'flow' && p.way && typeof p.vc === 'number') load.set(p.way, Math.max(load.get(p.way) ?? 0, p.vc));
+    }
+    return { load: (id) => load.get(id) ?? null, color: (vc) => (vc === null ? MAP_PALETTE[theme].lane : vcColor(vc)) };
+  }, [flows, theme]);
+  const nodes = useMemo(() => junctions(doc), [doc]);
+  const editing = selection?.type === 'node' && nodes.includes(selection.id) ? selection.id : null;
+  useEffect(() => { if (map) setData(map, 'lanes', laneLines(doc, style)); }, [map, doc, style]);
+  useEffect(() => {
+    if (!map) return;
+    const { ends, links } = junctionGeometry(doc, nodes, editing, style);
+    const same = (p: Record<string, unknown>) => Boolean(picked && p.node === picked.node && p.from === picked.from && p.lane === picked.lane && p.turn === picked.turn);
+    links.features.forEach((f) => { f.properties.picked = same(f.properties); });
+    ends.features.forEach((f) => {
+      const p = f.properties;
+      f.properties.hot = Boolean(picked && p.node === picked.node && ((p.kind === 'in' && p.arm === picked.from && p.lane === picked.lane) || (p.kind === 'out' && p.arm === picked.to)));
+    });
+    setData(map, 'lane-links', links);
+    setData(map, 'lane-ends', ends);
+  }, [map, doc, nodes, editing, style, picked]);
+}
+
 function useMapLook(map: MapLibreMap | null): void {
   const theme = useUi((s) => s.theme);
   const opacity = useUi((s) => s.basemapOpacity);
@@ -143,7 +182,14 @@ function useMapLook(map: MapLibreMap | null): void {
   const colorMode = useUi((s) => s.roadColorMode);
   useEffect(() => { if (alive(map)) applyRoadColors(map, MAP_PALETTE[theme], colorMode); }, [map, theme, colorMode]);
   useEffect(() => { if (alive(map)) applyBasemapTone(map, theme, opacity); }, [map, theme, opacity]);
-  useEffect(() => { if (alive(map)) applyLayerVisibility(map, layers); }, [map, layers]);
+  const view3dOn = useUi((s) => s.view3d);
+  useEffect(() => { if (alive(map)) applyLayerVisibility(map, layers, view3dOn); }, [map, layers, view3dOn]);
+  // The 3D mesh is built only while 3D is on, and again on every edit or theme change.
+  const doc3d = useEditor((s) => s.doc);
+  useEffect(() => {
+    if (!alive(map)) return;
+    sceneOf(map)?.setMesh(view3dOn ? buildScene3d(doc3d, sceneColors(MAP_PALETTE[theme])) : null);
+  }, [map, doc3d, theme, view3dOn]);
   const simResult = useSim((s) => s.result);
   const simTime = useSim((s) => s.time);
   const workspace = useUi((s) => s.workspace);
@@ -172,30 +218,55 @@ function useMapLook(map: MapLibreMap | null): void {
     if (!alive(map)) return;
     setData(map, 'signals', { type: 'FeatureCollection', features: workspace === 'micro' && simResult ? signalFeatures(simResult, simTime) : [] });
   }, [map, workspace, simResult, simTime]);
+  // Tilts the camera when 2D/3D is switched, not when the map appears or a saved camera returns.
+  const shownView = useRef<{ map: MapLibreMap; view3d: boolean } | null>(null);
   useEffect(() => {
     if (!alive(map)) return;
+    const before = shownView.current;
+    shownView.current = { map, view3d };
+    if (!before || before.map !== map || before.view3d === view3d) return;
+    if (restoringCamera) { restoringCamera = false; return; }
     const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    map.setLayoutProperty('buildings-3d', 'visibility', view3d ? 'visible' : 'none');
-    // In 3D the bridge is drawn as a raised deck, so its flat line and shadow on the ground go away.
-    map.setLayoutProperty('bridges-3d', 'visibility', view3d && layers.bridges ? 'visible' : 'none');
-    map.setLayoutProperty('roads-bridge', 'visibility', !view3d && layers.roads && layers.bridges ? 'visible' : 'none');
-    map.setLayoutProperty('bridge-shadow', 'visibility', !view3d && layers.roads && layers.bridges ? 'visible' : 'none');
-    map.setLayoutProperty('buildings', 'visibility', view3d || !layers.buildings ? 'none' : 'visible');
     map.easeTo({ pitch: view3d ? 58 : 0, bearing: view3d ? -18 : 0, duration: instant ? 0 : 700 });
-  }, [map, view3d, layers.buildings, layers.bridges, layers.roads]);
+  }, [map, view3d]);
   useEffect(() => {
     if (alive(map) && fly) map.fitBounds(fly.bounds, { padding: 80, maxZoom: 17, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600 });
   }, [map, fly]);
 }
 
-function useFitOnLoad(map: MapLibreMap | null): void {
+/** Set while the camera of a file is being restored, so the 2D/3D switch does not animate it away. */
+let restoringCamera = false;
+
+/**
+ * On opening a file the camera goes back where it was the last time for that file, 2D or 3D
+ * included; a file seen for the first time is fitted into view. The camera is saved as it moves.
+ */
+function useCameraPerFile(map: MapLibreMap | null): void {
   const fileName = useEditor((s) => s.fileName);
   const past = useEditor((s) => s.past.length);
   useEffect(() => {
     if (!map || past > 0) return;
+    const saved = loadCamera(fileName);
+    if (saved) {
+      if (useUi.getState().view3d !== saved.view3d) {
+        restoringCamera = true;
+        useUi.setState({ view3d: saved.view3d });
+      }
+      map.jumpTo({ center: saved.center, zoom: saved.zoom, bearing: saved.bearing, pitch: saved.pitch });
+      return;
+    }
     const bounds = docBounds(useEditor.getState().doc);
     if (bounds) map.fitBounds(bounds, { padding: 40, duration: 0 });
   }, [map, fileName]);
+  useEffect(() => {
+    if (!map) return undefined;
+    const save = () => {
+      const s = useEditor.getState();
+      if (Object.keys(s.doc.nodes).length) saveCamera(s.fileName, map, useUi.getState().view3d);
+    };
+    map.on('moveend', save);
+    return () => { map.off('moveend', save); };
+  }, [map]);
 }
 
 export function MapView() {
@@ -207,7 +278,7 @@ export function MapView() {
 
   useEffect(() => {
     if (!container.current) return undefined;
-    const instance = new maplibregl.Map({ container: container.current, style: BASE_STYLE, center: IRKUTSK_CENTER, zoom: 15, doubleClickZoom: false });
+    const instance = new maplibregl.Map({ container: container.current, style: BASE_STYLE, center: IRKUTSK_CENTER, zoom: 15, maxPitch: 70, doubleClickZoom: false });
     instance.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-right');
     instance.on('load', () => {
       addEditorLayers(instance, MAP_PALETTE[useUi.getState().theme]);
@@ -231,7 +302,8 @@ export function MapView() {
   useMapInteractions(map, onPointer);
   useZoneEditing(map);
   useSyncedSources(map, drawingActive ? pointer : null);
-  useFitOnLoad(map);
+  useCameraPerFile(map);
+  useLanes(map);
   useMapLook(map);
 
   useEffect(() => {

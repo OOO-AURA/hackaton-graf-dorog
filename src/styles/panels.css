@@ -295,6 +295,16 @@
 .tour-top::after { bottom: -7px; left: 24px; border-left: 0; border-top: 0; }
 .tour-bottom::after { top: -7px; left: calc(50% - 5px); border-right: 0; border-bottom: 0; }
 .navigator .why-body { width: 200px; }
+.approach { padding: 6px 0; border-top: 1px solid var(--line, rgba(0,0,0,0.1)); }
+.approach:first-of-type { border-top: 0; }
+.approach-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 4px; }
+.approach-tag { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-2); }
+.approach-tag.set { color: var(--ink); font-weight: 600; }
+.approach-lanes { display: flex; gap: 6px; }
+.lane-col { display: flex; flex-direction: column; gap: 2px; padding: 3px; border-radius: 6px; background: var(--paper-dk); }
+.turn-btn { width: 26px; height: 22px; border-radius: 4px; border: 1px solid transparent; background: transparent; color: var(--ink-2); font-size: 13px; line-height: 1; cursor: pointer; }
+.turn-btn:hover { border-color: var(--line-strong); }
+.turn-btn.on { background: var(--ink); color: var(--paper); }
 
 .hint.warn { color: var(--orange, #e8590c); }
 .colour-row { display: flex; gap: 6px; align-items: center; }

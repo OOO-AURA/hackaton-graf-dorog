@@ -1,6 +1,6 @@
 import { setWayTag, setWayTags } from '../osm/edit';
 import {
-  BUILDING_TYPES, buildingHeight, heightFromLevels, levelsFromHeight, ROOF_MATERIALS, ROOF_SHAPES, WALL_MATERIALS,
+  BUILDING_TYPES, buildingHeight, ROOF_MATERIALS, ROOF_SHAPES, WALL_MATERIALS,
 } from '../osm/building';
 import type { OsmWay } from '../osm/types';
 import { useEditor } from '../state/store';
@@ -10,6 +10,7 @@ import { SelectField, TextField } from './fields';
 import { Section } from './Section';
 import { TagTable } from './TagTable';
 import { Icon } from './icons';
+import { BuildingHeightFields } from './HeightFields';
 
 const SOURCE_TEXT = {
   height: 'по тегу height',
@@ -54,17 +55,11 @@ export function BuildingInspector({ way }: { way: OsmWay }) {
           <dt>Высота в Webots</dt><dd className="mono">{height.metres} м</dd>
         </dl>
         <p className={`hint${height.source === 'default' ? ' warn' : ''}`}>Высота {SOURCE_TEXT[height.source]}.</p>
-        <div className="row">
-          <TextField label="Этажей" type="number" value={t['building:levels'] ?? ''} onCommit={set('building:levels')} placeholder="—" />
-          <TextField label="Высота, м" type="number" value={t.height ?? ''} onCommit={set('height')} placeholder="—" />
-        </div>
+        <BuildingHeightFields ids={[way.id]} tags={t} />
         <div className="row">
           <TextField label="Высота крыши, м" type="number" value={t['roof:height'] ?? ''} onCommit={set('roof:height')} placeholder="—" />
-          <TextField label="Низ здания, min_height" type="number" value={t.min_height ?? ''} onCommit={set('min_height')} placeholder="0" />
         </div>
         <div className="buttons">
-          <button className="btn" disabled={!t['building:levels']} onClick={() => apply((d) => setWayTags(d, way.id, heightFromLevels(t)))}>Высота по этажам</button>
-          <button className="btn" disabled={!t.height} onClick={() => apply((d) => setWayTags(d, way.id, levelsFromHeight(t)))}>Этажи по высоте</button>
           <button className="btn btn-quiet" onClick={toggle3d}>{view3d ? 'Вернуть 2D' : 'Показать в 3D'} <kbd>P</kbd></button>
         </div>
       </Section>

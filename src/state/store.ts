@@ -29,6 +29,8 @@ interface EditorState {
   past: OsmDoc[];
   future: OsmDoc[];
   selection: Selection;
+  /** Ways picked together with a frame (Shift + drag); empty unless several are selected. */
+  multi: string[];
   mode: Mode;
   drawing: DrawPoint[];
   templateIndex: number;
@@ -49,6 +51,8 @@ interface EditorState {
   undo: () => void;
   redo: () => void;
   select: (selection: Selection) => void;
+  /** Selects several ways at once; one id selects it as usual, none clears the selection. */
+  selectMany: (ids: string[]) => void;
   setMode: (mode: Mode) => void;
   setDrawing: (points: DrawPoint[]) => void;
   setTemplate: (index: number) => void;
@@ -71,6 +75,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   past: [],
   future: [],
   selection: null,
+  multi: [],
   mode: 'select',
   drawing: [],
   templateIndex: 2,
@@ -80,7 +85,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   message: null,
 
   markSaved: (fileName, filePath, savedDoc) => set({ fileName, filePath, saveName: fileName, savedDoc }),
-  load: (doc, fileName, filePath = null) => set({ doc, savedDoc: doc, baseDoc: doc, fileName, filePath, past: [], future: [], selection: null, drawing: [], report: null, mode: 'select' }),
+  load: (doc, fileName, filePath = null) => set({ doc, savedDoc: doc, baseDoc: doc, fileName, filePath, past: [], future: [], selection: null, multi: [], drawing: [], report: null, mode: 'select' }),
   apply: (edit) => {
     const { doc, past } = get();
     const next = edit(doc);
@@ -99,7 +104,8 @@ export const useEditor = create<EditorState>((set, get) => ({
     if (!future.length) return;
     set({ doc: future[0], past: pushPast(past, doc), future: future.slice(1), report: null });
   },
-  select: (selection) => set({ selection }),
+  select: (selection) => set({ selection, multi: [] }),
+  selectMany: (ids) => set(ids.length > 1 ? { selection: null, multi: ids } : { selection: ids.length ? { type: 'way', id: ids[0] } : null, multi: [] }),
   setMode: (mode) => set({ mode, drawing: [] }),
   setDrawing: (drawing) => set({ drawing }),
   setTemplate: (templateIndex) => set({ templateIndex }),
@@ -120,6 +126,11 @@ export function currentSelection(state: Pick<EditorState, 'doc' | 'selection'>):
   if (selection.type === 'street') return streetWays(doc, selection.id).length ? selection : null;
   const exists = selection.type === 'node' ? doc.nodes[selection.id] : doc.ways[selection.id];
   return exists ? selection : null;
+}
+
+/** Ways of a frame selection that still exist (undo may have removed some). */
+export function currentMulti(state: Pick<EditorState, 'doc' | 'multi'>): string[] {
+  return state.multi.filter((id) => state.doc.ways[id]);
 }
 
 /** True when the document has edits that are not written to disk yet. */

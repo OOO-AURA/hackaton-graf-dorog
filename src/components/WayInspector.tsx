@@ -1,5 +1,5 @@
 import { setWayTag, setWayTags } from '../osm/edit';
-import { direction, DRIVABLE_HIGHWAYS, withTag } from '../osm/tags';
+import { direction, DRIVABLE_HIGHWAYS } from '../osm/tags';
 import type { OsmWay, Tags } from '../osm/types';
 import { useEditor } from '../state/store';
 import { flipSelected, reverseSelected, deleteSelection } from '../state/actions';
@@ -9,6 +9,7 @@ import { Section } from './Section';
 import { Icon } from './icons';
 import { LaneStrip } from './LaneStrip';
 import { capacity, normTags, roadProfile } from '../osm/profile';
+import { RoadLevelFields } from './HeightFields';
 import { streetWays } from '../osm/street';
 import { webotsElevation } from '../osm/structures';
 import { simulatorSpeeds } from '../osm/speeds';
@@ -23,18 +24,11 @@ export const HIGHWAY_LABELS: Readonly<Record<string, string>> = {
 };
 
 const ONEWAY_OPTIONS = [['', 'Двустороннее'], ['yes', 'Одностороннее →'], ['-1', 'Одностороннее ←']] as const;
-const STRUCTURE_OPTIONS = [['none', 'Обычная'], ['bridge', 'Мост'], ['tunnel', 'Тоннель']] as const;
 const SURFACE_OPTIONS = [['asphalt', 'Асфальт'], ['concrete', 'Бетон'], ['paving_stones', 'Плитка'], ['gravel', 'Гравий'], ['unpaved', 'Грунт']] as const;
 
 const ACCESS_OPTIONS = [['', 'Без ограничений'], ['no', 'Запрещено'], ['destination', 'Только к месту назначения']] as const;
 const BUS_OPTIONS = [['', 'Нет'], ['yes', 'Одна полоса']] as const;
 
-function structureTags(tags: Tags, kind: string): Tags {
-  const cleared = withTag(withTag(withTag(tags, 'bridge', null), 'tunnel', null), 'layer', null);
-  if (kind === 'bridge') return { ...cleared, bridge: 'yes', layer: '1' };
-  if (kind === 'tunnel') return { ...cleared, tunnel: 'yes', layer: '-1' };
-  return cleared;
-}
 
 /** What MATSim and SUMO will take as the speed of this road when maxspeed is missing or not a number. */
 function SpeedNote({ tags }: { tags: Tags }) {
@@ -67,7 +61,6 @@ export function WayInspector({ way }: { way: OsmWay }) {
   };
   const dir = direction(t);
   const profile = roadProfile(t);
-  const structure = t.bridge && t.bridge !== 'no' ? 'bridge' : t.tunnel && t.tunnel !== 'no' ? 'tunnel' : 'none';
 
   return (
     <div className="inspector">
@@ -125,11 +118,8 @@ export function WayInspector({ way }: { way: OsmWay }) {
           <SelectField label="Автобусная полоса" value={t['lanes:bus'] ? 'yes' : ''} options={BUS_OPTIONS} onChange={(v) => apply((d) => setWayTag(d, way.id, 'lanes:bus', v ? '1' : null))} />
         </div>
       </Section>
-      <Section title="Сооружение">
-        <div className="row">
-          <SelectField label="Тип" value={structure} options={STRUCTURE_OPTIONS} onChange={(k) => apply((d) => setWayTags(d, way.id, structureTags(t, k)))} />
-          <TextField label="Уровень, layer" type="number" value={t.layer ?? ''} onCommit={set('layer')} placeholder="0" />
-        </div>
+      <Section title="Высота">
+        <RoadLevelFields ids={[way.id]} tags={t} />
         <p className={`hint${webotsElevation(t) === null ? ' warn' : ''}`}>{elevationHint(t)}</p>
       </Section>
       <Section title="Все теги OSM" open={false} aside={<span className="mono count">{Object.keys(t).length}</span>}>

@@ -3,6 +3,10 @@ import { buildingHeight as heightOf } from '../osm/building';
 import { direction, highwayColor, isDrivable } from '../osm/tags';
 import { nodeSymbol } from './features';
 import { thematicProps } from './thematic';
+import { roadWidthMetres } from './lanesGeo';
+
+/** Screen pixels per metre at zoom 17 on MapLibre's 512 px tiles. */
+const pxPerMetreZ17 = (lat: number) => 2 ** 17 / (78271.517 * Math.cos((lat * Math.PI) / 180));
 import type { OsmDoc, OsmWay } from '../osm/types';
 
 type Props = Record<string, string | number | boolean>;
@@ -21,6 +25,9 @@ function roadFeature(doc: OsmDoc, w: OsmWay): Feature<LineString, Props> {
       color: highwayColor(w.tags.highway ?? ''),
       highway: (w.tags.highway ?? '').replace(/_link$/, ''),
       lanes: lanesOf(w),
+      // Width in screen pixels at zoom 17 (it doubles with every zoom step), so that close in the
+      // road is as wide as its lanes.
+      w17: roadWidthMetres(w.tags) * pxPerMetreZ17(doc.nodes[w.refs[0]]?.lat ?? 52),
       dir: direction(w.tags),
       bridge: Boolean(w.tags.bridge && w.tags.bridge !== 'no'),
       tunnel: Boolean(w.tags.tunnel && w.tags.tunnel !== 'no'),

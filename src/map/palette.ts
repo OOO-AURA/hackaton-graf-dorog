@@ -18,13 +18,16 @@ export interface MapPalette {
   roads: Record<RoadClassId, string>;
   casing: string;
   bridgeCasing: string;
-  /** Soft shadow under bridges in 2D; piers in 3D. */
+  /** Soft shadow under bridges in 2D. */
   bridgeShadow: string;
-  pier: string;
   arrow: string;
   building: string;
   buildingLine: string;
   building3d: string;
+  /** Sides of bridge decks, piers and tunnel portals in 3D. */
+  bridgeSide: string;
+  /** Lane lines when no flows are computed. */
+  lane: string;
   path: string;
   tram: string;
   nodeFill: string;
@@ -46,11 +49,12 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     casing: '#3A2516',
     bridgeCasing: '#1B110A',
     bridgeShadow: 'rgba(58, 37, 22, 0.45)',
-    pier: '#A9998A',
     arrow: '#3A2516',
     building: '#C9B48A',
     buildingLine: '#8C7350',
     building3d: '#D9C69C',
+    bridgeSide: '#8C7350',
+    lane: '#FBF6EA',
     path: '#9C8763',
     tram: '#7A4FA0',
     nodeFill: '#FBF6EA',
@@ -70,11 +74,12 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     casing: '#08080A',
     bridgeCasing: '#F1E6CB',
     bridgeShadow: 'rgba(0, 0, 0, 0.7)',
-    pier: '#6E6A66',
     arrow: '#F1E6CB',
     building: '#34343A',
     buildingLine: '#4C4C54',
     building3d: '#4A4A52',
+    bridgeSide: '#5C5C66',
+    lane: '#E8E2D4',
     path: '#6A6A72',
     tram: '#B48ADB',
     nodeFill: '#28282D',

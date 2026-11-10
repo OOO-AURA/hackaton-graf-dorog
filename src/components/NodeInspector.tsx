@@ -3,7 +3,8 @@ import { withTag } from '../osm/tags';
 import type { OsmNode } from '../osm/types';
 import { useEditor } from '../state/store';
 import { deleteSelection, splitAtSelected, toggleSignalSelected } from '../state/actions';
-import { SelectField } from './fields';
+import { SelectField, TextField } from './fields';
+import { formatMetres, nodeElevation, withElevation } from '../osm/height';
 import { TagTable } from './TagTable';
 import { Section } from './Section';
 import { NODE_FEATURES, nodeSymbol } from '../map/features';
@@ -12,6 +13,7 @@ import { SignalPlanSection } from './SignalPlanSection';
 import { TurnsSection } from './TurnsSection';
 import { RouteSection } from './RouteSection';
 import { isJunction } from '../osm/turns';
+import { LaneTurnsSection } from './LaneTurnsSection';
 
 const NODE_KIND_OPTIONS = [
   ['', 'Обычный узел'], ['traffic_signals', 'Светофор'], ['crossing', 'Пешеходный переход'],
@@ -52,9 +54,18 @@ export function NodeInspector({ node }: { node: OsmNode }) {
           <button className="btn" onClick={splitAtSelected} disabled={!inner} title="X"><Icon name="scissors" /> Разрезать здесь <kbd>X</kbd></button>
         </div>
       </Section>
+      <LaneTurnsSection node={node} />
       {isSignal && <SignalPlanSection node={node} ways={ways} />}
       {isJunction(doc, node.id) && <TurnsSection nodeId={node.id} />}
       <RouteSection nodeId={node.id} />
+      <Section title="Высота" open={false}>
+        <TextField
+          label="Отметка над уровнем моря, м" type="number" placeholder="—"
+          value={nodeElevation(node.tags) === null ? '' : formatMetres(nodeElevation(node.tags)!)}
+          onCommit={(v) => apply((d) => setNodeTags(d, node.id, withElevation(node.tags, v ? Number.parseFloat(v.replace(',', '.')) : null)))}
+        />
+        <p className="hint">Пишется в тег ele. На карте редактора отметка не показывается: рельефа в ней нет.</p>
+      </Section>
       {ways.length > 0 && (
         <Section title="Дороги через узел" aside={<span className="mono count">{ways.length}</span>}>
           <ul className="link-list">
