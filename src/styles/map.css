@@ -133,3 +133,9 @@
 .jc-picked { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 600; }
 .jc-templates { display: flex; flex-wrap: wrap; gap: 4px; }
 @media (max-width: 1360px) { .junction-card { top: 100px; max-height: calc(100% - 112px); } }
+
+/* Buildings in the way of the road being drawn: what to do with them, under the tools. */
+.float-conflict { top: 56px; left: 12px; flex-direction: column; align-items: flex-start; gap: 6px; padding: 8px 10px; border-color: color-mix(in srgb, var(--red) 55%, transparent); }
+.float-conflict b { color: var(--red-text); font-size: 12px; }
+.float-conflict .buttons { display: flex; flex-wrap: wrap; gap: 4px; }
+@media (max-width: 1360px) { .float-conflict { top: 100px; } }
