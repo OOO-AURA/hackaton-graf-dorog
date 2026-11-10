@@ -1,9 +1,8 @@
 import { useEffect } from 'react';
 import { runSimulation, simEnd, SPEEDS, useSim } from '../../sim/store';
 import { Icon } from '../icons';
-import type { DemandKind } from '../../sim/types';
 
-const MINUTES = [5, 10, 15, 20] as const;
+const DEMAND_SHORT = { random: 'случайный', rush: 'час пик', custom: 'свои потоки', od: 'из макро' } as const;
 
 const clock = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -28,7 +27,7 @@ function usePlayback(): void {
   }, [playing]);
 }
 
-/** Floating transport bar of the micro level: run, play, pause, step, stop, speed, clock. */
+/** Floating transport bar of the micro level: run, play, pause, step, stop, speed, clock. Settings are in the micro panel. */
 export function SimBar() {
   usePlayback();
   const s = useSim();
@@ -36,20 +35,8 @@ export function SimBar() {
   return (
     <div className="float sim-bar" role="toolbar" aria-label="Симуляция">
       <div className="sim-group">
-      <select value={s.minutes} onChange={(e) => s.setMinutes(Number(e.target.value))} aria-label="Длительность модели" disabled={s.running}>
-        {MINUTES.map((m) => <option key={m} value={m}>{m} мин</option>)}
-      </select>
-      <select value={s.demand} onChange={(e) => s.setDemand(e.target.value as DemandKind)} aria-label="Спрос" disabled={s.running}
-        title="Откуда брать поездки: немного случайных, вечерний час пик (втрое больше машин, транзит по главным улицам) или матрица корреспонденций из макромодели">
-        <option value="random">Случайный спрос</option>
-        <option value="rush">Час пик</option>
-        <option value="custom">Свои потоки</option>
-        <option value="od">Из макромодели</option>
-      </select>
-      <label className="sim-check" title="Тротуары, переходы и пешие поездки: машины уступают людям на зебрах и светофорах">
-        <input type="checkbox" checked={s.pedestrians} onChange={(e) => s.setPedestrians(e.target.checked)} disabled={s.running} /> Пешеходы
-      </label>
       <button className="btn btn-ink" onClick={() => void runSimulation()} disabled={s.running}>{s.running ? 'Считаю…' : s.result ? 'Пересчитать' : 'Запустить SUMO'}</button>
+      <span className="hint sim-summary" title="Настройки прогона — в панели справа">{s.minutes} мин · {DEMAND_SHORT[s.demand]}{s.pedestrians ? ' · пешеходы' : ''}{Object.keys(s.tuning).length ? ' · свои настройки' : ''}</span>
       </div>
       <div className="sim-group">
       <button className="tool" onClick={s.playing ? s.pause : s.play} disabled={!s.result} aria-label={s.playing ? 'Пауза' : 'Пуск'}>

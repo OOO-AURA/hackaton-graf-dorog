@@ -58,3 +58,20 @@ export interface SimResult {
 }
 
 export const STRIDE = 6;
+
+/** Fine settings of a micro run (sim.rs `Tuning`); a field left out keeps the app's default. */
+export interface SimTuning {
+  seed?: number;
+  vehicles_per_hour?: number;
+  fringe_factor?: number;
+  step_length?: number;
+  car_follow?: 'Krauss' | 'IDM' | 'EIDM' | 'W99';
+  sigma?: number;
+  tau?: number;
+  speed_factor?: number;
+  speed_dev?: number;
+  /** Shares of car, van, truck, road train, bus, articulated bus, percent. */
+  mix?: number[];
+  time_to_teleport?: number;
+  peds_per_hour?: number;
+}

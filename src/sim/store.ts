@@ -5,7 +5,7 @@ import { serializeOsm } from '../osm/serialize';
 import { isDesktop } from '../platform';
 import { useEditor } from '../state/store';
 import { useMacro } from '../macro/store';
-import { STRIDE, type DemandKind, type SimResult } from './types';
+import { STRIDE, type DemandKind, type SimResult, type SimTuning } from './types';
 import { flowsDemand, useCustomFlows } from './customFlows';
 import type { SignalPhase } from '../osm/signalPhases';
 
@@ -79,6 +79,10 @@ interface SimState {
   speed: number;
   /** Model time in seconds. */
   time: number;
+  /** Fine settings of the model, kept between runs and sessions. */
+  tuning: SimTuning;
+  setTuning: (patch: Partial<SimTuning>) => void;
+  resetTuning: () => void;
   setMinutes: (m: number) => void;
   setDemand: (d: DemandKind) => void;
   keepBaseline: () => void;
@@ -103,7 +107,23 @@ function loadPlans(fileName: string): Record<string, SignalPlan> {
   try { return JSON.parse(localStorage.getItem(PLANS_KEY + fileName) ?? '{}') as Record<string, SignalPlan>; } catch { return {}; }
 }
 
+const TUNING_KEY = 'graf.sim-tuning';
+function loadTuning(): SimTuning {
+  try { return JSON.parse(localStorage.getItem(TUNING_KEY) ?? '{}') as SimTuning; } catch { return {}; }
+}
+function saveTuning(t: SimTuning): void {
+  try { localStorage.setItem(TUNING_KEY, JSON.stringify(t)); } catch { /* storage off: holds for this session */ }
+}
+
 export const useSim = create<SimState>((set, get) => ({
+  tuning: loadTuning(),
+  setTuning: (patch) => set(({ tuning }) => {
+    const next: SimTuning = { ...tuning, ...patch };
+    for (const k of Object.keys(next) as (keyof SimTuning)[]) if (next[k] === undefined) delete next[k];
+    saveTuning(next);
+    return { tuning: next };
+  }),
+  resetTuning: () => { saveTuning({}); set({ tuning: {} }); },
   sumo: null, running: false, error: null, result: null, minutes: 10, pedestrians: false, plans: {}, demand: 'random', baseline: null, playing: false, speed: 10, time: 0,
   setMinutes: (minutes) => set({ minutes }),
   setPedestrians: (pedestrians) => set({ pedestrians }),
@@ -162,7 +182,7 @@ export async function runSimulation(): Promise<void> {
       od = flowsDemand(flows);
     }
     const doc = useEditor.getState().doc;
-    const extras = { transit: useTransit.getState().inSim ? transitDemand(transitRoutes(doc)) : [], pedestrians: useSim.getState().pedestrians, rush_hour: demand === 'rush',
+    const extras = { tuning: useSim.getState().tuning, transit: useTransit.getState().inSim ? transitDemand(transitRoutes(doc)) : [], pedestrians: useSim.getState().pedestrians, rush_hour: demand === 'rush',
       signals: Object.entries(useSim.getState().plans).filter(([id]) => doc.nodes[id]?.tags.highway === 'traffic_signals')
         .map(([id, p]) => ({ node: id, lon: doc.nodes[id].lon, lat: doc.nodes[id].lat, ...planForSim(p) })) };
     const result = await invoke<SimResult>('simulate', { text: serializeOsm(doc), minutes, demand: od, extras });

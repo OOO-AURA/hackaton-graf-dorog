@@ -11,6 +11,7 @@ import type { SimResult } from '../../sim/types';
 import { currentSelection, useEditor } from '../../state/store';
 import { Bottlenecks } from '../CapacityParts';
 import { CustomFlowsSection } from './CustomFlowsSection';
+import { SimSettings } from './SimSettings';
 
 const TYPE_LABELS: Readonly<Record<string, string>> = {
   car: 'Легковой, 4,5 м', van: 'Фургон до 3,5 т, 5,5 м', truck: 'Грузовой, 9 м', trailer: 'Автопоезд, 16,5 м', bus: 'Автобус, 12 м', bus18: 'Автобус, 18 м', ptbus: 'Автобус маршрута ОТ', ped: 'Пешеход',
@@ -137,11 +138,12 @@ export function MicroPanel() {
     <aside className="panel inspector-panel micro-panel" aria-label="Микросимуляция">
       <div className="panel-title micro"><span>Микросимуляция · SUMO</span><Why id="micro" /></div>
       {sumo && !sumo.ok && <SumoMissing status={sumo} />}
+      <SimSettings />
       <CustomFlowsSection />
       {!result && !(sumo && !sumo.ok) && (
         <div className="insp-empty">
           <h3 className="insp-start-title">{running ? 'Считаю модель…' : 'Модели ещё нет'}</h3>
-          <p className="hint">{error ?? 'Выберите спрос на полосе вверху карты и нажмите «Запустить SUMO». SUMO построит сеть из текущего графа, пустит машины, автобусы и пешеходов и проиграет движение. Спрос «Из макромодели» берёт поездки из шага «Макро», «Свои потоки» — те, что вы задали выше.'}</p>
+          <p className="hint">{error ?? 'Задайте спрос в блоке «Прогон» выше и нажмите «Запустить SUMO» на полосе над картой. SUMO построит сеть из текущего графа, пустит машины, автобусы и пешеходов и проиграет движение. Спрос «Из макромодели» берёт поездки из шага «Макро», «Свои потоки» — те, что вы задали выше.'}</p>
         </div>
       )}
       {result && (

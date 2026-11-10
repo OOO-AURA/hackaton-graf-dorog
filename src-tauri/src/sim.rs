@@ -53,6 +53,74 @@ pub struct Extras {
     /// through the fragment between its edges and keeping to the wide main roads, as in a city at 18:00.
     #[serde(default)]
     pub rush_hour: bool,
+    /// Fine settings of the model from the micro panel; every field left out keeps the default.
+    #[serde(default)]
+    pub tuning: Tuning,
+}
+
+/// Fine settings of a micro run. `None` keeps the value the app uses by default.
+#[derive(Deserialize, Default, Clone)]
+#[cfg_attr(test, derive(Debug))]
+#[serde(default)]
+pub struct Tuning {
+    /// Seed of random trips: the same seed gives the same trips, another one another sample.
+    pub seed: Option<u32>,
+    /// Cars entering per hour (randomTrips period = 3600 / this).
+    pub vehicles_per_hour: Option<f64>,
+    /// How much more often trips start and end at the edge of the fragment (through traffic).
+    pub fringe_factor: Option<f64>,
+    /// Simulation step, seconds.
+    pub step_length: Option<f64>,
+    /// Car-following model: Krauss, IDM, EIDM or W99.
+    pub car_follow: Option<String>,
+    /// Driver imperfection 0..1 (Krauss sigma).
+    pub sigma: Option<f64>,
+    /// Desired time headway, seconds.
+    pub tau: Option<f64>,
+    /// Mean of drivers' speed relative to the limit, and its spread.
+    pub speed_factor: Option<f64>,
+    pub speed_dev: Option<f64>,
+    /// Shares of the vehicle types in VTYPES order; normalised, missing ones keep the default.
+    pub mix: Option<Vec<f64>>,
+    /// A vehicle stuck this long is moved on (teleported); 0 turns it off.
+    pub time_to_teleport: Option<u32>,
+    /// Walking trips per hour when pedestrians are on.
+    pub peds_per_hour: Option<f64>,
+}
+
+const CAR_FOLLOW_MODELS: &[&str] = &["Krauss", "IDM", "EIDM", "W99"];
+
+/// Sets an attribute of a one-line XML element, adding it before the closing "/>" if missing.
+fn set_attr(xml: &str, name: &str, value: &str) -> String {
+    let key = format!(" {name}=\"");
+    if let Some(i) = xml.find(&key) {
+        let start = i + key.len();
+        let end = start + xml[start..].find('"').unwrap_or(0);
+        format!("{}{}{}", &xml[..start], value, &xml[end..])
+    } else {
+        let at = xml.rfind("/>").unwrap_or(xml.len());
+        format!("{} {name}=\"{value}\"{}", xml[..at].trim_end(), &xml[at..])
+    }
+}
+
+/// The vehicle types with the tuning applied: shares, car-following model and driver behaviour.
+pub fn tuned_vtypes(t: &Tuning) -> Vec<String> {
+    let mix: Vec<f64> = VTYPES.iter().enumerate()
+        .map(|(i, (_, _, p))| t.mix.as_ref().and_then(|m| m.get(i).copied()).filter(|v| v.is_finite() && *v >= 0.0).unwrap_or(*p))
+        .collect();
+    let total: f64 = mix.iter().sum();
+    VTYPES.iter().zip(&mix).map(|((_, xml, base), share)| {
+        let p = if total > 0.0 { share / total } else { *base };
+        let mut x = set_attr(xml, "probability", &format!("{p:.4}"));
+        if let Some(m) = t.car_follow.as_deref().filter(|m| CAR_FOLLOW_MODELS.contains(m)) {
+            x = set_attr(&x, "carFollowModel", m);
+        }
+        if let Some(v) = t.sigma.filter(|v| (0.0..=1.0).contains(v)) { x = set_attr(&x, "sigma", &format!("{v}")); }
+        if let Some(v) = t.tau.filter(|v| (0.1..=5.0).contains(v)) { x = set_attr(&x, "tau", &format!("{v}")); }
+        if let Some(v) = t.speed_factor.filter(|v| (0.5..=1.5).contains(v)) { x = set_attr(&x, "speedFactor", &format!("{v}")); }
+        if let Some(v) = t.speed_dev.filter(|v| (0.0..=0.5).contains(v)) { x = set_attr(&x, "speedDev", &format!("{v}")); }
+        x
+    }).collect()
 }
 
 /// Seconds between departures of random trips: light traffic, and the evening rush hour.
@@ -588,7 +656,7 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
     };
 
     let vtypes = dir.join("vtypes.add.xml");
-    let body: String = VTYPES.iter().map(|(_, xml, _)| format!("    {xml}\n")).collect();
+    let body: String = tuned_vtypes(&extras.tuning).iter().map(|xml| format!("    {xml}\n")).collect();
     let events: String = info.tls.iter()
         .map(|t| format!("  <timedEvent type=\"SaveTLSStates\" source=\"{}\" dest=\"tls.xml\"/>\n", xml_escape(&t.id)))
         .collect();
@@ -597,6 +665,7 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
 
     let end = (minutes * 60).to_string();
     let insert_end = minutes * 60 * 2 / 3;
+    let tu = &extras.tuning;
     let routes = dir.join("map.rou.xml");
     let trips;
     let label;
@@ -614,12 +683,15 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
         cmd.current_dir(&dir).env("SUMO_HOME", &sh)
             .arg(sh.join("tools/randomTrips.py")).arg("-n").arg(&net).arg("-o").arg(dir.join("map.trips.xml"))
             .arg("-r").arg(&routes).arg("--additional-files").arg(&vtypes)
-            .args(["-e", &insert_end.to_string(), "--validate", "--seed", "42", "--trip-attributes", "type=\"mix\""]);
+            .args(["-e", &insert_end.to_string(), "--validate", "--seed", &tu.seed.unwrap_or(42).to_string(), "--trip-attributes", "type=\"mix\""]);
+        // Cars per hour set by hand win over the default period of the demand kind.
+        let period = tu.vehicles_per_hour.filter(|v| (60.0..=20000.0).contains(v)).map(|v| format!("{:.4}", 3600.0 / v));
+        let fringe = tu.fringe_factor.filter(|v| (1.0..=100.0).contains(v)).map(|v| format!("{v}"));
         if extras.rush_hour {
             // Wide roads draw more trips (-L weights by lanes), fast ones too: the main roads fill first.
-            cmd.args(["-p", RUSH_PERIOD_S, "--fringe-factor", RUSH_FRINGE_FACTOR, "--min-distance", RUSH_MIN_DISTANCE_M, "-L", "--speed-exponent", "1"]);
+            cmd.args(["-p", period.as_deref().unwrap_or(RUSH_PERIOD_S), "--fringe-factor", fringe.as_deref().unwrap_or(RUSH_FRINGE_FACTOR), "--min-distance", RUSH_MIN_DISTANCE_M, "-L", "--speed-exponent", "1"]);
         } else {
-            cmd.args(["-p", RANDOM_PERIOD_S, "--fringe-factor", "5"]);
+            cmd.args(["-p", period.as_deref().unwrap_or(RANDOM_PERIOD_S), "--fringe-factor", fringe.as_deref().unwrap_or("5")]);
         }
         let (_, tlog) = run(&mut cmd)?;
         if !routes.exists() {
@@ -634,7 +706,9 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
         let peds = dir.join("ped.rou.xml");
         let (_, plog) = run(command(&python).current_dir(&dir).env("SUMO_HOME", &sh)
             .arg(sh.join("tools/randomTrips.py")).arg("-n").arg(&net).arg("-o").arg(&peds)
-            .args(["--pedestrians", "--max-distance", "1500", "-e", &insert_end.to_string(), "-p", "1.5", "--seed", "7", "--prefix", "ped"]))?;
+            .args(["--pedestrians", "--max-distance", "1500", "-e", &insert_end.to_string(), "-p",
+                &tu.peds_per_hour.filter(|v| (60.0..=20000.0).contains(v)).map_or("1.5".to_string(), |v| format!("{:.4}", 3600.0 / v)),
+                "--seed", &tu.seed.map_or(7, |s| s.wrapping_add(7)).to_string(), "--prefix", "ped"]))?;
         if !peds.exists() {
             return Err(format!("randomTrips не построил пешеходов:\n{}", tail(&plog, 15)));
         }
@@ -688,7 +762,9 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
     let (_, slog) = run(sumo
         .arg("--fcd-output").arg(&fcd).arg("--fcd-output.geo").arg("true").arg("--device.fcd.period").arg(FCD_PERIOD_S)
         .arg("--tripinfo-output").arg(&tripinfo).arg("--edgedata-output").arg(&edgedata)
-        .args(["--end", &end, "--no-step-log", "--duration-log.statistics", "--time-to-teleport", "300",
+        .args(["--end", &end, "--no-step-log", "--duration-log.statistics", "--time-to-teleport", &tu.time_to_teleport.map_or("300".to_string(), |v| if v == 0 { "-1".to_string() } else { v.to_string() }),
+            "--step-length", &tu.step_length.filter(|v| (0.1..=1.0).contains(v)).map_or("1".to_string(), |v| format!("{v}")),
+            "--seed", &tu.seed.unwrap_or(23423).to_string(),
             "--collision.action", "warn", "--ignore-route-errors", "true"]))?;
     if slog.contains("Quitting (on error)") {
         return Err(format!("SUMO остановился с ошибкой:\n{}", tail(&slog, 15)));
@@ -827,27 +903,74 @@ mod local_run {
         println!("od trips {} vehicles {} finished {}", r.trips, r.vehicles, r.finished);
         assert!(r.trips > 10);
         let transit: Vec<super::TransitLine> = serde_json::from_str(include_str!("testdata/transit.json")).unwrap();
-        let r = super::simulate(&text, 10, None, Some(super::Extras { transit, pedestrians: false, signals: vec![], rush_hour: false })).unwrap();
+        let r = super::simulate(&text, 10, None, Some(super::Extras { transit, pedestrians: false, signals: vec![], rush_hour: false, tuning: Default::default() })).unwrap();
         println!("transit lines {} buses finished {} speed {:.1}", r.transit_lines, r.pt_finished, r.pt_mean_speed_kmh);
         let pt = r.frames.iter().map(|f| f.v.chunks(6).filter(|v| v[5] as usize == super::VTYPES.len()).count()).max().unwrap_or(0);
         println!("buses on the map at peak {pt}\n{}", r.log_tail);
         assert!(r.transit_lines > 0);
-        let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: true, signals: vec![], rush_hour: false })).unwrap();
+        let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: true, signals: vec![], rush_hour: false, tuning: Default::default() })).unwrap();
         println!("persons {} walked {} loss {:.1} crossings {:?}", r.persons, r.ped_finished, r.ped_mean_time_loss_s, r.crossings.iter().take(3).collect::<Vec<_>>());
         assert!(r.persons > 10);
         let tl = r.signals.first().map(|s| (s.lon, s.lat)).unwrap();
         let plan = super::SignalPlan { node: "n".into(), lon: tl.0, lat: tl.1, cycle_s: 60.0, main_share: 0.7, adaptive: false, min_green_s: 8.0, max_green_s: 50.0, max_gap_s: 3.0, left_arrow: false, right_arrow: false, ped_phase: false, ped_s: 15.0, offset_s: 0.0, phases: vec![] };
-        let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: false, signals: vec![plan], rush_hour: false })).unwrap();
+        let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: false, signals: vec![plan], rush_hour: false, tuning: Default::default() })).unwrap();
         println!("plans {:?} loss {:.1}", r.plans.iter().map(|p| (&p.tls, p.cycle_s)).collect::<Vec<_>>(), r.mean_time_loss_s);
         assert_eq!(r.plans.len(), 1);
         // The engineer's own phases: two phases and a pedestrian one make a program of exactly them.
         let phase = |green: f64, ped: bool| super::PhaseSpec { green_s: green, yellow_s: 3.0, all_red_s: 2.0, ped, moves: Default::default() };
         let own = super::SignalPlan { phases: vec![phase(30.0, false), phase(20.0, false), phase(12.0, true)], offset_s: 10.0, ..plan_like(tl) };
-        let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: true, signals: vec![own], rush_hour: false })).unwrap();
+        let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: true, signals: vec![own], rush_hour: false, tuning: Default::default() })).unwrap();
         println!("own phases {:?}", r.plans.iter().map(|p| (&p.tls, p.cycle_s)).collect::<Vec<_>>());
         assert_eq!(r.plans.len(), 1);
         assert_eq!(r.plans[0].cycle_s.round() as i64, 30 + 20 + 12 + 3 * 5);
         println!("timeline {} ways x {} min", r.timeline.ways.len(), r.timeline.ways.first().map(|w| w.delay.len()).unwrap_or(0));
         assert!(!r.timeline.ways.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod tuning_tests {
+    use super::*;
+
+    #[test]
+    fn default_tuning_keeps_the_types() {
+        let v = tuned_vtypes(&Tuning::default());
+        assert_eq!(v.len(), VTYPES.len());
+        assert!(v[0].contains("probability=\"0.7800\""));
+        assert!(!v[0].contains("carFollowModel"));
+    }
+
+    #[test]
+    fn tuning_sets_model_driver_and_shares() {
+        let t = Tuning { car_follow: Some("IDM".into()), sigma: Some(0.2), tau: Some(1.4), mix: Some(vec![1.0, 1.0, 0.0, 0.0, 0.0, 0.0]), ..Default::default() };
+        let v = tuned_vtypes(&t);
+        assert!(v[0].contains("carFollowModel=\"IDM\"") && v[0].contains("sigma=\"0.2\"") && v[0].contains("tau=\"1.4\""));
+        assert!(v[0].contains("probability=\"0.5000\"") && v[2].contains("probability=\"0.0000\""));
+        assert!(v[0].ends_with("/>"));
+    }
+
+    #[test]
+    fn unknown_model_and_wild_values_are_ignored() {
+        let t = Tuning { car_follow: Some("rm -rf".into()), sigma: Some(7.0), ..Default::default() };
+        let v = tuned_vtypes(&t);
+        assert!(!v[0].contains("carFollowModel") && !v[0].contains("sigma="));
+    }
+}
+
+#[cfg(test)]
+mod tuning_run {
+    /// Runs SUMO with every fine setting changed; needs SUMO installed.
+    #[test]
+    #[ignore]
+    fn sumo_takes_the_tuning() {
+        let text = std::fs::read_to_string("../public/example.osm").unwrap();
+        let tuning = super::Tuning {
+            seed: Some(5), vehicles_per_hour: Some(1800.0), fringe_factor: Some(3.0), step_length: Some(0.5), car_follow: Some("IDM".into()),
+            sigma: Some(0.3), tau: Some(1.2), speed_factor: Some(0.9), speed_dev: Some(0.05), mix: Some(vec![90.0, 5.0, 3.0, 1.0, 1.0, 0.0]),
+            time_to_teleport: Some(0), peds_per_hour: Some(600.0),
+        };
+        let r = super::simulate(&text, 3, None, Some(super::Extras { transit: vec![], pedestrians: true, signals: vec![], rush_hour: false, tuning })).unwrap();
+        println!("tuned: trips {} vehicles {} persons {} speed {:.1}", r.trips, r.vehicles, r.persons, r.mean_speed_kmh);
+        assert!(r.vehicles > 10 && r.persons > 0);
     }
 }
