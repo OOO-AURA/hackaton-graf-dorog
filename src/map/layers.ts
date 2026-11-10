@@ -105,6 +105,14 @@ const laneWidth = (extra: unknown = 0) => [
   22, ['+', ['*', 32, ['get', 'w17']], extra],
 ] as never;
 
+/** Lane lines are shown once the flows give them a load; lane markings always. */
+const LANE_LINES = ['all', ['==', ['get', 'kind'], 'lane'], ['==', ['get', 'loaded'], true]];
+const DASHED_MARKS = ['all', ['==', ['get', 'kind'], 'divider'], ['!=', ['get', 'solid'], true]];
+const SOLID_MARKS = ['all', ['==', ['get', 'kind'], 'divider'], ['==', ['get', 'solid'], true]];
+const LANE_MARK_MINZOOM = 16.5;
+/** Width of a lane marking in px; the road itself doubles per zoom step, so the marking does too. */
+const markWidth = (z16_5: number, z18: number, z20: number) => ['interpolate', ['exponential', 2], ['zoom'], 16.5, z16_5, 18, z18, 20, z20] as never;
+
 const GRAPH_NODE_KINDS = ['junction', 'end', 'vertex'];
 const NODES_FILTER = ['all', ['!=', ['get', 'kind'], 'signal'], ['any', ['in', ['get', 'kind'], ['literal', GRAPH_NODE_KINDS]], ['>=', ['zoom'], 17]]];
 
@@ -122,7 +130,7 @@ export function sceneColors(p: MapPalette): Scene3dColors & { selection: Rgb } {
   const service = rgb(p.roads.service);
   return {
     building: rgb(p.building3d), deck: (h) => byHighway.get(h) ?? service,
-    deckSide: rgb(p.bridgeSide), parapet: rgb(p.bridgeParapet), pier: rgb(p.bridgeSide), portal: rgb(p.bridgeSide), selection: rgb(p.selection),
+    deckSide: rgb(p.bridgeSide), parapet: rgb(p.bridgeParapet), mark: rgb(p.laneMark), markCasing: rgb(p.laneMarkCasing), pier: rgb(p.bridgeSide), portal: rgb(p.bridgeSide), selection: rgb(p.selection),
   };
 }
 
@@ -153,8 +161,16 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   });
   // Lanes close in: thin lines in the colour of their load, links across junctions, lane ends at
   // the junction being edited (red where traffic comes in, blue where it leaves).
-  map.addLayer({ id: 'lanes', type: 'line', source: 'lanes', minzoom: 17, layout: { 'line-cap': 'butt', 'line-join': 'round' },
+  map.addLayer({ id: 'lanes', type: 'line', source: 'lanes', minzoom: 17, filter: LANE_LINES as never, layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 17, 1, 19, 2.2], 'line-opacity': 0.95 } });
+  // Lane markings: a dark outline under a light line, so they read on any road colour and theme;
+  // solid between the two directions, dashed between lanes going the same way.
+  map.addLayer({ id: 'lane-marks-casing', type: 'line', source: 'lanes', minzoom: LANE_MARK_MINZOOM, filter: ['==', ['get', 'kind'], 'divider'],
+    layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-width': markWidth(1.8, 3.2, 8), 'line-opacity': 0.55 } });
+  map.addLayer({ id: 'lane-marks-dash', type: 'line', source: 'lanes', minzoom: LANE_MARK_MINZOOM, filter: DASHED_MARKS as never,
+    layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-width': markWidth(0.7, 1.3, 3.5), 'line-dasharray': [3, 3] } });
+  map.addLayer({ id: 'lane-marks-solid', type: 'line', source: 'lanes', minzoom: LANE_MARK_MINZOOM, filter: SOLID_MARKS as never,
+    layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-width': markWidth(0.8, 1.5, 4) } });
   map.addLayer({ id: 'lane-links', type: 'line', source: 'lane-links', minzoom: 17, layout: { 'line-cap': 'round', 'line-join': 'round' },
     paint: {
       'line-color': ['get', 'color'],
@@ -253,6 +269,9 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
   set('roads', 'line-color', roadColorExpression(p));
   set('roads-bridge', 'line-color', roadColorExpression(p));
   set('bridge-shadow', 'line-color', p.bridgeShadow);
+  set('lane-marks-casing', 'line-color', p.laneMarkCasing);
+  set('lane-marks-dash', 'line-color', p.laneMark);
+  set('lane-marks-solid', 'line-color', p.laneMark);
   set('selection-line', 'line-color', p.selection);
   set('nodes', 'circle-color', ['match', ['get', 'kind'], 'end', p.roads.secondary, 'vertex', p.vertex, p.nodeFill]);
   set('nodes', 'circle-stroke-color', p.nodeStroke);
@@ -274,7 +293,7 @@ export function applyRoadColors(map: MapLibreMap, p: MapPalette, mode: RoadColor
   map.setPaintProperty('roads-bridge', 'line-color', color as never);
 }
 
-const ROAD_LAYERS = ['roads-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line', 'lanes', 'lane-links', 'lane-ends'];
+const ROAD_LAYERS = ['roads-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line', 'lanes', 'lane-marks-casing', 'lane-marks-dash', 'lane-marks-solid', 'lane-links', 'lane-ends'];
 
 /** Applies the layer toggles from the bottom bar. Bridges and tunnels are filters on the road layers. */
 export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boolean>, view3d = false): void {
@@ -304,6 +323,11 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   map.setFilter('roads-casing', structure as never);
   map.setFilter('roads', ['all', ['!', ['get', 'bridge']], structure] as never);
   map.setFilter('roads-arrows', ['all', ['!=', ['get', 'dir'], 'both'], structure] as never);
-  // In 3D bridge and tunnel lanes would lie on the ground under their deck or tube.
-  map.setFilter('lanes', (view3d ? ['!', ['get', 'raised']] : null) as never);
+  // In 3D bridge and tunnel lanes would lie on the ground under their deck or tube; the deck
+  // carries its own markings (mesh3d.ts).
+  const flat = (filter: unknown[]) => (view3d ? ['all', filter, ['!=', ['get', 'raised'], true]] : filter) as never;
+  map.setFilter('lanes', flat(LANE_LINES));
+  map.setFilter('lane-marks-casing', flat(['==', ['get', 'kind'], 'divider']));
+  map.setFilter('lane-marks-dash', flat(DASHED_MARKS));
+  map.setFilter('lane-marks-solid', flat(SOLID_MARKS));
 }
