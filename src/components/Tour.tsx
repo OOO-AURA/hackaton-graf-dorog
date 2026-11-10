@@ -9,8 +9,8 @@ const KEY = 'graf-tour';
 /** First-run path through the three things the app is for: edit, see flows, check in SUMO. */
 export const TOUR = [
   { anchor: 'inspector', title: 'Правка', text: 'Кликните дорогу на карте. Справа появятся её полосы, класс и скорость: поменяйте что-нибудь, например число полос.', side: 'left' },
-  { anchor: 'flows-tab', title: 'Потоки', text: 'Перейдите к шагу 3 «Потоки» и нажмите «Распределить потоки». Цвет дорог покажет загрузку в час пик уже с вашей правкой.', side: 'bottom' },
-  { anchor: 'micro-toggle', title: 'Симуляция', text: 'Перейдите к шагу 4 «Симуляция» и запустите SUMO: машины поедут по полосам, а панель покажет задержку и уровень обслуживания.', side: 'bottom' },
+  { anchor: 'flows-tab', title: 'Макро', text: 'Перейдите к шагу 3 «Макро» и нажмите «Распределить потоки». Цвет дорог покажет загрузку в час пик уже с вашей правкой.', side: 'bottom' },
+  { anchor: 'micro-toggle', title: 'Микро', text: 'Перейдите к шагу 4 «Микро» и запустите SUMO: машины поедут по полосам, а панель покажет задержку и уровень обслуживания.', side: 'bottom' },
 ] as const;
 
 function readStep(): number | null {

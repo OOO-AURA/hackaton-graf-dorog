@@ -29,7 +29,7 @@ describe('the work in steps', () => {
   test('the header lists the five steps in order and a click moves to one', () => {
     const r = render(<StepBar />);
     const buttons = [...r.host.querySelectorAll('button')];
-    expect(buttons.map((b) => b.textContent?.replace(/\d/g, ''))).toEqual(['Правка', 'Проверка', 'Потоки', 'Симуляция', 'Сдача']);
+    expect(buttons.map((b) => b.textContent?.replace(/\d/g, ''))).toEqual(['Правка', 'Проверка', 'Макро', 'Микро', 'Сдача']);
     act(() => buttons[2].click());
     expect(useUi.getState()).toMatchObject({ step: 'flows', bottomTab: 'flows', bottomOpen: true });
     expect(buttons[2].getAttribute('aria-current')).toBe('step');

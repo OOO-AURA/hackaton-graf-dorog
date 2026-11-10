@@ -47,7 +47,7 @@ export function Header() {
     <header className="header">
       <div className="header-left">
         <div className="brand"><Petals size={22} /><span className="display">Граф дорог</span></div>
-        <div className="btn-group">
+        <div className="btn-group file-actions">
           <button className="btn btn-quiet" onClick={() => void openFile()} title="Открыть .osm с диска (⌘O)"><Icon name="open" /> Открыть</button>
           {!isDesktop && <input id={BROWSER_FILE_INPUT} type="file" accept=".osm,.xml" hidden onChange={(e) => { void openBrowserFile(e.target.files?.[0]); e.target.value = ''; }} />}
           <button className="btn btn-quiet" onClick={() => void openExample()} title="Фрагмент из задания">Пример</button>

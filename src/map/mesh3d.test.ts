@@ -202,4 +202,25 @@ describe('bridge ends', () => {
     expect(parapetAt(0)).toBe(0);
     expect(parapetAt(5)).toBe(1);
   });
+
+  test('an embankment slope stops at the road beside it instead of burying it', () => {
+    const bridge = `
+      <node id="1" lat="52.00000" lon="104.00000"/><node id="2" lat="52.00000" lon="104.00100"/><node id="3" lat="52.00000" lon="104.00300"/>
+      <way id="10"><nd ref="1"/><nd ref="2"/><tag k="highway" v="primary"/><tag k="lanes" v="2"/><tag k="bridge" v="yes"/><tag k="layer" v="1"/></way>
+      <way id="11"><nd ref="2"/><nd ref="3"/><tag k="highway" v="primary"/><tag k="lanes" v="2"/></way>`;
+    // A road 10 m north of the approach, not joined to it: the full slope would reach 11 m out.
+    const beside = `<node id="4" lat="52.00009" lon="104.00100"/><node id="5" lat="52.00009" lon="104.00300"/>
+      <way id="12"><nd ref="4"/><nd ref="5"/><tag k="highway" v="primary"/><tag k="lanes" v="2"/></way>`;
+    const northmost = (body: string) => {
+      const { structures } = buildScene3d(osm(body), COLORS)!;
+      const ys = Array.from({ length: structures.length / STRIDE }, (_, i) => i * STRIDE)
+        .filter((o) => Math.abs(structures[o + 3] - COLORS.embankment[0]) < 1e-6 && Math.abs(structures[o + 4] - COLORS.embankment[1]) < 1e-6)
+        .map((o) => structures[o + 1]);
+      return Math.min(...ys);
+    };
+    const free = northmost(bridge);
+    const tight = northmost(`${bridge}${beside}`);
+    // y grows to the south: the slope next to the other road ends further south than in the open.
+    expect(tight).toBeGreaterThan(free + 2);
+  });
 });

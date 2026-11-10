@@ -22,8 +22,18 @@
 .step + .step::before { content: ''; position: absolute; left: -2px; top: 50%; width: 2px; height: 2px; border-radius: 50%; background: var(--line-strong); }
 .step .badge { margin-left: -2px; }
 .help-btn { font-weight: 800; font-size: 15px; }
-@media (max-width: 1280px) { .step { padding: 0 9px 0 5px; } .step-label { font-size: 12px; } }
-@media (max-width: 1120px) { .step-label { display: none; } .step { padding: 0 5px; } }
+/* A narrow window gives up the file name, the step numbers and the labels of the side buttons; the step names always stay. */
+@media (max-width: 1280px) { .step { padding: 0 9px 0 5px; } .step-label { font-size: 12px; } .file-name { display: none; } }
+@media (max-width: 1100px) {
+  .step-n { display: none; }
+  .step { padding: 0 9px; }
+  .save-status { font-size: 0; gap: 0; }
+  .file-actions > .btn:not(:first-child), .file-actions .area-menu { display: none; }
+}
+@media (max-width: 900px) {
+  .file-actions > .btn:first-child, .header-right > .btn-ink { font-size: 0; gap: 0; }
+  .header { gap: var(--sp-2); padding: 0 var(--sp-2); }
+}
 
 /* Labelled tools on the left of the map */
 .tool-labelled {
@@ -32,6 +42,9 @@
 }
 .tool-labelled kbd { font: 600 10px var(--font-mono); padding: 0 4px; border-radius: 3px; border: 1px solid var(--line-strong); color: var(--ink-2); background: transparent; }
 .tool-labelled.on kbd { color: inherit; border-color: currentColor; }
+
+/* The free map between the panels, so the floats can make room for each other when it is narrow. */
+.stage { container-type: size; }
 
 /* What the map looks like now, top centre */
 .float-view { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: grid; justify-items: center; gap: 6px; z-index: 2; }
@@ -126,3 +139,9 @@
 .help-keys dt { font-size: 11px; color: var(--ink); }
 .help-hints { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 12px; }
 @media (max-width: 860px) { .help-body { grid-template-columns: 1fr; } }
+
+/* A narrow free map: the view note moves to the right next to the zoom, the hint takes the width. */
+@container (max-width: 640px) {
+  .float-view { left: auto; right: 60px; transform: none; justify-items: end; }
+  .float-hint { max-width: calc(100% - 24px); }
+}

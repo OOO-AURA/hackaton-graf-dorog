@@ -23,8 +23,8 @@ export interface StepInfo {
 export const STEPS: readonly StepInfo[] = [
   { id: 'edit', label: 'Правка', hint: 'Рисуйте и правьте дороги, перекрёстки, знаки и здания', workspace: 'macro', tabs: ['issues', 'journal'], opens: null },
   { id: 'check', label: 'Проверка', hint: 'Ошибки графа и потоков, многие исправляются одной кнопкой', workspace: 'macro', tabs: ['issues', 'errors', 'journal'], opens: 'issues' },
-  { id: 'flows', label: 'Потоки', hint: 'Зоны, матрица поездок и загрузка дорог в час пик', workspace: 'macro', tabs: ['flows', 'transit', 'scenarios'], opens: 'flows' },
-  { id: 'sim', label: 'Симуляция', hint: 'SUMO: машины по полосам, светофоры, задержки', workspace: 'micro', tabs: ['scenarios', 'errors'], opens: null },
+  { id: 'flows', label: 'Макро', hint: 'Макроуровень: зоны, матрица поездок и загрузка дорог в час пик', workspace: 'macro', tabs: ['flows', 'transit', 'scenarios'], opens: 'flows' },
+  { id: 'sim', label: 'Микро', hint: 'Микроуровень, SUMO: машины по полосам, светофоры, задержки', workspace: 'micro', tabs: ['scenarios', 'errors'], opens: null },
   { id: 'submit', label: 'Сдача', hint: 'Проверка как на сервере, сохранение и экспорт', workspace: 'macro', tabs: ['submit', 'check', 'journal'], opens: 'submit' },
 ];
 

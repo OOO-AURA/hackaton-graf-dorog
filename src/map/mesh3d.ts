@@ -6,6 +6,7 @@ import { roadTapers, sectionAt, sectionOf, widthOf, type CrossSection, type Tape
 import { isLifted, nodeElevations } from './elevation';
 import { signPoints } from '../osm/signs';
 import { addStreetProps } from './props3d';
+import { BandIndex, slopeReach, type RoadBand } from './slopeRoom';
 
 /**
  * Geometry of the 3D view in local metres around an origin: x east, y south (the way Web
@@ -63,7 +64,12 @@ const SHADOW: Rgb = [0, 0, 0];
 /** Lane markings on a deck: a light line on a wider dark outline, like the markings in 2D. */
 const MARK_WIDTH = 0.3;
 const MARK_CASING = 0.55;
-const MARK_LIFT = 0.04;
+/**
+ * Height of the markings over the road surface. Where two raised roads part at a fork their
+ * surfaces overlap at almost the same height (each falls about 4 cm per metre down its approach),
+ * so the markings stand clear of that, or one road would hide the other's lanes.
+ */
+const MARK_LIFT = 0.12;
 const PORTAL_DEPTH = 1.5;
 const PORTAL_PILLAR = 1.2;
 
@@ -344,6 +350,11 @@ function addShadow(shadows: Buf, [l0, l1, r0, r1]: readonly P2[], z0: number, z1
 const SLOPE = 1.5;
 /** Below this the road lies on the ground and the 2D line shows it. */
 const ON_GROUND = 0.05;
+/** A side steeper than this (metres out per metre up) is a concrete retaining wall, not earth. */
+const WALL_SLOPE = 0.5;
+
+/** How far out a slope may reach from the centreline at `p` along `dir`: up to `to`, less where another road is in the way. */
+type SlopeRoom = (p: P2, dir: P2, from: number, to: number) => number;
 
 /** A polyline with its heights, with points added so no piece is longer than `step`. */
 function densifyWithHeight(pts: readonly P2[], zs: readonly number[], step: number): { pts: P2[]; z: number[] } {
@@ -364,18 +375,23 @@ function densifyWithHeight(pts: readonly P2[], zs: readonly number[], step: numb
  * A road on an embankment up to a bridge: the carriageway at its height with lane markings, and
  * earth slopes down to the ground on both sides, wider the higher the road.
  */
-function addEmbankment(solid: Buf, mask: Buf, raw: P2[], rawZ: number[], tags: Record<string, string>, tapers: readonly Taper[] | undefined, colors: Scene3dColors) {
+function addEmbankment(solid: Buf, mask: Buf, raw: P2[], rawZ: number[], tags: Record<string, string>, tapers: readonly Taper[] | undefined, colors: Scene3dColors, room?: SlopeRoom) {
   const { pts, z } = densifyWithHeight(raw, rawZ, tapers ? TAPER_STEP : RAMP_STEP);
   const { dist, sections } = sectionsAlong(pts, tags, tapers);
   const { left, right } = carriageway(pts, sections);
   // Unit offsets (mitred) give the feet of the slopes, which move out with the height.
   const unit = offsets(pts, 1);
-  // The foot of each slope sits out from the carriageway edge on its side (left here is the right of travel).
-  const reach = (i: number, edge: number) => edge + z[i] * SLOPE;
-  const foot = (side: P2[], i: number): P2 => {
+  // The foot of each slope sits out from the carriageway edge on its side (left here is the right
+  // of travel), as far as the height asks unless another road is in the way: then the side is a wall.
+  const foot = (side: P2[], i: number): { at: P2; wall: boolean } => {
     const edge = side === unit.left ? sections[i].right : sections[i].left;
-    return [pts[i][0] + (side[i][0] - pts[i][0]) * reach(i, edge), pts[i][1] + (side[i][1] - pts[i][1]) * reach(i, edge)];
+    const [dx, dy] = [side[i][0] - pts[i][0], side[i][1] - pts[i][1]];
+    const l = Math.hypot(dx, dy) || 1;
+    const full = edge + z[i] * SLOPE;
+    const reach = room ? room(pts[i], [dx / l, dy / l], edge, full) : full;
+    return { at: [pts[i][0] + dx * reach, pts[i][1] + dy * reach], wall: reach - edge < z[i] * WALL_SLOPE };
   };
+  const side = (a: { wall: boolean }, b: { wall: boolean }) => (a.wall || b.wall ? colors.deckSide : colors.embankment);
   const road = colors.deck((tags.highway ?? '').replace(/_link$/, ''));
   for (let i = 0; i < pts.length - 1; i += 1) {
     const [z0, z1] = [z[i], z[i + 1]];
@@ -383,8 +399,8 @@ function addEmbankment(solid: Buf, mask: Buf, raw: P2[], rawZ: number[], tags: R
     const [l0, l1, r0, r1] = [left[i], left[i + 1], right[i], right[i + 1]];
     quad(solid, road, 0, [r0[0], r0[1], z0], [r1[0], r1[1], z1], [l1[0], l1[1], z1], [l0[0], l0[1], z0]);
     const [fl0, fl1, fr0, fr1] = [foot(unit.left, i), foot(unit.left, i + 1), foot(unit.right, i), foot(unit.right, i + 1)];
-    quad(solid, colors.embankment, 0, [l0[0], l0[1], z0], [l1[0], l1[1], z1], [fl1[0], fl1[1], 0], [fl0[0], fl0[1], 0]);
-    quad(solid, colors.embankment, 0, [r1[0], r1[1], z1], [r0[0], r0[1], z0], [fr0[0], fr0[1], 0], [fr1[0], fr1[1], 0]);
+    quad(solid, side(fl0, fl1), 0, [l0[0], l0[1], z0], [l1[0], l1[1], z1], [fl1.at[0], fl1.at[1], 0], [fl0.at[0], fl0.at[1], 0]);
+    quad(solid, side(fr0, fr1), 0, [r1[0], r1[1], z1], [r0[0], r0[1], z0], [fr0.at[0], fr0.at[1], 0], [fr1.at[0], fr1.at[1], 0]);
     ribbon(mask, l0, l1, r0, r1, z0 + 0.05, z1 + 0.05);
   }
   addMarkings(solid, pts, z, dist, sections, colors);
@@ -602,6 +618,13 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
   const pickIds = buildingWays.map((w) => w.id);
 
   const lifted = nodeElevations(doc);
+  // Every carriageway in the open, so the slopes of embankments stop short of the roads beside them.
+  const bands: RoadBand[] = Object.values(doc.ways).filter((w) => isDrivable(w.tags) && !isTunnel(w) && !w.tags.building).flatMap((w) => {
+    const pts = pointsOf(w);
+    const half = roadWidth(w.tags) / 2;
+    return pts.slice(1).map((b, i) => ({ a: pts[i], b, half, way: w.id }));
+  });
+  const roads = new BandIndex(bands);
   // A bridge end that only the bridge itself touches comes down on a ramp; others meet an embankment.
   const joined = (id: string | undefined) => (id ? (openAir.get(id) ?? 0) > 1 : false);
   Object.values(doc.ways).forEach((w) => {
@@ -630,7 +653,7 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     }
     if (isLifted(doc, w)) {
       const zs = w.refs.filter((r) => doc.nodes[r] && local(r) !== null).map((r) => lifted.get(r) ?? 0);
-      addEmbankment(structures, mask, pts, zs, w.tags, tapers.get(w.id), colors);
+      addEmbankment(structures, mask, pts, zs, w.tags, tapers.get(w.id), colors, (p, dir, from, to) => slopeReach(roads, w.id, p, dir, from, to));
       return;
     }
     // Yard driveways and parking aisles are drawn thin, like paths, and do not cut buildings.
