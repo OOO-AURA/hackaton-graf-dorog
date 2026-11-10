@@ -4,6 +4,8 @@ import type { OsmDoc, OsmWay } from '../osm/types';
 import { buildingHeight, LAYER_STEP } from '../osm/height';
 import { roadTapers, sectionAt, sectionOf, widthOf, type CrossSection, type Taper } from './section';
 import { isLifted, nodeElevations } from './elevation';
+import { signPoints } from '../osm/signs';
+import { addStreetProps } from './props3d';
 
 /**
  * Geometry of the 3D view in local metres around an origin: x east, y south (the way Web
@@ -638,6 +640,14 @@ export function buildScene3d(doc: OsmDoc, colors: Scene3dColors): Scene3dMesh | 
     const { left, right } = carriageway(line, sectionsAlong(line, w.tags, wayTapers).sections);
     for (let i = 0; i < line.length - 1; i += 1) ribbon(mask, left[i], left[i + 1], right[i], right[i + 1], 0, 0);
   });
+
+  const at = (lon: number, lat: number): P2 => [(mercatorX(lon) - origin.x) * origin.metersPerUnit, (mercatorY(lat) - origin.y) * origin.metersPerUnit];
+  const signs = signPoints(doc).features.map((f) => {
+    const [lon, lat] = f.geometry.coordinates;
+    const [e, n] = f.properties.travel;
+    return { sign: f.properties.sign, at: at(lon, lat), travel: [e, -n] as P2 };
+  });
+  addStreetProps(structures, { doc, local, roadWidth, signs });
 
   return { origin, buildings, pickIds, solid: solid.array, structures: structures.array, underground: underground.array, shadows: shadows.array, roadMask: mask.array };
 }

@@ -159,7 +159,9 @@ export function placeRuleSigns(doc: OsmDoc): { doc: OsmDoc; giveWay: number; mai
   return { doc: d, giveWay, mainRoads };
 }
 
-type SignFeature = Feature<Point, { sign: SignKind; node: string }>;
+/** `travel` is the unit direction (east, north) of the traffic the sign faces. */
+type SignProps = { sign: SignKind; node: string; travel: V };
+type SignFeature = Feature<Point, SignProps>;
 
 /** A sign on the right of traffic going from `a` to `b`, `before` metres back from `at`. */
 function rightOf(f: ReturnType<typeof frame>, a: V, b: V, at: V, side: number, before = 0): V {
@@ -171,9 +173,13 @@ function rightOf(f: ReturnType<typeof frame>, a: V, b: V, at: V, side: number, b
 const isCrossing = (tags: Tags) => tags.highway === 'crossing';
 
 /** Where the signs stand on the map: on the right of the road, before what they announce. */
-export function signPoints(doc: OsmDoc): FeatureCollection<Point, { sign: SignKind; node: string }> {
+export function signPoints(doc: OsmDoc): FeatureCollection<Point, SignProps> {
   const features: SignFeature[] = [];
-  const push = (sign: SignKind, node: string, at: V) => features.push({ type: 'Feature', properties: { sign, node }, geometry: { type: 'Point', coordinates: at } });
+  const push = (sign: SignKind, node: string, at: V, a: V, b: V) => {
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const travel: V = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+    features.push({ type: 'Feature', properties: { sign, node, travel }, geometry: { type: 'Point', coordinates: at } });
+  };
   for (const w of Object.values(doc.ways)) {
     if (!isDrivable(w.tags)) continue;
     const side = halfWidth(w.tags) + SIGN_SIDE;
@@ -190,11 +196,11 @@ export function signPoints(doc: OsmDoc): FeatureCollection<Point, { sign: SignKi
       const [pa, pb, p] = [f.to(prev.lon, prev.lat), f.to(next.lon, next.lat), f.to(n.lon, n.lat)];
       if (kind === 'give_way' || kind === 'stop') {
         const backward = n.tags.direction === 'backward';
-        push(kind, id, backward ? rightOf(f, pb, pa, p, side) : rightOf(f, pa, pb, p, side));
+        if (backward) push(kind, id, rightOf(f, pb, pa, p, side), pb, pa); else push(kind, id, rightOf(f, pa, pb, p, side), pa, pb);
         return;
       }
-      push('crossing', id, rightOf(f, pa, pb, p, side, 2));
-      if (twoWay) push('crossing', id, rightOf(f, pb, pa, p, side, 2));
+      push('crossing', id, rightOf(f, pa, pb, p, side, 2), pa, pb);
+      if (twoWay) push('crossing', id, rightOf(f, pb, pa, p, side, 2), pb, pa);
     });
   }
   for (const nodeId of junctions(doc)) {
@@ -212,7 +218,7 @@ export function signPoints(doc: OsmDoc): FeatureCollection<Point, { sign: SignKi
       const k = Math.min(1, back / (len || 1));
       const at: V = [p0[0] + (p1[0] - p0[0]) * k, p0[1] + (p1[1] - p0[1]) * k];
       // Traffic comes in from p1 towards the junction p0.
-      push('main_road', nodeId, rightOf(f, p1, p0, at, halfWidth(way.tags) + SIGN_SIDE));
+      push('main_road', nodeId, rightOf(f, p1, p0, at, halfWidth(way.tags) + SIGN_SIDE), p1, p0);
     }
   }
   return { type: 'FeatureCollection', features };
