@@ -9,6 +9,7 @@ import { useEditor } from './state/store';
 import { refreshReport } from './state/validation';
 import { startAutosave } from './state/draft';
 import { Tour } from './components/Tour';
+import { HelpDialog } from './components/HelpDialog';
 import { useUi } from './state/ui';
 import { useHotkeys } from './state/useHotkeys';
 import { useCloseGuard } from './state/useCloseGuard';
@@ -95,6 +96,7 @@ export function App() {
       <JunctionEditor />
       <Toast />
       <Tour />
+      <HelpDialog />
     </div>
   );
 }

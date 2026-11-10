@@ -90,15 +90,6 @@
 .tags .icon { width: 22px; height: 22px; padding: 0; border: 0; background: none; color: var(--ink-2); border-radius: var(--r-sm); }
 .tags .icon:hover { background: var(--hover); color: var(--ink); }
 
-.insp-empty { display: grid; justify-items: center; gap: 6px; padding: 40px var(--sp-4) var(--sp-4); text-align: center; }
-.insp-empty > p:first-of-type { font-family: var(--font-display); font-weight: 900; font-size: 20px; }
-.insp-empty-mark { width: 44px; height: 44px; border: 2px dashed var(--line-strong); border-radius: 50%; margin-bottom: 6px; }
-.hotkeys { width: 100%; margin-top: var(--sp-4); text-align: left; border-top: 1px solid var(--line); padding-top: var(--sp-3); }
-.hotkeys summary { cursor: pointer; }
-.hotkeys dl { margin: 8px 0 0; display: grid; gap: 4px; font-size: 11.5px; }
-.hotkeys div { display: grid; grid-template-columns: 112px 1fr; gap: 8px; }
-.hotkeys dt { color: var(--ink); font-size: 10.5px; }
-.hotkeys dd { margin: 0; color: var(--ink-2); }
 
 /* Validation tab */
 .issues { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 4px 20px; align-items: start; }
@@ -301,7 +292,6 @@
 .tour-actions { display: flex; justify-content: flex-end; gap: 6px; }
 .tour::after { content: ''; position: absolute; width: 10px; height: 10px; background: var(--panel); border: 1.5px solid var(--ink); transform: rotate(45deg); }
 .tour-left::after { right: -7px; top: 22px; border-left: 0; border-bottom: 0; }
-.tour-top::after { bottom: -7px; left: 24px; border-left: 0; border-top: 0; }
 .tour-bottom::after { top: -7px; left: calc(50% - 5px); border-right: 0; border-bottom: 0; }
 .navigator .why-body { width: 200px; }
 .approach { padding: 6px 0; border-top: 1px solid var(--line, rgba(0,0,0,0.1)); }

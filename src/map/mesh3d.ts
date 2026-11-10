@@ -65,7 +65,12 @@ const SHADOW: Rgb = [0, 0, 0];
 /** Lane markings on a deck: a light line on a wider dark outline, like the markings in 2D. */
 const MARK_WIDTH = 0.3;
 const MARK_CASING = 0.55;
-const MARK_LIFT = 0.04;
+/**
+ * Height of the markings over the road surface. Where two raised roads part at a fork their
+ * surfaces overlap at almost the same height (each falls about 4 cm per metre down its approach),
+ * so the markings stand clear of that, or one road would hide the other's lanes.
+ */
+const MARK_LIFT = 0.12;
 const PORTAL_DEPTH = 1.5;
 const PORTAL_PILLAR = 1.2;
 
