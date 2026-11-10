@@ -39,6 +39,11 @@ export interface MapPalette {
   laneMark: string;
   laneMarkCasing: string;
   path: string;
+  /** Paved walks and sidewalks, cycleways, pedestrian squares, unpaved trails. */
+  walk: string;
+  cycle: string;
+  square: string;
+  trail: string;
   tram: string;
   /** Railway tracks, their ties and platforms. */
   rail: string;
@@ -76,6 +81,10 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     laneMark: '#FFFFFF',
     laneMarkCasing: '#2B1D12',
     path: '#9C8763',
+    walk: '#D8CDB6',
+    cycle: '#9CC7A2',
+    square: '#E4DAC4',
+    trail: '#B5A47F',
     tram: '#7A4FA0',
     rail: '#5B5B63',
     railTies: '#F4F1EA',
@@ -110,6 +119,10 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     laneMark: '#F7F5EF',
     laneMarkCasing: '#0E0E10',
     path: '#6A6A72',
+    walk: '#8C867B',
+    cycle: '#3F6B4A',
+    square: '#7E786E',
+    trail: '#55503F',
     tram: '#B48ADB',
     rail: '#8E8E9A',
     railTies: '#2A2A30',

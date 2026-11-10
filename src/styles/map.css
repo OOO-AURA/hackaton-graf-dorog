@@ -36,6 +36,7 @@
 .float-zoom { top: 12px; right: 12px; flex-direction: column; }
 .float-look { top: 12px; left: 50%; transform: translateX(-50%); animation-name: float-in-center; }
 .float-look button.on { background: var(--pink); color: #fff; }
+.float-lens { top: 52px; left: 50%; transform: translateX(-50%); animation-name: float-in-center; }
 /* A narrow free map: the switch goes under the tools instead of between them and the zoom. */
 @media (max-width: 1360px) { .float-look { top: 56px; left: 12px; transform: none; animation-name: float-in; } }
 /* While a tool shows its options next to the tools, the switch makes room for them the same way. */
@@ -147,3 +148,9 @@
 .float-conflict b { color: var(--red-text); font-size: 12px; }
 .float-conflict .buttons { display: flex; flex-wrap: wrap; gap: 4px; }
 @media (max-width: 1360px) { .float-conflict { top: 100px; } }
+
+.float-load { right: 12px; bottom: 56px; flex-direction: column; align-items: stretch; gap: 6px; padding: 10px 12px; min-width: 150px; font-size: var(--fs-sm); }
+.float-load ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.float-load li { display: flex; align-items: center; gap: 8px; }
+.float-load i { width: 22px; height: 5px; border-radius: 3px; }
+.float-load .err { color: var(--red-text); }

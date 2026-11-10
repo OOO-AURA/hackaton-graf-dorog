@@ -15,7 +15,7 @@ export const HOTKEYS: ReadonlyArray<[string, string]> = [
   ['V / D / N / T / B', 'Выбор / Рисовать дорогу / Узел на дороге / Объект ОДД / Здание'],
   ['Enter, двойной клик', 'Завершить дорогу'],
   ['Esc', 'Отменить рисование / снять выделение'],
-  [`1–${ROAD_TEMPLATES.length}`, 'Шаблон новой дороги'],
+  ['1–9', 'Шаблон новой дороги'],
   ['R', 'Развернуть порядок узлов (смысл сохраняется)'],
   ['B, затем 1–3, R, Shift+R', 'Здание: шаблон, поворот на 90° и на 15°'],
   ['⌘/Ctrl+D, ⌘/Ctrl+C, ⌘/Ctrl+V', 'Копия здания рядом / скопировать / вставить под курсором'],
@@ -73,7 +73,7 @@ function handleKey(e: KeyboardEvent): void {
 
   if (MODE_KEYS[key]) { s.setMode(MODE_KEYS[key]); return; }
   const template = Number.parseInt(key, 10);
-  if (template >= 1 && template <= ROAD_TEMPLATES.length) { s.setTemplate(template - 1); return; }
+  if (template >= 1 && template <= Math.min(9, ROAD_TEMPLATES.length)) { s.setTemplate(template - 1); return; }
   const actions: Record<string, () => void> = {
     enter: finishDrawing,
     escape: () => {

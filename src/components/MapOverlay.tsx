@@ -1,3 +1,5 @@
+import { LENSES, type Lens } from '../map/lens';
+import { useMacro, VC_BANDS } from '../macro/store';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { useEffect, useMemo, useState } from 'react';
 import { docBounds } from '../map/geojson';
@@ -18,7 +20,7 @@ import { BUILDING_TEMPLATES } from '../osm/buildingShape';
 const BASEMAPS: ReadonlyArray<[Basemap, string]> = [['osm', 'Схема'], ['satellite', 'Спутник'], ['none', 'Нет']];
 
 export const LAYER_LABELS: Readonly<Record<LayerId, string>> = {
-  roads: 'Дороги', junctions: 'Перекрёстки', signals: 'Светофоры', crossings: 'Переходы',
+  sidewalks: 'Тротуары', roads: 'Дороги', junctions: 'Перекрёстки', signals: 'Светофоры', crossings: 'Переходы',
   bridges: 'Мосты', tunnels: 'Тоннели', buildings: 'Здания', tram: 'Ж/д и трамвай', signs: 'Знаки', transit: 'Маршруты ОТ', changes: 'Изменения',
 };
 
@@ -48,7 +50,6 @@ function FloatingTools() {
   const mode = useEditor((s) => s.mode);
   const setMode = useEditor((s) => s.setMode);
   const template = useEditor((s) => s.templateIndex);
-  const setTemplate = useEditor((s) => s.setTemplate);
   const points = useEditor((s) => s.drawing.length);
   const drawing = useEditor((s) => s.drawing);
   const doc = useEditor((s) => s.doc);
@@ -65,9 +66,6 @@ function FloatingTools() {
         {mode === 'building' && <BuildingBar />}
         {mode === 'draw' && (
           <div className="float-draw">
-            <select value={template} onChange={(e) => setTemplate(Number(e.target.value))} aria-label="Шаблон дороги">
-              {ROAD_TEMPLATES.map((t, i) => <option key={t.label} value={i}>{i + 1} · {t.label}</option>)}
-            </select>
             <button className="btn btn-ink" onClick={() => finishDrawing()} disabled={points < 2 || conflicts.length > 0}>Готово <kbd>Enter</kbd></button>
           </div>
         )}
@@ -168,6 +166,43 @@ function LookSwitch() {
   );
 }
 
+/** Lens switch: the same map for drivers, pedestrians, public transport, rail or metro. */
+function LensSwitch() {
+  const lens = useUi((s) => s.lens);
+  return (
+    <div className="float float-lens seg" role="radiogroup" aria-label="Линза карты">
+      {LENSES.map(([v, label]) => (
+        <button key={v} role="radio" aria-checked={lens === v} className={lens === v ? 'on' : ''} onClick={() => pickLens(v)}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
+/** Lens pick; the load lens works out the flows first if there are none yet. */
+export function pickLens(v: Lens): void {
+  useUi.getState().setLens(v);
+  const macro = useMacro.getState();
+  if (v === 'load' && !macro.result && !macro.busy) void macro.run();
+}
+
+/** Legend of the load lens: v/c bands, and a note while the assignment runs. */
+function LoadLegend() {
+  const on = useUi((s) => s.lens === 'load');
+  const busy = useMacro((s) => s.busy);
+  const result = useMacro((s) => s.result);
+  const error = useMacro((s) => s.error);
+  if (!on) return null;
+  return (
+    <div className="float float-load" role="status">
+      <b>Загрузка, V/C</b>
+      {busy && <span className="hint">Распределяю потоки…</span>}
+      {error && <span className="hint err">{error}</span>}
+      {!busy && result && <ul>{VC_BANDS.map((b) => <li key={b.label}><i style={{ background: b.color }} />{b.label}</li>)}</ul>}
+      {!busy && result && <button className="btn btn-sm" onClick={() => void useMacro.getState().run()}>Пересчитать</button>}
+    </div>
+  );
+}
+
 function LayerBar() {
   const layers = useUi((s) => s.layers);
   const toggle = useUi((s) => s.toggleLayer);
@@ -191,6 +226,8 @@ export function MapOverlay({ map }: { map: MapLibreMap | null }) {
       {micro ? <SimBar /> : <FloatingTools />}
       {!micro && <HeightHandle map={map} />}
       {!micro && <LookSwitch />}
+      <LensSwitch />
+      <LoadLegend />
       {!micro && <JunctionCard />}
       <ZoomControls map={map} />
       <BasemapSwitch />

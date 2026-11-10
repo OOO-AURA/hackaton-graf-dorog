@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { RoadColorMode } from '../map/thematic';
+import type { Lens } from '../map/lens';
 
 export type Theme = 'light' | 'dark';
 export type ThemeChoice = Theme | 'system';
@@ -7,9 +8,9 @@ export type Workspace = 'macro' | 'micro';
 /** How roads look: coloured by class like a graph, or as asphalt with markings like an engineering plan. */
 export type RoadLook = 'graph' | 'engineering';
 export type BottomTab = 'issues' | 'check' | 'flows' | 'transit' | 'scenarios' | 'journal';
-export type LayerId = 'roads' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs' | 'transit' | 'changes';
+export type LayerId = 'roads' | 'sidewalks' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs' | 'transit' | 'changes';
 
-export const LAYER_IDS: readonly LayerId[] = ['roads', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'tram', 'signs', 'transit', 'changes'];
+export const LAYER_IDS: readonly LayerId[] = ['roads', 'sidewalks', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'tram', 'signs', 'transit', 'changes'];
 
 /** Layers that start hidden: they are overlays for a particular task. */
 const OFF_BY_DEFAULT: ReadonlySet<LayerId> = new Set(['transit', 'changes']);
@@ -42,6 +43,9 @@ interface UiState {
   bottomTab: BottomTab;
   bottomOpen: boolean;
   layers: Record<LayerId, boolean>;
+  /** Which traveller the map is looked at for (see map/lens.ts). */
+  lens: Lens;
+  setLens: (lens: Lens) => void;
   /** Opacity of the basemap under the graph, 0..1 ("model / map" slider). */
   basemapOpacity: number;
   loading: string | null;
@@ -83,7 +87,7 @@ export const useUi = create<UiState>((set, get) => ({
   theme: resolveTheme(initialChoice),
   workspace: 'macro',
   bottomTab: 'issues',
-  bottomOpen: true,
+  bottomOpen: false,
   layers: Object.fromEntries(LAYER_IDS.map((id) => [id, !OFF_BY_DEFAULT.has(id)])) as Record<LayerId, boolean>,
   basemapOpacity: 0.7,
   loading: null,
@@ -109,6 +113,17 @@ export const useUi = create<UiState>((set, get) => ({
   setWorkspace: (workspace) => set({ workspace }),
   openBottom: (bottomTab) => set({ bottomTab, bottomOpen: true }),
   toggleBottom: () => set({ bottomOpen: !get().bottomOpen }),
+  lens: 'all',
+  setLens: (lens) => {
+    const layers = { ...get().layers };
+    if (lens === 'transit') { layers.transit = true; layers.tram = true; }
+    if (lens === 'rail' || lens === 'metro') layers.tram = true;
+    if (lens === 'car' || lens === 'walk') layers.roads = true;
+    if (lens === 'walk') layers.sidewalks = true;
+    if (lens === 'car') layers.sidewalks = false;
+    if (lens === 'all') layers.sidewalks = true;
+    set({ lens, layers });
+  },
   toggleLayer: (id) => set({ layers: { ...get().layers, [id]: !get().layers[id] } }),
   setBasemapOpacity: (basemapOpacity) => set({ basemapOpacity }),
   setLoading: (loading) => set({ loading }),

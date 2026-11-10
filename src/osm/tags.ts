@@ -64,19 +64,31 @@ export function highwayColor(highway: string): string {
   return HIGHWAY_COLORS[highway.replace(/_link$/, '')] ?? '#adb5bd';
 }
 
+export type TemplateGroup = 'Магистрали' | 'Улицы' | 'Проезды' | 'Пешеходы и велосипеды' | 'Рельсовые';
+
 export interface RoadTemplate {
   readonly label: string;
+  readonly group: TemplateGroup;
   readonly tags: Tags;
 }
 
-/** Ready-made attribute sets for new roads (hotkeys 1–6 in the UI). */
+/** Ready-made attribute sets for new roads, by class (hotkeys 1–9 pick the first nine). */
 export const ROAD_TEMPLATES: readonly RoadTemplate[] = [
-  { label: 'Магистраль 2+2', tags: { highway: 'primary', lanes: '4', maxspeed: '60', surface: 'asphalt' } },
-  { label: 'Улица 1+1', tags: { highway: 'secondary', lanes: '2', maxspeed: '60', surface: 'asphalt' } },
-  { label: 'Жилая', tags: { highway: 'residential', lanes: '2', maxspeed: '40', surface: 'asphalt' } },
-  { label: 'Односторонняя', tags: { highway: 'tertiary', lanes: '2', oneway: 'yes', maxspeed: '40', surface: 'asphalt' } },
-  { label: 'Съезд', tags: { highway: 'primary_link', lanes: '1', oneway: 'yes', maxspeed: '40', surface: 'asphalt' } },
-  { label: 'Проезд', tags: { highway: 'service', maxspeed: '20' } },
-  { label: 'Ж/д путь', tags: { railway: 'rail', gauge: '1520', electrified: 'contact_line' } },
-  { label: 'Трамвайный путь', tags: { railway: 'tram', gauge: '1524', electrified: 'contact_line' } },
+  { label: 'Магистраль 2+2', group: 'Магистрали', tags: { highway: 'primary', lanes: '4', maxspeed: '60', surface: 'asphalt' } },
+  { label: 'Улица 1+1', group: 'Улицы', tags: { highway: 'secondary', lanes: '2', maxspeed: '60', surface: 'asphalt' } },
+  { label: 'Жилая улица', group: 'Улицы', tags: { highway: 'residential', lanes: '2', maxspeed: '40', surface: 'asphalt' } },
+  { label: 'Односторонняя', group: 'Улицы', tags: { highway: 'tertiary', lanes: '2', oneway: 'yes', maxspeed: '40', surface: 'asphalt' } },
+  { label: 'Съезд', group: 'Магистрали', tags: { highway: 'primary_link', lanes: '1', oneway: 'yes', maxspeed: '40', surface: 'asphalt' } },
+  { label: 'Проезд', group: 'Проезды', tags: { highway: 'service', maxspeed: '20' } },
+  { label: 'Ж/д путь', group: 'Рельсовые', tags: { railway: 'rail', gauge: '1520', electrified: 'contact_line' } },
+  { label: 'Трамвайный путь', group: 'Рельсовые', tags: { railway: 'tram', gauge: '1524', electrified: 'contact_line' } },
+  { label: 'Автомагистраль 3+3', group: 'Магистрали', tags: { highway: 'motorway', lanes: '6', maxspeed: '110', oneway: 'no', surface: 'asphalt' } },
+  { label: 'Скоростная 2+2', group: 'Магистрали', tags: { highway: 'trunk', lanes: '4', maxspeed: '90', surface: 'asphalt' } },
+  { label: 'Общегородская 3+3', group: 'Магистрали', tags: { highway: 'primary', lanes: '6', maxspeed: '60', surface: 'asphalt' } },
+  { label: 'Районная 1+1', group: 'Улицы', tags: { highway: 'tertiary', lanes: '2', maxspeed: '50', surface: 'asphalt' } },
+  { label: 'Жилая зона', group: 'Проезды', tags: { highway: 'living_street', maxspeed: '20' } },
+  { label: 'Тротуар', group: 'Пешеходы и велосипеды', tags: { highway: 'footway', footway: 'sidewalk' } },
+  { label: 'Пешеходная улица', group: 'Пешеходы и велосипеды', tags: { highway: 'pedestrian' } },
+  { label: 'Велодорожка', group: 'Пешеходы и велосипеды', tags: { highway: 'cycleway' } },
+  { label: 'Метро', group: 'Рельсовые', tags: { railway: 'subway', gauge: '1520', electrified: 'rail', tunnel: 'yes', layer: '-2' } },
 ];

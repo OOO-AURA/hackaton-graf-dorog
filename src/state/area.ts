@@ -1,7 +1,7 @@
 import { AreaError, bboxArea, defaultScope, downloadArea, geocode, LARGE_AREA_DEG2, type AreaScope, type Bbox } from '../osm/overpass';
 import { hasRepairs } from '../osm/parse';
 import { repairText } from './actions';
-import { mapDataFetch } from '../platform';
+import { askUser, mapDataFetch } from '../platform';
 import { isDirty, useEditor } from './store';
 
 const KB = 1024;
@@ -15,20 +15,21 @@ const areaKm2 = ([s, w, n, e]: Bbox) => {
 /** File name for a downloaded area, e.g. "osm-52.2511_104.2566.osm". */
 export const areaFileName = ([s, w]: Bbox) => `osm-${s.toFixed(4)}_${w.toFixed(4)}.osm`;
 
-/** Asks before replacing unsaved edits or starting a heavy download. */
-function confirmLoad(bbox: Bbox, scope: AreaScope): boolean {
-  if (isDirty(useEditor.getState()) && !window.confirm('Несохранённые правки текущего графа пропадут. Загрузить новую область?')) return false;
+/** Asks before replacing unsaved edits or starting a heavy download, in one question. */
+async function confirmLoad(bbox: Bbox, scope: AreaScope): Promise<boolean> {
+  const parts: string[] = [];
+  if (isDirty(useEditor.getState())) parts.push('Несохранённые правки текущего графа пропадут.');
   if (bboxArea(bbox) > LARGE_AREA_DEG2) {
     const what = scope === 'roads' ? 'Скачаю только дорожную сеть, без зданий.' : 'Со зданиями файл может выйти в сотни мегабайт.';
-    return window.confirm(`Область около ${Math.round(areaKm2(bbox))} км², это уровень целого города. ${what} Загрузка займёт до нескольких минут. Продолжить?`);
+    parts.push(`Область около ${Math.round(areaKm2(bbox))} км², это уровень целого города. ${what} Загрузка займёт до нескольких минут.`);
   }
-  return true;
+  return parts.length ? askUser(`${parts.join(' ')} Загрузить новую область?`) : true;
 }
 
 /** Downloads the area from Overpass and opens it as a new graph. Returns false when cancelled or failed. */
 export async function loadArea(bbox: Bbox, label: string, scope: AreaScope = defaultScope(bbox)): Promise<boolean> {
   const { load, notify } = useEditor.getState();
-  if (!confirmLoad(bbox, scope)) return false;
+  if (!(await confirmLoad(bbox, scope))) return false;
   try {
     const started = performance.now();
     const { doc, repairs, xmlBytes } = await downloadArea(bbox, { scope, fetcher: mapDataFetch });

@@ -1,3 +1,4 @@
+import { WayCache, sig } from './wayCache';
 import type { Feature, FeatureCollection, LineString, Point, Polygon } from 'geojson';
 import { armKey, armsAt, junctionLanes, junctions, turnSide, type Arm, type Turn } from '../osm/lanes';
 import { isDrivable } from '../osm/tags';
@@ -66,6 +67,8 @@ export interface LaneStyle {
  * Lines of every road, stopping short of junctions: `kind: 'lane'` along the middle of each lane
  * (coloured by its load once the flows are computed), `kind: 'divider'` the markings between lanes.
  */
+const laneCache = new WayCache<Feature<LineString, Props>[]>();
+
 export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<LineString, Props> {
   const radius = new Map(junctions(doc).map((id) => [id, junctionRadius(doc, id)]));
   const tapers = roadTapers(doc);
@@ -77,8 +80,12 @@ export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<Line
     const vc = style.load(w.id);
     // In 3D these lanes are on a deck, in a tube or on an embankment, drawn by the 3D scene.
     const raised = isRaised(w.tags) || isLifted(doc, w);
-    const base = sectionOf(w.tags);
     const wayTapers = tapers.get(w.id);
+    const radii = w.refs.map((r) => radius.get(r) ?? -1);
+    const color = style.color(vc);
+    features.push(...laneCache.get(doc, w, [sig(wayTapers), sig(radii), color, vc !== null, raised], () => {
+    const features: Feature<LineString, Props>[] = [];
+    const base = sectionOf(w.tags);
     const f = frame(nodes[0].lat);
     const pts = nodes.map((n) => f.to(n.lon, n.lat));
     const dist = cumulative(pts);
@@ -99,7 +106,7 @@ export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<Line
       // taper stop where it starts.
       type Item = { key: string; offset: number; props: Props };
       const items = sections.map((sec) => [
-        ...sec.lanes.map((l): Item => ({ key: `lane:${l.travel}:${l.index}`, offset: l.offset, props: { way: w.id, kind: 'lane', color: style.color(vc), loaded: vc !== null, raised } })),
+        ...sec.lanes.map((l): Item => ({ key: `lane:${l.travel}:${l.index}`, offset: l.offset, props: { way: w.id, kind: 'lane', color, loaded: vc !== null, raised } })),
         ...sec.dividers.map((m): Item => ({ key: `mark:${m.key}`, offset: m.offset, props: { way: w.id, kind: 'divider', solid: m.solid, raised } })),
       ]);
       const keys = [...new Set(items.flatMap((list) => list.map((x) => x.key)))];
@@ -119,6 +126,8 @@ export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<Line
         flush();
       }
     });
+    return features;
+    }));
   }
   return { type: 'FeatureCollection', features };
 }

@@ -1,3 +1,4 @@
+import { WayCache, sig } from './wayCache';
 import type { Feature, FeatureCollection, LineString, Point, Polygon } from 'geojson';
 import { buildingHeight as heightOf } from '../osm/building';
 import { direction, highwayColor, isDrivable } from '../osm/tags';
@@ -26,6 +27,27 @@ const lanesOf = (w: OsmWay) => Number.parseInt(w.tags.lanes ?? '', 10) || (direc
  * lanes: `w17` the carriageway, `o17` how far its middle lies to the right of the way's line
  * (a two-way road with more lanes one way is off-centre).
  */
+/** Sidewalk width and the distance of its middle from the carriageway edge, metres. */
+const SIDEWALK_W = 2.25;
+const SIDEWALK_GAP = 0.4 + SIDEWALK_W / 2;
+const URBAN = new Set(['primary', 'secondary', 'tertiary', 'residential', 'unclassified', 'living_street']);
+
+/**
+ * Which sides of a road carry a sidewalk drawn along it: from `sidewalk*` tags, or both sides of
+ * a city street that says nothing (most OSM streets in Russian cities do not). A sidewalk mapped
+ * as its own way (`separate`) is drawn as that way instead.
+ */
+export function sidewalkSides(tags: Record<string, string>): string {
+  const v = tags.sidewalk ?? tags['sidewalk:both'];
+  const l = tags['sidewalk:left']; const r = tags['sidewalk:right'];
+  if (l || r) return `${l === 'yes' ? 'l' : ''}${r === 'yes' ? 'r' : ''}`;
+  if (v === 'both' || v === 'yes') return 'lr';
+  if (v === 'left') return 'l';
+  if (v === 'right') return 'r';
+  if (v) return '';
+  return URBAN.has((tags.highway ?? '').replace(/_link$/, '')) && !tags.highway?.endsWith('_link') ? 'lr' : '';
+}
+
 function roadFeatures(doc: OsmDoc, w: OsmWay, tapers: readonly Taper[] | undefined): Feature<LineString, Props>[] {
   const props: Props = {
     id: w.id,
@@ -36,6 +58,7 @@ function roadFeatures(doc: OsmDoc, w: OsmWay, tapers: readonly Taper[] | undefin
     bridge: Boolean(w.tags.bridge && w.tags.bridge !== 'no'),
     tunnel: Boolean(w.tags.tunnel && w.tags.tunnel !== 'no'),
     name: w.tags.name ?? '',
+    sw: sidewalkSides(w.tags),
     ...thematicProps(w.tags),
   };
   const lonLat = coords(doc, w) as Array<[number, number]>;
@@ -49,7 +72,7 @@ function roadFeatures(doc: OsmDoc, w: OsmWay, tapers: readonly Taper[] | undefin
     return {
       type: 'Feature',
       id: Number(w.id),
-      properties: { ...props, w17: (sec.left + sec.right) * px, o17: ((sec.right - sec.left) / 2) * px, taper },
+      properties: { ...props, w17: (sec.left + sec.right) * px, o17: ((sec.right - sec.left) / 2) * px, sl17: -(sec.left + SIDEWALK_GAP) * px, sr17: (sec.right + SIDEWALK_GAP) * px, s17: SIDEWALK_W * px, taper },
       // Pieces overlap a little: square-ended bridge pieces would show hairline seams between them.
       geometry: { type: 'LineString', coordinates: taper || from > 0 || to < total ? slice(pts, Math.max(0, from - OVERLAP), Math.min(total, to + OVERLAP)).map(f.back) : lonLat },
     };
@@ -70,14 +93,29 @@ function roadFeatures(doc: OsmDoc, w: OsmWay, tapers: readonly Taper[] | undefin
 const collection = <G extends LineString | Point | Polygon>(features: Feature<G, Props>[]): FeatureCollection<G, Props> =>
   ({ type: 'FeatureCollection', features });
 
+const roadCache = new WayCache<Feature<LineString, Props>[]>();
+
 export function roadsGeoJson(doc: OsmDoc) {
   const tapers = roadTapers(doc);
-  return collection(Object.values(doc.ways).filter((w) => isDrivable(w.tags) && w.refs.length > 1).flatMap((w) => roadFeatures(doc, w, tapers.get(w.id))));
+  return collection(Object.values(doc.ways).filter((w) => isDrivable(w.tags) && w.refs.length > 1).flatMap((w) => {
+    const t = tapers.get(w.id);
+    return roadCache.get(doc, w, [sig(t)], () => roadFeatures(doc, w, t));
+  }));
 }
 
 /** Building height in metres as Webots will build it, including its defaults per building type (see osm/building.ts). */
 export function buildingHeight(tags: Record<string, string>): number {
   return heightOf(tags).metres;
+}
+
+/** Kind of a footpath for its look: paved walk, pedestrian street, cycleway, steps or a trail. */
+function pathKind(tags: Record<string, string>): string {
+  const hw = tags.highway ?? '';
+  if (hw === 'pedestrian') return 'square';
+  if (hw === 'cycleway' || (hw === 'path' && tags.bicycle === 'designated')) return 'cycle';
+  if (hw === 'steps') return 'steps';
+  if (hw === 'footway' || (hw === 'path' && tags.surface && /asphalt|paving|concrete/.test(tags.surface))) return 'walk';
+  return 'trail';
 }
 
 /** Context layers that are not part of the road graph but go into the file (Webots uses them for 3D). */
@@ -90,7 +128,7 @@ export function contextGeoJson(doc: OsmDoc) {
     if (w.tags.building && c.length >= 4) {
       polygons.push({ type: 'Feature', properties: { id: w.id, height: buildingHeight(w.tags) }, geometry: { type: 'Polygon', coordinates: [c] } });
     } else if (w.tags.highway && !isRailWay(w.tags)) {
-      lines.push({ type: 'Feature', properties: { id: w.id, kind: 'path' }, geometry: { type: 'LineString', coordinates: c } });
+      lines.push({ type: 'Feature', properties: { id: w.id, kind: 'path', path: pathKind(w.tags) }, geometry: { type: 'LineString', coordinates: c } });
     }
   });
   return { lines: collection(lines), buildings: collection(polygons) };

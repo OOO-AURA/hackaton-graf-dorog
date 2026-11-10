@@ -9,6 +9,7 @@ import { ScenariosPanel } from './ScenariosPanel';
 import { TransitPanel } from './TransitPanel';
 import { Icon } from './icons';
 import { Why } from './Why';
+import { Splitter } from './SidePanel';
 import { useScenarios } from '../scenarios/store';
 
 function Badge({ tab }: { tab: BottomTab }) {
@@ -44,6 +45,7 @@ export function BottomDock() {
 
   return (
     <section className={`dock${open ? ' open' : ''}`} aria-label="Нижняя панель">
+      {open && <Splitter axis="dockH" dir={-1} className="splitter-dock" />}
       <div className="dock-tabs" role="tablist">
         {TABS.map(([id, label]) => (
           <button key={id} role="tab" data-tour={`${id}-tab`} aria-selected={open && tab === id} className={open && tab === id ? 'on' : ''}
