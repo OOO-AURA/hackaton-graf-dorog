@@ -118,6 +118,48 @@ def tls_centre(t):
     return (sum(n.getCoord()[0] for n in nodes) / len(nodes), sum(n.getCoord()[1] for n in nodes) / len(nodes))
 
 
+YELLOW_S = 3.0
+ALL_RED_S = 2.0
+LEFT_ARROW_S = 12.0
+
+
+def link_kinds(t):
+    """Turn direction of every link of a light ('s', 'l', 'r', 't'…) and the pedestrian ones."""
+    dirs, peds = {}, set()
+    for in_lane, out_lane, idx in t.getConnections():
+        if in_lane.getEdge().getFunction() in ("walkingarea", "crossing") or out_lane.getEdge().getFunction() == "crossing":
+            peds.add(idx)
+            continue
+        for c in in_lane.getOutgoing():
+            if c.getToLane() == out_lane:
+                dirs[idx] = c.getDirection()
+    return dirs, peds
+
+
+def with_sections(t, items, main, left_arrow, right_arrow, ped_phase, ped_s):
+    """Extra sections of a light, as the editor sets them: a green arrow to the right that lets
+    right turns go in every green phase; a separate left-turn phase (green arrow to the left) before
+    the main one; and a pedestrian phase when all cars stand and only people cross."""
+    if not (left_arrow or right_arrow or ped_phase):
+        return items
+    dirs, peds = link_kinds(t)
+    n = len(items[0][1])
+    out = list(items)
+    if right_arrow:
+        out = [(d, "".join("g" if g and st[i] == "r" and dirs.get(i) in ("r", "R") else st[i] for i in range(n)), g) for d, st, g in out]
+    if left_arrow and main:
+        m = main[0]
+        base = out[m][1]
+        arrow = "".join("G" if dirs.get(i) in ("l", "L") and base[i] in "Gg" else "r" for i in range(n))
+        if "G" in arrow:
+            after = "".join("y" if c == "G" else "r" for c in arrow)
+            out = out[:m] + [(LEFT_ARROW_S, arrow, True), (YELLOW_S, after, False)] + out[m:]
+    if ped_phase:
+        walk = "".join("G" if i in peds else "r" for i in range(n))
+        out = out + [(max(5.0, ped_s), walk, False), (ALL_RED_S, "r" * n, False)]
+    return out
+
+
 def program(plan):
     """Program for the traffic light nearest to the OSM node: yellow and all-red keep their
     length, the rest of the cycle goes to green phases, `share` of it to the main ones. An adaptive
@@ -126,6 +168,7 @@ def program(plan):
     lon, lat, cycle, share = plan[:4]
     adaptive = len(plan) > 4 and plan[4] > 0
     min_green, max_green, max_gap = (plan[5], plan[6], plan[7]) if len(plan) > 7 else (8.0, 50.0, 3.0)
+    left_arrow, right_arrow, ped_phase, ped_s = (plan[8] > 0, plan[9] > 0, plan[10] > 0, plan[11]) if len(plan) > 11 else (False, False, False, 0.0)
     x, y = to_xy(lon, lat)
     best = None
     for t in net.getTrafficLights():
@@ -159,6 +202,11 @@ def program(plan):
         durations[i] = max(5.0, green_time * share / len(main))
     for i in side:
         durations[i] = max(5.0, green_time * (1 - share) / len(side))
+    items = [(d, st, g) for d, (_, st), g in zip(durations, phases, is_green)]
+    items = with_sections(t, items, main, left_arrow, right_arrow, ped_phase, ped_s)
+    durations = [d for d, _, _ in items]
+    phases = [(d, st) for d, st, _ in items]
+    is_green = [g for _, _, g in items]
     if adaptive:
         def phase(i, d, st):
             if not is_green[i]:

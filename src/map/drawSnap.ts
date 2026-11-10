@@ -3,6 +3,8 @@ import type { OsmDoc } from '../osm/types';
 import type { DrawPoint } from '../osm/draw';
 import { bearingDeg, distanceM, snapAngle, turnDeg } from '../osm/drawGeometry';
 import { hitNode, hitWay } from './hit';
+import { isRailLine } from '../osm/rail';
+import { isDrivable } from '../osm/tags';
 
 /**
  * Where the next point of a road being drawn goes. Like a city builder: it is pulled onto a node
@@ -26,7 +28,7 @@ const MAGNET_WAY_PX = 12;
 
 export function drawTarget(
   map: MapLibreMap, doc: OsmDoc, point: { x: number; y: number }, lngLat: { lng: number; lat: number },
-  drawing: readonly DrawPoint[], force: boolean,
+  drawing: readonly DrawPoint[], force: boolean, rail = false,
 ): DrawTarget {
   const last = drawing[drawing.length - 1];
   const prev = drawing[drawing.length - 2];
@@ -34,12 +36,16 @@ export function drawTarget(
     length: last ? distanceM(last, p) : null,
     turn: last && prev ? turnDeg(bearingDeg(prev, last), bearingDeg(last, p)) : null,
   });
+  // A road snaps to roads and a track to tracks: the two networks are not joined.
+  const fits = (wayIds: string[]) => wayIds.length === 0 || wayIds.some((id) => isRailLine(doc.ways[id].tags) === rail);
+  const waysAt = (id: string) => Object.values(doc.ways).filter((w) => w.refs.includes(id) && (isDrivable(w.tags) || isRailLine(w.tags))).map((w) => w.id);
   const nodeId = hitNode(map, point, undefined, MAGNET_NODE_PX);
-  if (nodeId && doc.nodes[nodeId] && nodeId !== last?.nodeId) {
+  if (nodeId && doc.nodes[nodeId] && nodeId !== last?.nodeId && fits(waysAt(nodeId))) {
     const n = doc.nodes[nodeId];
     return { lon: n.lon, lat: n.lat, nodeId, snap: 'node', ...measured(n) };
   }
-  const way = hitWay(map, doc, point, MAGNET_WAY_PX);
+  const hit = hitWay(map, doc, point, MAGNET_WAY_PX);
+  const way = hit && isRailLine(doc.ways[hit.wayId].tags) === rail ? hit : null;
   if (way) return { lon: way.lon, lat: way.lat, wayId: way.wayId, snap: 'way', ...measured(way) };
   const free = { lon: lngLat.lng, lat: lngLat.lat };
   if (!last) return { ...free, snap: null, turn: null, length: null };

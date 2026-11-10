@@ -16,6 +16,8 @@ import { isJunction } from '../osm/turns';
 import { LaneTurnsSection } from './LaneTurnsSection';
 import { useSettledDoc } from '../state/settled';
 import { StopSection } from './BusParts';
+import { detachWay } from '../osm/pieces';
+import { useUi } from '../state/ui';
 
 const NODE_KIND_OPTIONS = [
   ['', 'Обычный узел'], ['traffic_signals', 'Светофор'], ['crossing', 'Пешеходный переход'],
@@ -28,6 +30,8 @@ const CALMING_OPTIONS = [['', 'Нет'], ['bump', 'Лежачий полицей
 const SIGNAL_DIRECTION_OPTIONS = [['', 'Все направления'], ['forward', 'Только по ходу линии'], ['backward', 'Только против хода']] as const;
 
 export function NodeInspector({ node }: { node: OsmNode }) {
+  const cardClosed = useUi((s) => s.junctionCardClosed);
+  const setCardClosed = useUi((s) => s.setJunctionCardClosed);
   const apply = useEditor((s) => s.apply);
   const doc = useSettledDoc();
   const select = useEditor((s) => s.select);
@@ -42,6 +46,7 @@ export function NodeInspector({ node }: { node: OsmNode }) {
       <header className="insp-head">
         <span className="micro">Узел</span>
         <h2 className="insp-title">{NODE_FEATURES.find((f) => f.id === nodeSymbol(node.tags))?.label ?? (ways.length > 1 ? 'Перекрёсток' : kind)}</h2>
+        {cardClosed === node.id && <button className="link" onClick={() => setCardClosed(null)}>Открыть карточку перекрёстка</button>}
         <span className="mono insp-id">node {node.id} · {node.lat.toFixed(6)}, {node.lon.toFixed(6)}</span>
       </header>
       <Section title="Организация движения">
@@ -73,7 +78,17 @@ export function NodeInspector({ node }: { node: OsmNode }) {
         <Section title="Дороги через узел" aside={<span className="mono count">{ways.length}</span>}>
           <ul className="link-list">
             {ways.map((w) => (
-              <li key={w.id}><button onClick={() => select({ type: 'way', id: w.id })}><span>{w.tags.name || w.tags.highway || 'линия'}</span><span className="mono">{w.id}</span></button></li>
+              <li key={w.id} className="detach-row">
+                <button onClick={() => select({ type: 'way', id: w.id })}><span>{w.tags.name || w.tags.highway || 'линия'}</span><span className="mono">{w.id}</span></button>
+                {ways.length > 1 && (
+                  <button className="btn btn-sm btn-quiet" title="Снять эту дорогу с узла: она получит свою точку рядом, её можно увести в сторону"
+                    onClick={() => {
+                      let moved = '';
+                      apply((d) => { const r = detachWay(d, node.id, w.id); moved = r.nodeId; return r.doc; });
+                      if (moved) select({ type: 'node', id: moved });
+                    }}>Отсоединить</button>
+                )}
+              </li>
             ))}
           </ul>
         </Section>

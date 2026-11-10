@@ -43,6 +43,7 @@ export function SimBar() {
         title="Откуда брать поездки: немного случайных, вечерний час пик (втрое больше машин, транзит по главным улицам) или матрица корреспонденций из макромодели">
         <option value="random">Случайный спрос</option>
         <option value="rush">Час пик</option>
+        <option value="custom">Свои потоки</option>
         <option value="od">Из макромодели</option>
       </select>
       <label className="sim-check" title="Тротуары, переходы и пешие поездки: машины уступают людям на зебрах и светофорах">

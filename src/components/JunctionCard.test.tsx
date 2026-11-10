@@ -39,6 +39,8 @@ describe('junction card', () => {
     expect(r.mount.querySelectorAll('.jc-approach')).toHaveLength(4);
     expect(r.mount.querySelectorAll('.jc-approach')[0].querySelectorAll('.jc-lane')).toHaveLength(2);
     // Four approaches of two lanes, no signs: the right-hand rule, 650 an hour a lane.
+    const tab = [...r.mount.querySelectorAll('.jc-tabs button')].find((b) => b.textContent === 'Пропускная') as HTMLButtonElement;
+    act(() => tab.click());
     expect(r.mount.textContent).toContain('Пропускная способность');
     expect(r.mount.textContent).toMatch(/5\s?200 авт\/ч/);
     r.done();

@@ -10,6 +10,7 @@ import { LOS_COLORS, SIGNAL_COLORS, statsByWay } from '../../sim/overlay';
 import type { SimResult } from '../../sim/types';
 import { currentSelection, useEditor } from '../../state/store';
 import { Bottlenecks } from '../CapacityParts';
+import { CustomFlowsSection } from './CustomFlowsSection';
 
 const TYPE_LABELS: Readonly<Record<string, string>> = {
   car: 'Легковой, 4,5 м', van: 'Фургон до 3,5 т, 5,5 м', truck: 'Грузовой, 9 м', trailer: 'Автопоезд, 16,5 м', bus: 'Автобус, 12 м', bus18: 'Автобус, 18 м', ptbus: 'Автобус маршрута ОТ', ped: 'Пешеход',
@@ -41,7 +42,7 @@ export function wayLabel(way: { tags: Record<string, string> } | undefined, id: 
   return `${cls ? cls.label.split(',')[0] : 'Дорога'} · ${id}`;
 }
 
-const DEMAND_LABEL = { random: 'случайные поездки', rush: 'вечерний час пик', od: 'матрица из макромодели' } as const;
+const DEMAND_LABEL = { random: 'случайные поездки', rush: 'вечерний час пик', custom: 'свои потоки', od: 'матрица из макромодели' } as const;
 
 /** One KPI with its change against the baseline; `better` says which sign is good. */
 function Kpi({ value, base, label, digits = 1, better }: { value: number; base?: number; label: string; digits?: number; better: 'up' | 'down' }) {
@@ -136,6 +137,7 @@ export function MicroPanel() {
     <aside className="panel inspector-panel micro-panel" aria-label="Микросимуляция">
       <div className="panel-title micro"><span>Микросимуляция · SUMO</span><Why id="micro" /></div>
       {sumo && !sumo.ok && <SumoMissing status={sumo} />}
+      <CustomFlowsSection />
       {!result && !(sumo && !sumo.ok) && (
         <div className="insp-empty">
           <div className="insp-empty-mark" aria-hidden="true" />

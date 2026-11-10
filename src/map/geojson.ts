@@ -59,6 +59,7 @@ function roadFeatures(doc: OsmDoc, w: OsmWay, tapers: readonly Taper[] | undefin
     tunnel: Boolean(w.tags.tunnel && w.tags.tunnel !== 'no'),
     name: w.tags.name ?? '',
     sw: sidewalkSides(w.tags),
+    priority: w.tags.priority_road === 'designated',
     ...thematicProps(w.tags),
   };
   const lonLat = coords(doc, w) as Array<[number, number]>;

@@ -183,7 +183,7 @@ function ColorModeSwitch() {
   );
 }
 
-const LOOKS = [['engineering', 'Инженерия'], ['graph', 'Граф']] as const;
+const LOOKS = [['engineering', 'Инженерия'], ['scheme', 'Схема'], ['graph', 'Граф']] as const;
 
 /** Engineering plan (asphalt, markings, turn ribbons) or a graph coloured by road class. */
 function LookSwitch() {

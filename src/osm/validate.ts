@@ -7,8 +7,10 @@ import { speedMismatches } from './speeds';
 import { unsafeTags } from './pipelineSafety';
 import type { OsmDoc, OsmWay } from './types';
 import { flowRuleIssues, type FlowFix } from './flowRules';
+import { roadBuildingOverlaps } from './clearance';
+import { roadWidthMetres } from '../map/lanesGeo';
 
-export type IssueKind = 'isolated' | 'trap' | 'cordon' | 'crossing' | 'near-nodes' | 'false-tunnel' | 'speed' | 'webots-crash' | 'head-on' | 'wrong-uturn';
+export type IssueKind = 'isolated' | 'trap' | 'cordon' | 'crossing' | 'near-nodes' | 'false-tunnel' | 'speed' | 'webots-crash' | 'head-on' | 'wrong-uturn' | 'under-building';
 
 export type IssueFix =
   | { type: 'connect'; a: { wayId: string; index: number }; b: { wayId: string; index: number }; at: LonLat }
@@ -202,6 +204,15 @@ export function validate(doc: OsmDoc): ValidationReport {
       };
     }),
     ...flowRuleIssues(doc).map((f): Issue => ({ ...f, severity: 'error' })),
+    // Roads whose lanes make them wider than the room between the houses.
+    ...roadBuildingOverlaps(doc, ways.filter((w) => w.tags.lanes || w.tags.width), (w) => roadWidthMetres(w.tags)).map((o): Issue => {
+      const w = doc.ways[o.wayId];
+      const mid = doc.nodes[w.refs[Math.floor(w.refs.length / 2)]];
+      return {
+        id: `under:${o.wayId}`, kind: 'under-building', severity: 'warning', at: [mid.lon, mid.lat], wayIds: [o.wayId], nodeIds: [],
+        message: `${w.tags.name || w.tags.highway}: проезжая часть ${Math.round(o.width)} м (${w.tags.lanes ?? '?'} пол.) заходит под здания на ${Math.round(o.overlap)} м². Уменьшите число полос или сдвиньте дорогу`,
+      };
+    }),
     ...speedMismatches(doc).map((m): Issue => {
       const w = doc.ways[m.wayId];
       const mid = doc.nodes[w.refs[Math.floor(w.refs.length / 2)]];
