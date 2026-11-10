@@ -11,7 +11,7 @@ export interface PanelsState {
 }
 
 const KEY = 'graf.panels';
-export const LIMITS = { navW: [200, 520], inspW: [260, 640], dockH: [96, 560] } as const;
+export const LIMITS = { navW: [248, 520], inspW: [260, 640], dockH: [96, 560] } as const;
 
 const clamp = (v: number, [lo, hi]: readonly [number, number]) => Math.round(Math.min(hi, Math.max(lo, v)));
 

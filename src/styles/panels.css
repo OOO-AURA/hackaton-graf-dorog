@@ -405,3 +405,23 @@ button.link:hover { text-decoration: underline; }
 .tool-pane-head h3 { margin: 2px 0 0; font-size: 15px; font-weight: 700; }
 .tool-pane-status { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: var(--r-md); background: var(--blue-wash); font-size: var(--fs-sm); }
 .catalog { display: grid; gap: 8px; }
+
+.lens-grid { display: flex; flex-wrap: wrap; gap: 3px; }
+.lens-grid button { flex: 1 0 auto; padding: 0 8px; }
+.lens-hint { margin: 0; font-size: 11px; color: var(--ink-2); min-height: 2.4em; }
+.layer-group { display: grid; gap: 2px; margin-top: 4px; }
+.layer-group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.layer-group-head h3 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-btn { white-space: nowrap; flex-shrink: 0; }
+.link-btn { border: 0; background: none; padding: 0; font-size: 10.5px; color: var(--blue-text); cursor: pointer; }
+.link-btn:hover { text-decoration: underline; }
+.layer-list label { justify-content: flex-start; }
+.layer-list label span { flex: 1; color: var(--ink-2); }
+.layer-list label.on span { color: var(--ink); }
+.layer-swatch { width: 12px; height: 12px; border-radius: 3px; background: var(--chip, var(--ink-2)); box-shadow: 0 0 0 1px var(--line-strong) inset; flex-shrink: 0; }
+.l-sidewalks { --chip: #B8AE9C; } .l-transit { --chip: #D9502B; }
+.switch { appearance: none; -webkit-appearance: none; width: 28px; height: 16px; border-radius: 8px; background: var(--line-strong); position: relative; cursor: pointer; transition: background-color var(--dur) ease; margin: 0; flex-shrink: 0; }
+.switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--paper); transition: transform 160ms var(--ease-out); }
+.switch:checked { background: var(--blue); }
+.switch:checked::after { transform: translateX(12px); }
+.switch:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }

@@ -1,3 +1,4 @@
+import { VEHICLES3D_LAYER } from './vehicles3dRegistry';
 import { signBitmap } from './signArt';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { LayerId } from '../state/ui';
@@ -366,6 +367,10 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   show('roads-bridge', on.roads && on.bridges);
   map.setPaintProperty('roads-bridge', 'line-opacity', view3d ? 0 : 1);
   map.setLayoutProperty(SCENE3D_LAYER, 'visibility', view3d ? 'visible' : 'none');
+  // three.js loads only when 3D is first turned on.
+  if (map.getLayer(VEHICLES3D_LAYER)) map.setLayoutProperty(VEHICLES3D_LAYER, 'visibility', view3d ? 'visible' : 'none');
+  else if (view3d) void import('./vehicles3d').then((m) => m.addVehicles3d(map, true));
+  show('vehicles-sprite', !view3d);
   sceneOf(map)?.setVisible(on.buildings, on.bridges || on.tunnels);
   show('bridge-shadow', on.roads && on.bridges && !view3d);
   // Vertices of the selected way stay visible and draggable even with junctions hidden.

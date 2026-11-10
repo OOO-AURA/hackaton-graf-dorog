@@ -18,6 +18,7 @@ import { MAP_PALETTE } from '../map/palette';
 import { useUi } from '../state/ui';
 import { MapOverlay } from './MapOverlay';
 import { applyLens } from '../map/lens';
+import { vehicles3dOf } from '../map/vehicles3dRegistry';
 import { useSim, vehiclesAt } from '../sim/store';
 import { losFeatures, signalFeatures } from '../sim/overlay';
 import { useMacro } from '../macro/store';
@@ -229,11 +230,18 @@ function useMapLook(map: MapLibreMap | null): void {
   const simResult = useSim((s) => s.result);
   const simTime = useSim((s) => s.time);
   const workspace = useUi((s) => s.workspace);
+  const view3dVeh = useUi((s) => s.view3d);
   useEffect(() => {
     if (!alive(map)) return;
     const empty = { type: 'FeatureCollection', features: [] };
-    setData(map, 'vehicles', workspace === 'micro' && simResult ? vehiclesAt(simResult, simTime) : empty);
-  }, [map, simResult, simTime, workspace]);
+    const data = workspace === 'micro' && simResult ? vehiclesAt(simResult, simTime) : empty;
+    setData(map, 'vehicles', data);
+    const v3 = vehicles3dOf(map);
+    if (v3 && view3dVeh) {
+      v3.update((data.features as unknown as Array<{ properties: { angle: number; sprite: string }; geometry: { coordinates: [number, number] } }>)
+        .map((f) => ({ lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], angle: f.properties.angle, sprite: f.properties.sprite })));
+    }
+  }, [map, simResult, simTime, workspace, view3dVeh]);
   const flows = useMacro((s) => s.result?.flows);
   const bundle = useBundle((s) => s.features);
   const iso = useMacro((s) => s.iso);
