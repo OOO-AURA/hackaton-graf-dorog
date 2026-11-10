@@ -14,11 +14,14 @@ export const JUNCTION_LAYERS = [
   'junction-area-fill', 'junction-area-line', 'zebra-base', 'zebra-stripes', 'stop-lines', 'yield-lines', 'lane-ribbons', 'lane-links', 'lane-arrows', 'lane-ends',
 ] as const;
 /**
- * Lane arrows of a bridge or tunnel approach stand on the deck or in the tube; in 3D their flat
- * copies would lie on the ground under it. The junction itself is on the ground (the deck comes
- * down at its edge), so its ribbons and lines stay.
+ * Flat junction drawings that would lie on the ground under a deck or an embankment in 3D: those
+ * of junctions up on an embankment, and lane arrows of bridge and tunnel approaches. Their
+ * filters in 3D add `raised != true` to the base filter.
  */
-export const UNDER_DECK_LAYERS = ['lane-arrows'] as const;
+export const UNDER_DECK_LAYERS: Readonly<Record<string, unknown>> = {
+  'junction-area-fill': null, 'junction-area-line': null, 'lane-ribbons': null, 'lane-links': null, 'lane-arrows': null,
+  'stop-lines': ['==', ['get', 'kind'], 'stop'], 'yield-lines': ['==', ['get', 'kind'], 'yield'],
+};
 /** Signs are drawn in 2D only. */
 export const SIGN_LAYER = 'road-signs';
 

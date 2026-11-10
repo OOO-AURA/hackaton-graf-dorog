@@ -28,6 +28,8 @@ export interface MapPalette {
   bridgeSide: string;
   /** Tops of bridge parapets in 3D: a light outline of the deck. */
   bridgeParapet: string;
+  /** Earth slopes of the embankments up to bridges in 3D. */
+  embankment: string;
   /** Roads in the engineering look: asphalt with a light edge line. */
   asphalt: string;
   asphaltEdge: string;
@@ -63,6 +65,7 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     building3d: '#D9C69C',
     bridgeSide: '#8C7350',
     bridgeParapet: '#F4EBDD',
+    embankment: '#A3A07A',
     asphalt: '#83838B',
     asphaltEdge: '#F4F1EA',
     lane: '#FBF6EA',
@@ -93,6 +96,7 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     building3d: '#4A4A52',
     bridgeSide: '#5C5C66',
     bridgeParapet: '#D9D9E0',
+    embankment: '#3E4437',
     asphalt: '#3E3E46',
     asphaltEdge: '#A3A3AD',
     lane: '#E8E2D4',

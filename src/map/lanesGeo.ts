@@ -3,6 +3,7 @@ import { armKey, armsAt, junctionLanes, junctions, turnSide, type Arm, type Turn
 import { lanesByDirection } from '../osm/profile';
 import { isDrivable } from '../osm/tags';
 import { approachControl } from '../osm/signs';
+import { isLifted, isLiftedNode } from './elevation';
 import type { OsmDoc, OsmWay, Tags } from '../osm/types';
 
 /**
@@ -160,7 +161,8 @@ export function laneLines(doc: OsmDoc, style: LaneStyle): FeatureCollection<Line
     if (!isDrivable(w.tags) || w.refs.length < 2) continue;
     const { forward, backward } = travelLanes(w.tags);
     const vc = style.load(w.id);
-    const raised = isRaised(w.tags);
+    // In 3D these lanes are on a deck, in a tube or on an embankment, drawn by the 3D scene.
+    const raised = isRaised(w.tags) || isLifted(doc, w);
     const marks = dividerOffsets(w.tags);
     for (const piece of pieces(w)) {
       const nodes = piece.refs.map((r) => doc.nodes[r]).filter(Boolean);
@@ -277,7 +279,9 @@ export function junctionGeometry(doc: OsmDoc, nodeIds: readonly string[], withEn
     const lanes = junctionLanes(doc, nodeId);
     const endOf = (arm: Arm, coming: boolean, i: number) => laneEnd(doc, arm, coming, i, r, f);
     const edit = nodeId === withEnds;
-    const raisedWay = (wayId: string) => isRaised(doc.ways[wayId]?.tags ?? {});
+    const raisedWay = (wayId: string) => Boolean(doc.ways[wayId]) && (isRaised(doc.ways[wayId].tags) || isLifted(doc, doc.ways[wayId]));
+    // A junction up on an embankment: in 3D its flat drawing would lie on the ground under it.
+    const lifted = isLiftedNode(doc, nodeId);
     lanes.links.forEach((l) => {
       const a = endOf(l.from, true, l.fromLane);
       const b = endOf(l.to, false, l.toLane);
@@ -286,7 +290,7 @@ export function junctionGeometry(doc: OsmDoc, nodeIds: readonly string[], withEn
         properties: {
           node: nodeId, from: armKey(l.from), lane: l.fromLane, to: armKey(l.to), turn: l.turn, group: turnGroup(l.turn),
           w17: laneWidth(doc.ways[l.from.wayId].tags) * px, color: style.color(style.load(l.from.wayId)), edit,
-          raised: raisedWay(l.from.wayId) || raisedWay(l.to.wayId),
+          raised: lifted,
         },
         geometry: { type: 'LineString', coordinates: curve(a, b).map(f.back) },
       });
@@ -314,7 +318,7 @@ export function junctionGeometry(doc: OsmDoc, nodeIds: readonly string[], withEn
       const control = approachControl(doc, nodeId, arm);
       if (control) {
         stops.push({
-          type: 'Feature', properties: { node: nodeId, w17: (control === 'give_way' ? 0.6 : 0.4) * px, kind: control === 'give_way' ? 'yield' : 'stop', raised: raisedWay(arm.wayId) },
+          type: 'Feature', properties: { node: nodeId, w17: (control === 'give_way' ? 0.6 : 0.4) * px, kind: control === 'give_way' ? 'yield' : 'stop', raised: lifted },
           geometry: { type: 'LineString', coordinates: [at(lo, -1, STOP_BACK), at(hi, 1, STOP_BACK)].map(f.back) },
         });
       }
@@ -323,13 +327,13 @@ export function junctionGeometry(doc: OsmDoc, nodeIds: readonly string[], withEn
         const p: V = [e.p[0] + out[0] * ARROW_BACK, e.p[1] + out[1] * ARROW_BACK];
         arrows.push({
           type: 'Feature',
-          properties: { node: nodeId, icon: arrowIcon(approach?.turns[i] ?? []), bearing: bearingOf([-out[0], -out[1]]), w17: w * px, raised: raisedWay(arm.wayId) },
+          properties: { node: nodeId, icon: arrowIcon(approach?.turns[i] ?? []), bearing: bearingOf([-out[0], -out[1]]), w17: w * px, raised: lifted || raisedWay(arm.wayId) },
           geometry: { type: 'Point', coordinates: f.back(p) },
         });
       });
     }
     if (corners.length >= 3) {
-      areas.push({ type: 'Feature', properties: { node: nodeId, edit }, geometry: { type: 'Polygon', coordinates: [grow(hull(corners), AREA_MARGIN).map(f.back)] } });
+      areas.push({ type: 'Feature', properties: { node: nodeId, edit, raised: lifted }, geometry: { type: 'Polygon', coordinates: [grow(hull(corners), AREA_MARGIN).map(f.back)] } });
     }
   }
   const fc = <G extends LineString | Point | Polygon>(features: Feature<G, Props>[]) => ({ type: 'FeatureCollection', features }) as Fc<G>;

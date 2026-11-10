@@ -133,7 +133,7 @@ export function sceneColors(p: MapPalette, look: RoadLook = 'graph'): Scene3dCol
   const asphalt = rgb(p.asphalt);
   return {
     building: rgb(p.building3d), deck: (h) => (look === 'engineering' ? asphalt : byHighway.get(h) ?? service),
-    deckSide: rgb(p.bridgeSide), parapet: rgb(p.bridgeParapet), mark: rgb(p.laneMark), markCasing: rgb(p.laneMarkCasing), pier: rgb(p.bridgeSide), portal: rgb(p.bridgeSide), selection: rgb(p.selection),
+    deckSide: rgb(p.bridgeSide), parapet: rgb(p.bridgeParapet), embankment: rgb(p.embankment), mark: rgb(p.laneMark), markCasing: rgb(p.laneMarkCasing), pier: rgb(p.bridgeSide), portal: rgb(p.bridgeSide), selection: rgb(p.selection),
   };
 }
 
@@ -327,6 +327,9 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   map.setFilter('lane-marks-casing', flat(['==', ['get', 'kind'], 'divider']));
   map.setFilter('lane-marks-dash', flat(DASHED_MARKS));
   map.setFilter('lane-marks-solid', flat(SOLID_MARKS));
-  UNDER_DECK_LAYERS.forEach((id) => map.setFilter(id, (view3d ? ['!=', ['get', 'raised'], true] : null) as never));
+  Object.entries(UNDER_DECK_LAYERS).forEach(([id, base]) => {
+    const ground = ['!=', ['get', 'raised'], true];
+    map.setFilter(id, (view3d ? (base ? ['all', base, ground] : ground) : base) as never);
+  });
   show(SIGN_LAYER, on.signs && !view3d);
 }
