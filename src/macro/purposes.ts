@@ -11,11 +11,12 @@ export const PURPOSES = [
 export const DEFAULT_BETA = 0.1;
 
 /** Both purposes for a base β: matrices and the mix. */
-export function purposeMatrices(times: number[][], zones: ReadonlyArray<{ home?: number; work?: number; weight: number }>, total: number, beta: number) {
+export function purposeMatrices(times: number[][], zones: ReadonlyArray<{ home?: number; work?: number; weight: number }>, total: number, beta: number, workShare: number = PURPOSES[0].share) {
   const home = zones.map((z) => z.home ?? z.weight);
   const work = zones.map((z) => z.work ?? z.weight);
   const all = zones.map((z) => z.weight);
-  const mats = PURPOSES.map((p) => purposeOd(times, home, p.id === 'hbw' ? work : all, total * p.share, beta * p.betaFactor));
+  const share = (id: string) => (id === 'hbw' ? workShare : 1 - workShare);
+  const mats = PURPOSES.map((p) => purposeOd(times, home, p.id === 'hbw' ? work : all, total * share(p.id), beta * p.betaFactor));
   return { mats, od: combine(mats) };
 }
 export type PurposeId = (typeof PURPOSES)[number]['id'];

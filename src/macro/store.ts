@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { useEditor } from '../state/store';
-import type { Fc, MacroResult } from './compute';
+import type { Fc, MacroResult, MacroTuning } from './compute';
 import type { FlowsJob } from './flows.worker';
 import { DEFAULT_BETA } from './purposes';
 
@@ -12,6 +12,10 @@ interface MacroState {
   /** Base β of the gravity model, 1/min. */
   beta: number;
   setBeta: (b: number) => void;
+  /** Fine settings of the model, kept between sessions; empty fields keep the defaults. */
+  tuning: MacroTuning;
+  setTuning: (patch: Partial<MacroTuning>) => void;
+  resetTuning: () => void;
   /** Finds β for a target mean trip time and recalculates. */
   calibrate: (minutes: number) => Promise<void>;
   busy: boolean;
@@ -50,7 +54,23 @@ function post(job: FlowsJob extends infer J ? (J extends FlowsJob ? Omit<J, 'id'
   return new Promise((resolve) => { pending.set(id, resolve); worker!.postMessage({ ...job, id }); });
 }
 
+const TUNING_KEY = 'graf.macro-tuning';
+function loadTuning(): MacroTuning {
+  try { return JSON.parse(localStorage.getItem(TUNING_KEY) ?? '{}') as MacroTuning; } catch { return {}; }
+}
+function saveTuning(t: MacroTuning): void {
+  try { localStorage.setItem(TUNING_KEY, JSON.stringify(t)); } catch { /* storage off */ }
+}
+
 export const useMacro = create<MacroState>((set, get) => ({
+  tuning: loadTuning(),
+  setTuning: (patch) => set(({ tuning }) => {
+    const next: MacroTuning = { ...tuning, ...patch };
+    for (const k of Object.keys(next) as (keyof MacroTuning)[]) if (next[k] === undefined) delete next[k];
+    saveTuning(next);
+    return { tuning: next, odEdited: false };
+  }),
+  resetTuning: () => { saveTuning({}); set({ tuning: {}, odEdited: false }); },
   side: 3,
   trips: 4000,
   beta: DEFAULT_BETA,
@@ -84,8 +104,8 @@ export const useMacro = create<MacroState>((set, get) => ({
   clear: () => set({ result: null, iso: null, isoFrom: null, error: null, odEdited: false }),
   run: async (targetMinutes) => {
     set({ busy: true, error: null });
-    const { side, trips, points, odEdited, result, beta } = get();
-    const r = await post({ kind: 'flows', doc: useEditor.getState().doc, opts: { side, trips, points, beta, targetMinutes: targetMinutes ?? null, od: odEdited ? result?.od : null } });
+    const { side, trips, points, odEdited, result, beta, tuning } = get();
+    const r = await post({ kind: 'flows', doc: useEditor.getState().doc, opts: { side, trips, points, beta, tuning, targetMinutes: targetMinutes ?? null, od: odEdited ? result?.od : null } });
     set({ busy: false, error: r.error ?? null, result: (r.result as MacroResult) ?? get().result });
   },
   isochrone: async (nodeId) => {

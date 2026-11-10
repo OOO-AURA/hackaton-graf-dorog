@@ -4,6 +4,40 @@ import { TripTimeChart } from './TripTimeChart';
 import { BundleSection } from './BundleSection';
 import { ISO_BANDS, useMacro, VC_BANDS } from '../macro/store';
 import { useEditor } from '../state/store';
+import type { MacroTuning } from '../macro/compute';
+
+const TUNING: ReadonlyArray<{ k: keyof MacroTuning; label: string; greek?: boolean; def: number; hint: string; min: number; max: number }> = [
+  { k: 'bprAlpha', label: 'BPR α', greek: true, def: 0.15, min: 0, max: 5, hint: 'Насколько растёт время в пути при загрузке: t = t0 · (1 + α (V/C)^β). 0,15 — классическое значение' },
+  { k: 'bprPower', label: 'BPR степень β', greek: true, def: 4, min: 1, max: 10, hint: 'Как резко растёт время у пропускной способности. 4 — классическое значение' },
+  { k: 'iterations', label: 'Итераций', def: 40, min: 1, max: 500, hint: 'Наибольшее число итераций Франка — Вульфа' },
+  { k: 'gap', label: 'Точность (зазор)', def: 0.0001, min: 0.000001, max: 0.1, hint: 'Относительный зазор равновесия, при котором расчёт останавливается' },
+  { k: 'workShare', label: 'Доля «дом–работа»', def: 0.45, min: 0, max: 1, hint: 'Доля поездок на работу в час пик, от 0 до 1. Остальные — «дом–прочее»' },
+];
+
+/** Every number of the macro model, folded: an empty field keeps the default. */
+function MacroTuningFields() {
+  const tuning = useMacro((s) => s.tuning);
+  const setTuning = useMacro((s) => s.setTuning);
+  const reset = useMacro((s) => s.resetTuning);
+  const changed = Object.keys(tuning).length;
+  return (
+    <details className="flows-tune">
+      <summary className="micro">Тонкая настройка модели{changed ? ` · изменено ${changed}` : ''}</summary>
+      <div className="flows-tune-grid">
+        {TUNING.map((f) => (
+          <label key={f.k} className={`field tune-field${tuning[f.k] === undefined ? '' : ' is-set'}`} title={f.hint}>
+            <span className="micro">{f.greek ? <>{f.label.slice(0, -1)}<span className="greek">{f.label.slice(-1)}</span></> : f.label}</span>
+            <input type="number" step="any" min={f.min} max={f.max} placeholder={String(f.def)} defaultValue={tuning[f.k] ?? ''} key={`${f.k}:${tuning[f.k] ?? ''}`}
+              onBlur={(e) => { const v = e.target.value.trim(); const n = Number(v.replace(',', '.')); setTuning({ [f.k]: v === '' || !Number.isFinite(n) ? undefined : Math.min(f.max, Math.max(f.min, n)) }); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
+          </label>
+        ))}
+        {changed > 0 && <button className="btn btn-quiet" onClick={reset}>Сбросить</button>}
+      </div>
+      <p className="hint">Пустое поле — значение по умолчанию. После изменения нажмите «Распределить потоки».</p>
+    </details>
+  );
+}
 
 /** Macro level: grid zones, gravity OD matrix, equilibrium assignment and isochrones. */
 export function FlowsPanel() {
@@ -53,6 +87,7 @@ export function FlowsPanel() {
           {result.calibrated === 'unreachable' && <span className="hint err">На этом фрагменте средняя поездка бывает только {result.reachable ? `от ${result.reachable[0].toFixed(1)} до ${result.reachable[1].toFixed(1)} мин` : 'в узких пределах'}: выберите значение в этом диапазоне.</span>}
         </div>
       )}
+      <MacroTuningFields />
       {error && <p className="hint err">{error}</p>}
       {placing && <p className="hint">Кликните по карте, чтобы поставить центр зоны. Тащите, чтобы сдвинуть. Правый клик удаляет. Нужно минимум две зоны.</p>}
       {!result && !isoFrom && (

@@ -146,8 +146,12 @@ export function gravityOd(net: Network, zones: readonly Zone[], totalTrips: numb
   return raw.map((row) => row.map((v) => Math.round((v / sum) * totalTrips)));
 }
 
+/** Parameters of the BPR volume-delay function t = t0 · (1 + α (V/C)^β). */
+export interface Vdf { readonly alpha: number; readonly power: number }
+export const DEFAULT_VDF: Vdf = { alpha: 0.15, power: 4 };
+
 /** BPR volume-delay function. */
-export const bpr = (t0: number, v: number, c: number) => t0 * (1 + 0.15 * (v / c) ** 4);
+export const bpr = (t0: number, v: number, c: number, vdf: Vdf = DEFAULT_VDF) => t0 * (1 + vdf.alpha * (v / c) ** vdf.power);
 
 export interface Assignment {
   readonly volume: Float64Array;
@@ -173,12 +177,12 @@ function allOrNothing(net: Network, zones: readonly Zone[], od: number[][], cost
 }
 
 /** User equilibrium by Frank-Wolfe with the method of successive averages step. OD is in vehicles per hour. */
-export function assign(net: Network, zones: readonly Zone[], od: number[][], iterations = 30): Assignment {
+export function assign(net: Network, zones: readonly Zone[], od: number[][], iterations = 30, vdf: Vdf = DEFAULT_VDF, gapTarget = 1e-4): Assignment {
   const time = Float64Array.from(net.links, (l) => l.t0);
   let { flow: volume, unrouted } = allOrNothing(net, zones, od, time);
   let gap = 1; let k = 1;
   for (; k < iterations; k++) {
-    net.links.forEach((l, i) => { time[i] = bpr(l.t0, volume[i], l.cap); });
+    net.links.forEach((l, i) => { time[i] = bpr(l.t0, volume[i], l.cap, vdf); });
     const aux = allOrNothing(net, zones, od, time);
     let tv = 0; let ta = 0;
     for (let i = 0; i < volume.length; i++) { tv += time[i] * volume[i]; ta += time[i] * aux.flow[i]; }
@@ -186,9 +190,9 @@ export function assign(net: Network, zones: readonly Zone[], od: number[][], ite
     const step = 1 / (k + 1);
     for (let i = 0; i < volume.length; i++) volume[i] += step * (aux.flow[i] - volume[i]);
     unrouted = aux.unrouted;
-    if (gap < 1e-4) break;
+    if (gap < gapTarget) break;
   }
-  net.links.forEach((l, i) => { time[i] = bpr(l.t0, volume[i], l.cap); });
+  net.links.forEach((l, i) => { time[i] = bpr(l.t0, volume[i], l.cap, vdf); });
   return { volume, time, iterations: k, gap, unrouted };
 }
 

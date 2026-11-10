@@ -1,5 +1,5 @@
 import type { OsmDoc } from '../osm/types';
-import { assign, buildingMass, buildNetwork, dijkstra, gridZones, metres, pointZones, weighByBuildings, type Zone } from './model';
+import { assign, buildingMass, buildNetwork, DEFAULT_VDF, dijkstra, gridZones, metres, pointZones, weighByBuildings, type Zone } from './model';
 import { DEFAULT_BETA, meanTime, PURPOSES, purposeMatrices, roundOd, skim, solveBeta, timeHistogram } from './purposes';
 
 /** Load bands by volume to capacity ratio. */
@@ -53,9 +53,24 @@ export interface FlowsOptions {
   beta?: number;
   /** Mean trip time to calibrate β to, minutes; overrides `beta`. */
   targetMinutes?: number | null;
+  /** Fine settings: BPR α and power, iterations and gap of the assignment, share of work trips. */
+  tuning?: MacroTuning;
+}
+
+export interface MacroTuning {
+  bprAlpha?: number;
+  bprPower?: number;
+  iterations?: number;
+  gap?: number;
+  workShare?: number;
 }
 
 export function computeFlows(doc: OsmDoc, opts: FlowsOptions): MacroResult {
+  const tu = opts.tuning ?? {};
+  const vdf = { alpha: tu.bprAlpha ?? DEFAULT_VDF.alpha, power: tu.bprPower ?? DEFAULT_VDF.power };
+  const iterations = Math.round(tu.iterations ?? 40);
+  const gapTarget = tu.gap ?? 1e-4;
+  const work = tu.workShare ?? PURPOSES[0].share;
   const net = buildNetwork(doc);
   const base = opts.points?.length ? pointZones(net, opts.points) : gridZones(net, opts.side);
   const zones = weighByBuildings(base, buildingMass(doc));
@@ -66,18 +81,18 @@ export function computeFlows(doc: OsmDoc, opts: FlowsOptions): MacroResult {
   if (opts.targetMinutes) {
     // Each probe runs a short assignment, so the mean is measured on the times its own matrix loads.
     const at = (b: number) => {
-      const od = roundOd(purposeMatrices(free, zones, opts.trips, b).od);
-      return meanTime(od, skim(net, zones, assign(net, zones, od, 15).time));
+      const od = roundOd(purposeMatrices(free, zones, opts.trips, b, work).od);
+      return meanTime(od, skim(net, zones, assign(net, zones, od, 15, vdf, gapTarget).time));
     };
     reachable = [at(2), at(0.001)];
     const solved = solveBeta(at, opts.targetMinutes, 14, reachable);
     calibrated = solved === null ? 'unreachable' : 'ok';
     if (solved !== null) beta = solved;
   }
-  const split = purposeMatrices(free, zones, opts.trips, beta);
+  const split = purposeMatrices(free, zones, opts.trips, beta, work);
   const edited = opts.od && opts.od.length === zones.length ? opts.od : null;
   const od = edited ?? roundOd(split.od);
-  const a = assign(net, zones, od, 40);
+  const a = assign(net, zones, od, iterations, vdf, gapTarget);
   const loaded = skim(net, zones, a.time);
   let vkt = 0; let vht = 0; let overloaded = 0;
   const features: unknown[] = net.links.map((l, i) => {
