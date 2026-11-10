@@ -1,3 +1,4 @@
+import { signBitmap } from './signArt';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { LayerId } from '../state/ui';
 import { ROAD_CLASSES, roadColorExpression, type MapPalette } from './palette';
@@ -30,34 +31,12 @@ function arrowImage(color: string): ImageData | null {
   return ctx.getImageData(0, 0, size, size);
 }
 
-/** Small road-sign icons drawn on a 32px canvas (shown at 16 css px). */
-const SIGN_ICONS: Record<string, (c: CanvasRenderingContext2D) => void> = {
-  crossing: (c) => {
-    c.fillStyle = '#3F8BC4'; c.fillRect(3, 3, 26, 26); c.strokeStyle = '#FFFFFF'; c.lineWidth = 2; c.strokeRect(4, 4, 24, 24);
-    c.fillStyle = '#FFFFFF'; for (let x = 8; x < 26; x += 5) c.fillRect(x, 18, 3, 7);
-    c.beginPath(); c.arc(16, 9, 2.5, 0, Math.PI * 2); c.fill(); c.fillRect(15, 11, 2, 6);
-  },
-  // Sign 5.16 «Место остановки автобуса».
-  bus_stop: (c) => {
-    c.fillStyle = '#3F8BC4'; c.fillRect(3, 3, 26, 26); c.strokeStyle = '#FFFFFF'; c.lineWidth = 2; c.strokeRect(4, 4, 24, 24);
-    c.fillStyle = '#FFFFFF'; c.fillRect(8, 9, 16, 12); c.fillStyle = '#3F8BC4'; c.fillRect(10, 11, 12, 4);
-    c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(11, 23, 2, 0, Math.PI * 2); c.arc(21, 23, 2, 0, Math.PI * 2); c.fill();
-  },
-  bump: (c) => {
-    c.fillStyle = '#F0BC2A'; c.strokeStyle = '#3A2516'; c.lineWidth = 2.5;
-    c.beginPath(); c.moveTo(16, 3); c.lineTo(29, 28); c.lineTo(3, 28); c.closePath(); c.fill(); c.stroke();
-    c.fillStyle = '#3A2516'; c.beginPath(); c.ellipse(16, 23, 7, 3.5, 0, Math.PI, 0); c.fill(); c.fillRect(8, 23, 16, 2);
-  },
-};
-
+/** Small sign icons for nodes (crossing, bus stop, bump), from the shared SVG art (signArt.ts). */
 function addSignImages(map: MapLibreMap): void {
-  Object.entries(SIGN_ICONS).forEach(([name, draw]) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 32; canvas.height = 32;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    draw(ctx);
-    if (!map.hasImage(`sign-${name}`)) map.addImage(`sign-${name}`, ctx.getImageData(0, 0, 32, 32), { pixelRatio: 2 });
+  ['crossing', 'bus_stop', 'bump', 'signal', 'tram_stop'].forEach((name) => {
+    void signBitmap(name, 40).then((img) => {
+      if (img && !map.hasImage(`sign-${name}`)) map.addImage(`sign-${name}`, img, { pixelRatio: 2 });
+    });
   });
 }
 
