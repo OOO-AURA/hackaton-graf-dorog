@@ -13,6 +13,8 @@ import { Icon } from './icons';
 import { Why } from './Why';
 import { Splitter } from './SidePanel';
 import { useScenarios } from '../scenarios/store';
+import { SubmitPanel } from './SubmitPanel';
+import { stepInfo } from '../state/steps';
 
 function Badge({ tab }: { tab: BottomTab }) {
   const report = useEditor((s) => s.report);
@@ -34,7 +36,9 @@ function Badge({ tab }: { tab: BottomTab }) {
   return null;
 }
 
-const TABS: ReadonlyArray<[BottomTab, string]> = [['issues', 'Валидация'], ['check', 'Проверка как на сервере'], ['flows', 'Потоки'], ['transit', 'Транспорт'], ['scenarios', 'Сценарии'], ['journal', 'Журнал'], ['errors', 'Ошибки']];
+export const TAB_LABELS: Readonly<Record<BottomTab, string>> = {
+  issues: 'Ошибки графа', check: 'Отчёт сервера', flows: 'Потоки', transit: 'Транспорт', scenarios: 'Сценарии', journal: 'Что изменено', errors: 'Журнал ошибок', submit: 'Чек-лист сдачи',
+};
 
 export function BottomDock() {
   const tab = useUi((s) => s.bottomTab);
@@ -44,6 +48,7 @@ export function BottomDock() {
   const running = useCheck((s) => s.running);
   const edits = useEditor((s) => s.past.length);
   const scenarios = useScenarios((s) => s.list.length);
+  const tabs = stepInfo(useUi((s) => s.step)).tabs;
 
   useEffect(() => { if (running) openBottom('check'); }, [running, openBottom]);
 
@@ -51,10 +56,10 @@ export function BottomDock() {
     <section className={`dock${open ? ' open' : ''}`} aria-label="Нижняя панель">
       {open && <Splitter axis="dockH" dir={-1} className="splitter-dock" />}
       <div className="dock-tabs" role="tablist">
-        {TABS.map(([id, label]) => (
+        {tabs.map((id) => (
           <button key={id} role="tab" data-tour={`${id}-tab`} aria-selected={open && tab === id} className={open && tab === id ? 'on' : ''}
             onClick={() => (open && tab === id ? toggle() : openBottom(id))}>
-            {label}{id === 'scenarios' && scenarios > 0 && <span className="mono count">{scenarios}</span>}{id === 'journal' && edits > 0 && <span className="mono count">{edits}</span>}<Badge tab={id} />
+            {TAB_LABELS[id]}{id === 'scenarios' && scenarios > 0 && <span className="mono count">{scenarios}</span>}{id === 'journal' && edits > 0 && <span className="mono count">{edits}</span>}<Badge tab={id} />
           </button>
         ))}
         {open && <Why key={tab} id={tab} />}
@@ -71,6 +76,7 @@ export function BottomDock() {
           {tab === 'scenarios' && <ScenariosPanel />}
           {tab === 'journal' && <Journal />}
           {tab === 'errors' && <ErrorLogPanel />}
+          {tab === 'submit' && <SubmitPanel />}
         </div>
       )}
     </section>

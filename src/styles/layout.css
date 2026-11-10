@@ -28,7 +28,7 @@
 .header-right { justify-content: flex-end; }
 .brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .brand .display { font-size: 22px; text-transform: uppercase; }
-.file { display: flex; align-items: center; gap: 10px; min-width: 0; padding-left: var(--sp-3); border-left: 1px solid var(--line); }
+.file { display: flex; align-items: center; gap: 10px; min-width: 0; padding-right: var(--sp-3); border-right: 1px solid var(--line); }
 .file-name { font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .save-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-2); white-space: nowrap; }
 .save-status i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
@@ -37,18 +37,6 @@
 @keyframes pulse { 50% { opacity: 0.35; } }
 .btn-group { display: flex; align-items: center; gap: 2px; }
 
-.workspaces { display: flex; gap: 0; border: 1.5px solid var(--ink); border-radius: var(--r-md); overflow: hidden; }
-.workspaces button {
-  border: 0; background: transparent; padding: 0 16px; height: 28px; font-family: var(--font-display); font-weight: 900; font-size: 15px;
-  letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); transition: background-color var(--dur) ease, color var(--dur) ease;
-}
-.workspaces button + button { border-left: 1.5px solid var(--ink); }
-.workspaces button:hover:not(.on) { background: var(--hover); color: var(--ink); }
-.workspaces button.on { background: var(--ink); color: var(--on-ink); }
-
-.save-box { display: flex; align-items: center; }
-.save-box input { width: 150px; border-radius: var(--r-md) 0 0 var(--r-md); border-right: 0; font-size: 11.5px; }
-.save-box .btn { border-radius: 0 var(--r-md) var(--r-md) 0; }
 
 /* Side panels: frosted glass over the map */
 .panel {
@@ -131,10 +119,9 @@ body.resizing-y, body.resizing-y * { cursor: row-resize !important; user-select:
 }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } }
 
-@media (max-width: 1360px) {
+@media (max-width: 1500px) {
   .brand .display { display: none; }
   .file-name { max-width: 130px; }
-  .save-box input { width: 120px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

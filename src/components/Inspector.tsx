@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { currentSelection, useEditor } from '../state/store';
 import { MultiInspector } from './MultiInspector';
-import { HOTKEYS } from '../state/useHotkeys';
+import { useUi } from '../state/ui';
+import { Icon } from './icons';
 import { WayInspector } from './WayInspector';
 import { NodeInspector } from './NodeInspector';
 import { BuildingInspector } from './BuildingInspector';
@@ -15,16 +16,39 @@ import { RoadCatalog, SignPalette } from './ToolCatalog';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { finishDrawing } from '../state/actions';
 
+/** First things to do, as buttons: what the editor is for when nothing is selected yet. */
+const STARTS = [
+  { mode: 'draw', icon: 'road', title: 'Нарисовать дорогу', text: 'Точки кликами, Enter заканчивает', key: 'D' },
+  { mode: 'signal', icon: 'signal', title: 'Светофор или знак', text: 'Клик по узлу ставит объект ОДД', key: 'T' },
+  { mode: 'building', icon: 'building', title: 'Поставить здание', text: 'Само встаёт вдоль дороги', key: 'B' },
+  { mode: 'insert', icon: 'node', title: 'Узел на дороге', text: 'Для изгиба или перекрёстка', key: 'N' },
+] as const;
+
 function Nothing() {
+  const setMode = useEditor((s) => s.setMode);
+  const setStep = useUi((s) => s.setStep);
+  const setHelpOpen = useUi((s) => s.setHelpOpen);
+  const errors = useEditor((s) => s.report?.issues.filter((i) => i.severity === 'error').length ?? 0);
   return (
     <div className="insp-empty">
-      <div className="insp-empty-mark" aria-hidden="true" />
-      <p>Ничего не выбрано</p>
-      <p className="hint">Кликните дорогу, узел или здание на карте либо улицу в списке слева. Рамка с Shift выбирает несколько.</p>
-      <details className="hotkeys">
-        <summary className="micro">Горячие клавиши</summary>
-        <dl>{HOTKEYS.map(([k, v]) => <div key={k}><dt className="mono">{k}</dt><dd>{v}</dd></div>)}</dl>
-      </details>
+      <h3 className="insp-start-title">С чего начать</h3>
+      <p className="hint">Кликните дорогу, перекрёсток или здание на карте, и здесь появятся его свойства. Или выберите действие:</p>
+      <div className="insp-starts">
+        {STARTS.map((s) => (
+          <button key={s.mode} className="insp-start" onClick={() => setMode(s.mode)}>
+            <Icon name={s.icon} size={18} />
+            <span><b>{s.title}</b><span className="hint">{s.text}</span></span>
+            <kbd>{s.key}</kbd>
+          </button>
+        ))}
+      </div>
+      {errors > 0 && (
+        <button className="insp-start insp-start-warn" onClick={() => setStep('check')}>
+          <Icon name="check" size={18} />
+          <span><b>Исправить ошибки графа: {errors}</b><span className="hint">Шаг 2, многие чинятся одной кнопкой</span></span>
+        </button>
+      )}
+      <button className="link insp-help" onClick={() => setHelpOpen(true)}>Как работать и горячие клавиши <kbd>?</kbd></button>
     </div>
   );
 }

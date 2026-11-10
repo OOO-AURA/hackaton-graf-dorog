@@ -1,0 +1,147 @@
+/*
+ * The work as steps: the step bar in the header, the labelled tools on the map, the hint line,
+ * the view note, the start cards of the empty inspector, the hand-in checklist and the help.
+ */
+.app { --rail-w: 128px; }
+@keyframes float-in-center { from { opacity: 0; transform: translate(-50%, 4px); } }
+
+/* Steps in the header */
+.steps { display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: var(--r-lg); background: var(--field); border: 1px solid var(--line); }
+.step {
+  position: relative; display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px 0 6px; border: 0; border-radius: var(--r-md);
+  background: none; color: var(--ink-2); font-size: var(--fs-sm); font-weight: 600; white-space: nowrap;
+  transition: background-color var(--dur) ease, color var(--dur) ease;
+}
+.step:hover:not(.on) { background: var(--hover); color: var(--ink); }
+.step.on { background: var(--ink); color: var(--on-ink); }
+.step-n {
+  display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+  border: 1.5px solid currentColor; font-size: 11px; font-weight: 700;
+}
+.step.on .step-n { background: var(--on-ink); color: var(--ink); border-color: var(--on-ink); }
+.step + .step::before { content: ''; position: absolute; left: -2px; top: 50%; width: 2px; height: 2px; border-radius: 50%; background: var(--line-strong); }
+.step .badge { margin-left: -2px; }
+.help-btn { font-weight: 800; font-size: 15px; }
+/* A narrow window gives up the file name, the step numbers and the labels of the side buttons; the step names always stay. */
+@media (max-width: 1280px) { .step { padding: 0 9px 0 5px; } .step-label { font-size: 12px; } .file-name { display: none; } }
+@media (max-width: 1100px) {
+  .step-n { display: none; }
+  .step { padding: 0 9px; }
+  .save-status { font-size: 0; gap: 0; }
+  .file-actions > .btn:not(:first-child), .file-actions .area-menu { display: none; }
+}
+@media (max-width: 900px) {
+  .file-actions > .btn:first-child, .header-right > .btn-ink { font-size: 0; gap: 0; }
+  .header { gap: var(--sp-2); padding: 0 var(--sp-2); }
+}
+
+/* Labelled tools on the left of the map */
+.tool-labelled {
+  display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 8px; width: var(--rail-w); height: 34px; padding: 0 8px;
+  text-align: left; font-size: var(--fs-sm); font-weight: 600;
+}
+.tool-labelled kbd { font: 600 10px var(--font-mono); padding: 0 4px; border-radius: 3px; border: 1px solid var(--line-strong); color: var(--ink-2); background: transparent; }
+.tool-labelled.on kbd { color: inherit; border-color: currentColor; }
+
+/* The free map between the panels, so the floats can make room for each other when it is narrow. */
+.stage { container-type: size; }
+
+/* What the map looks like now, top centre */
+.float-view { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: grid; justify-items: center; gap: 6px; z-index: 2; }
+.float-view > .float { position: static; animation-name: float-in; }
+.float-viewnote { gap: 4px; padding: 3px; }
+.float-viewnote > .btn { display: inline-flex; align-items: center; gap: 6px; }
+.float-viewnote > .btn b { font-weight: 700; padding-left: 6px; border-left: 1px solid var(--line); }
+.float-viewnote > .btn .hint { font-size: 11px; }
+.view-chip {
+  display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 2px 0 9px; border-radius: var(--r-md);
+  background: var(--blue-wash); color: var(--ink); font-size: 11.5px; font-weight: 600; white-space: nowrap;
+}
+.view-chip .icon-btn { width: 20px; height: 20px; }
+.float-legend { padding: 6px 8px; display: grid; }
+/* While a tool shows its options at the top left, the note keeps clear of them. */
+.stage:has(.float-draw) .float-view { left: auto; right: 60px; transform: none; justify-items: end; }
+/* In Micro the simulation bar takes the top centre and there are no tools at the left. */
+.float-view.is-micro { left: 12px; transform: none; justify-items: start; }
+
+/* Hint line at the bottom of the map */
+.float-hint {
+  bottom: 12px; left: 50%; transform: translateX(-50%); animation-name: float-in-center; gap: 6px; padding: 5px 4px 5px 12px;
+  width: max-content; max-width: min(720px, calc(100% - 220px)); font-size: 12.5px; color: var(--ink); line-height: 1.35;
+}
+.float-hint .icon-btn { width: 22px; height: 22px; flex-shrink: 0; }
+
+/* View settings in the navigator */
+.view-seg { display: flex; flex-wrap: wrap; gap: 3px; }
+.view-seg button {
+  flex: 1 0 auto; height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--field);
+  font-size: 11.5px; font-weight: 600; color: var(--ink-2);
+}
+.view-seg button:hover:not(.on) { color: var(--ink); border-color: var(--line-strong); }
+.view-seg button.on { border-color: var(--blue); background: var(--blue-wash); color: var(--ink); }
+.view-select { width: 100%; height: 30px; font-size: 12px; }
+.view-blend { margin-top: 6px; }
+.view-blend input { flex: 1; width: auto; }
+.nav-layers .thematic-legend { margin-top: 6px; }
+
+/* Start cards of the empty inspector */
+.insp-empty { display: grid; gap: 8px; padding: var(--sp-4); }
+.insp-empty > .hint { margin: 0; }
+.insp-start-title { margin: 0; font-family: var(--font-display); font-weight: 900; font-size: 20px; }
+.insp-starts { display: grid; gap: 6px; }
+.insp-start {
+  display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; text-align: left;
+  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--field); color: var(--ink);
+  transition: border-color var(--dur) ease, background-color var(--dur) ease;
+}
+.insp-start:hover { border-color: var(--ink); }
+.insp-start > span { display: grid; gap: 1px; }
+.insp-start b { font-size: var(--fs-sm); }
+.insp-start .hint { font-size: 11px; }
+.insp-start kbd { font: 600 10px var(--font-mono); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--line-strong); }
+.insp-start-warn { border-color: color-mix(in srgb, var(--red) 50%, transparent); background: color-mix(in srgb, var(--red) 8%, var(--field)); grid-template-columns: 18px 1fr; }
+.insp-help { justify-self: start; margin-top: 6px; font-size: 12px; color: var(--ink-2); }
+
+/* Hand-in checklist */
+.submit-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.submit-item { display: grid; grid-template-columns: 24px 1fr; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--field); }
+.submit-mark {
+  display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font: 700 12px var(--font-mono);
+  border: 1.5px solid var(--line-strong); color: var(--ink-2);
+}
+.submit-item.is-ok .submit-mark { background: var(--green-text); border-color: var(--green-text); color: var(--on-ink); }
+.submit-item.is-warn .submit-mark { border-color: var(--orange-text); color: var(--orange-text); }
+.submit-text { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.submit-text b { font-size: var(--fs-sm); }
+.submit-text .buttons { display: flex; flex-wrap: wrap; gap: 4px; }
+.submit-name { width: 100%; font-size: 12px; }
+
+/* Help */
+.help-backdrop { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 24px; background: color-mix(in srgb, var(--ink) 35%, transparent); animation: toast-in 160ms var(--ease-out); }
+.help {
+  width: min(920px, 100%); max-height: min(720px, 100%); display: flex; flex-direction: column; overflow: hidden;
+  background: var(--paper); border: 1px solid var(--line-strong); border-radius: var(--r-xl); box-shadow: var(--shadow-pop);
+}
+.help-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.help-head h2 { margin: 0; font-size: 24px; text-transform: uppercase; }
+.help-body { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; padding: 16px 18px 20px; overflow-y: auto; }
+.help-body h3 { margin: 0 0 8px; }
+.help-body h3:not(:first-child) { margin-top: 18px; }
+.help-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.help-steps li { display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 10px; }
+.help-step { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 2px 0; color: var(--ink); font-size: var(--fs-sm); text-align: left; }
+.help-step:hover b { text-decoration: underline; }
+.help-tools, .help-keys { margin: 0; display: grid; gap: 6px; font-size: 12px; }
+.help-tools dt { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+.help-tools dd, .help-keys dd { margin: 0; color: var(--ink-2); }
+.help-tools kbd { font: 600 10px var(--font-mono); padding: 0 4px; border-radius: 3px; border: 1px solid var(--line-strong); }
+.help-keys div { display: grid; grid-template-columns: 170px 1fr; gap: 10px; }
+.help-keys dt { font-size: 11px; color: var(--ink); }
+.help-hints { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 12px; }
+@media (max-width: 860px) { .help-body { grid-template-columns: 1fr; } }
+
+/* A narrow free map: the view note moves to the right next to the zoom, the hint takes the width. */
+@container (max-width: 640px) {
+  .float-view { left: auto; right: 60px; transform: none; justify-items: end; }
+  .float-hint { max-width: calc(100% - 24px); }
+}

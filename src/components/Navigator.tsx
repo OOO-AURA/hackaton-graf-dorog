@@ -10,9 +10,7 @@ import { Why } from './Why';
 import { NODE_FEATURES, hasFeature } from '../map/features';
 import { signUrl } from '../map/signArt';
 import { junctions } from '../osm/lanes';
-import type { LayerId } from '../state/ui';
-import { LAYER_LABELS, pickLens } from './MapOverlay';
-import { LENSES, type Lens } from '../map/lens';
+import { ViewSettings } from './ViewSettings';
 import { useSettledDoc } from '../state/settled';
 
 interface Street { name: string; wayIds: string[]; bounds: [number, number, number, number] }
@@ -121,61 +119,6 @@ function Objects() {
   );
 }
 
-const LAYER_GROUPS: ReadonlyArray<readonly [string, readonly LayerId[]]> = [
-  ['Улично-дорожная сеть', ['roads', 'sidewalks', 'junctions', 'bridges', 'tunnels']],
-  ['ТСОДД', ['signals', 'crossings', 'signs']],
-  ['Транспорт', ['tram', 'transit']],
-  ['Окружение и анализ', ['buildings', 'changes']],
-];
-
-const LENS_HINT: Record<Lens, string> = {
-  all: 'Вся сеть без выделения',
-  car: 'Проезжая часть, полосы, светофоры и знаки',
-  walk: 'Тротуары, пешеходные улицы, переходы и зебры',
-  transit: 'Маршруты, остановки и трамвайные пути',
-  rail: 'Железная дорога, станции и платформы',
-  metro: 'Линии и станции метро',
-  load: 'Загрузка дорог V/C после распределения потоков',
-};
-
-function Layers() {
-  const layers = useUi((s) => s.layers);
-  const toggle = useUi((s) => s.toggleLayer);
-  const lens = useUi((s) => s.lens);
-  const setAll = (ids: readonly LayerId[], on: boolean) => ids.forEach((id) => { if (useUi.getState().layers[id] !== on) toggle(id); });
-  return (
-    <div className="nav-layers">
-      <h3 className="tpl-group-title">Линза</h3>
-      <div className="lens-grid">
-        {LENSES.map(([v, label]) => <button key={v} className={lens === v ? 'on' : ''} aria-pressed={lens === v} onClick={() => pickLens(v)} title={LENS_HINT[v]}>{label}</button>)}
-      </div>
-      <p className="lens-hint">{LENS_HINT[lens]}</p>
-      {LAYER_GROUPS.map(([title, ids]) => {
-        const allOn = ids.every((id) => layers[id]);
-        return (
-          <div key={title} className="layer-group">
-            <div className="layer-group-head">
-              <h3 className="tpl-group-title">{title}</h3>
-              <button className="link-btn" onClick={() => setAll(ids, !allOn)}>{allOn ? 'скрыть все' : 'показать все'}</button>
-            </div>
-            <ul className="layer-list">
-              {ids.map((id) => (
-                <li key={id}>
-                  <label className={layers[id] ? 'on' : ''}>
-                    <i className={`layer-swatch l-${id}`} aria-hidden="true" />
-                    <span>{LAYER_LABELS[id]}</span>
-                    <input type="checkbox" className="switch" checked={layers[id]} onChange={() => toggle(id)} />
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function Legend() {
   const theme = useUi((s) => s.theme);
   const p = MAP_PALETTE[theme];
@@ -194,10 +137,11 @@ function Legend() {
   );
 }
 
-const TABS = [['objects', 'Объекты'], ['layers', 'Слои'], ['legend', 'Легенда']] as const;
+const TABS = [['objects', 'Объекты'], ['view', 'Вид карты'], ['legend', 'Легенда']] as const;
 
 export function Navigator() {
-  const [tab, setTab] = useState<(typeof TABS)[number][0]>('objects');
+  const tab = useUi((s) => s.navTab);
+  const setTab = useUi((s) => s.setNavTab);
   return (
     <aside className="panel navigator" aria-label="Навигатор">
       <div className="nav-head"><h2 className="micro">Навигатор</h2><Why id="navigator" /></div>
@@ -206,7 +150,7 @@ export function Navigator() {
       </div>
       <div className="nav-tab-body">
         {tab === 'objects' && <Objects />}
-        {tab === 'layers' && <Layers />}
+        {tab === 'view' && <ViewSettings />}
         {tab === 'legend' && <Legend />}
       </div>
     </aside>
