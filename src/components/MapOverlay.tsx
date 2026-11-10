@@ -1,8 +1,8 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { docBounds } from '../map/geojson';
 import { useEditor, type Basemap } from '../state/store';
-import { finishDrawing } from '../state/actions';
+import { drawingConflicts, finishDrawing } from '../state/actions';
 import { LAYER_IDS, useUi, type LayerId } from '../state/ui';
 import { THEMATIC, type RoadColorMode } from '../map/thematic';
 import { ROAD_TEMPLATES } from '../osm/tags';
@@ -26,22 +26,38 @@ function FloatingTools() {
   const template = useEditor((s) => s.templateIndex);
   const setTemplate = useEditor((s) => s.setTemplate);
   const points = useEditor((s) => s.drawing.length);
+  const drawing = useEditor((s) => s.drawing);
+  const doc = useEditor((s) => s.doc);
+  // Only the points already placed: that is what Enter would build.
+  const conflicts = useMemo(() => (mode === 'draw' && drawing.length > 1 ? drawingConflicts(doc, drawing, ROAD_TEMPLATES[template].tags) : []), [mode, drawing, doc, template]);
   return (
-    <div className="float float-tools" role="toolbar" aria-label="Инструменты">
-      {TOOLS.map((t) => (
-        <button key={t.mode} className={`tool${mode === t.mode ? ' on' : ''}`} onClick={() => setMode(t.mode)} title={`${t.label} (${t.key})`} aria-pressed={mode === t.mode}>
-          <Icon name={t.icon} size={18} />
-        </button>
-      ))}
-      {mode === 'draw' && (
-        <div className="float-draw">
-          <select value={template} onChange={(e) => setTemplate(Number(e.target.value))} aria-label="Шаблон дороги">
-            {ROAD_TEMPLATES.map((t, i) => <option key={t.label} value={i}>{i + 1} · {t.label}</option>)}
-          </select>
-          <button className="btn btn-ink" onClick={finishDrawing} disabled={points < 2}>Готово <kbd>Enter</kbd></button>
+    <>
+      <div className="float float-tools" role="toolbar" aria-label="Инструменты">
+        {TOOLS.map((t) => (
+          <button key={t.mode} className={`tool${mode === t.mode ? ' on' : ''}`} onClick={() => setMode(t.mode)} title={`${t.label} (${t.key})`} aria-pressed={mode === t.mode}>
+            <Icon name={t.icon} size={18} />
+          </button>
+        ))}
+        {mode === 'draw' && (
+          <div className="float-draw">
+            <select value={template} onChange={(e) => setTemplate(Number(e.target.value))} aria-label="Шаблон дороги">
+              {ROAD_TEMPLATES.map((t, i) => <option key={t.label} value={i}>{i + 1} · {t.label}</option>)}
+            </select>
+            <button className="btn btn-ink" onClick={() => finishDrawing()} disabled={points < 2 || conflicts.length > 0}>Готово <kbd>Enter</kbd></button>
+          </div>
+        )}
+      </div>
+      {conflicts.length > 0 && (
+        <div className="float float-conflict" role="group" aria-label="Здания на пути дороги">
+          <b>{conflicts.length === 1 ? 'Дорога задевает здание' : `Дорога задевает здания: ${conflicts.length}`}</b>
+          <div className="buttons">
+            <button className="btn btn-sm btn-ink" onClick={() => finishDrawing('cut')} title="Часть здания под дорогой убирается, остальное остаётся с теми же тегами; здание, разрезанное пополам, становится двумя">Срезать по дороге</button>
+            <button className="btn btn-sm" onClick={() => finishDrawing('demolish')}>Снести</button>
+            <button className="btn btn-sm btn-quiet" onClick={() => finishDrawing('keep')} title="Например, проезд под зданием, в арке">Построить поверх</button>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
