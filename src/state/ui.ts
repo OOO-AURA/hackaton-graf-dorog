@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { RoadColorMode } from '../map/thematic';
+import type { DrawTarget } from '../map/drawSnap';
 import type { Lens } from '../map/lens';
 
 export type Theme = 'light' | 'dark';
@@ -64,6 +65,14 @@ interface UiState {
   /** A node is being dragged: costly map layers wait for it to be let go (see state/settled.ts). */
   dragging: boolean;
   setDragging: (dragging: boolean) => void;
+  /** Where the next point of the road being drawn would go, snapped (see map/drawSnap.ts). */
+  drawTarget: DrawTarget | null;
+  setDrawTarget: (target: DrawTarget | null) => void;
+  /** Curve mode: the click after a point bends the road (control point), the next one ends the curve. */
+  drawCurve: boolean;
+  toggleDrawCurve: () => void;
+  curveControl: { lon: number; lat: number } | null;
+  setCurveControl: (control: { lon: number; lat: number } | null) => void;
   /** Lane link picked on the map at the junction being edited; Delete forbids that turn. */
   laneLink: LaneLinkRef | null;
   setLaneLink: (link: LaneLinkRef | null) => void;
@@ -102,6 +111,12 @@ export const useUi = create<UiState>((set, get) => ({
   setRoadLook: (roadLook) => set({ roadLook }),
   dragging: false,
   setDragging: (dragging) => set({ dragging }),
+  drawTarget: null,
+  setDrawTarget: (drawTarget) => set({ drawTarget }),
+  drawCurve: false,
+  toggleDrawCurve: () => set({ drawCurve: !get().drawCurve, curveControl: null }),
+  curveControl: null,
+  setCurveControl: (curveControl) => set({ curveControl }),
   setThemeChoice: (themeChoice) => {
     try {
       if (themeChoice === 'system') localStorage.removeItem(THEME_KEY);

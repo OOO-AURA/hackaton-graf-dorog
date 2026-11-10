@@ -78,6 +78,7 @@ function handleKey(e: KeyboardEvent): void {
     enter: finishDrawing,
     escape: () => {
       if (useUi.getState().laneLink) useUi.getState().setLaneLink(null);
+      else if (useUi.getState().curveControl) useUi.getState().setCurveControl(null);
       else if (s.drawing.length) s.setDrawing([]);
       else s.select(null);
     },

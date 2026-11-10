@@ -119,7 +119,7 @@ export async function runSimulation(): Promise<void> {
       od = { zones: macro.zones.map((z) => z.lonlat), od: macro.od };
     }
     const doc = useEditor.getState().doc;
-    const extras = { transit: useTransit.getState().inSim ? transitDemand(transitRoutes(doc)) : [], pedestrians: useSim.getState().pedestrians,
+    const extras = { transit: useTransit.getState().inSim ? transitDemand(transitRoutes(doc)) : [], pedestrians: useSim.getState().pedestrians, rush_hour: demand === 'rush',
       signals: Object.entries(useSim.getState().plans).filter(([id]) => doc.nodes[id]?.tags.highway === 'traffic_signals')
         .map(([id, p]) => ({ node: id, lon: doc.nodes[id].lon, lat: doc.nodes[id].lat, ...planForSim(p) })) };
     const result = await invoke<SimResult>('simulate', { text: serializeOsm(doc), minutes, demand: od, extras });

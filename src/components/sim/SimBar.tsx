@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { runSimulation, simEnd, SPEEDS, useSim } from '../../sim/store';
 import { Icon } from '../icons';
+import type { DemandKind } from '../../sim/types';
 
 const MINUTES = [5, 10, 15, 20] as const;
 
@@ -38,9 +39,10 @@ export function SimBar() {
       <select value={s.minutes} onChange={(e) => s.setMinutes(Number(e.target.value))} aria-label="Длительность модели" disabled={s.running}>
         {MINUTES.map((m) => <option key={m} value={m}>{m} мин</option>)}
       </select>
-      <select value={s.demand} onChange={(e) => s.setDemand(e.target.value as 'random' | 'od')} aria-label="Спрос" disabled={s.running}
-        title="Откуда брать поездки: случайные по всей сети или матрица корреспонденций из макромодели">
+      <select value={s.demand} onChange={(e) => s.setDemand(e.target.value as DemandKind)} aria-label="Спрос" disabled={s.running}
+        title="Откуда брать поездки: немного случайных, вечерний час пик (втрое больше машин, транзит по главным улицам) или матрица корреспонденций из макромодели">
         <option value="random">Случайный спрос</option>
+        <option value="rush">Час пик</option>
         <option value="od">Из макромодели</option>
       </select>
       <label className="sim-check" title="Тротуары, переходы и пешие поездки: машины уступают людям на зебрах и светофорах">

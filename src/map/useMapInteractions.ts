@@ -6,6 +6,8 @@ import { featureById, toggleNodeFeature } from './features';
 import { useEditor } from '../state/store';
 import { finishDrawing } from '../state/actions';
 import { hitBuilding, hitNode, hitWay } from './hit';
+import { drawTarget } from './drawSnap';
+import { curvePoints } from '../osm/drawGeometry';
 import { isBuilding } from '../osm/building';
 import { useBoxSelect } from './useBoxSelect';
 import { placeGhost, useBuildingGhost } from './buildingTool';
@@ -82,11 +84,17 @@ function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
         const p = map.project([last.lon, last.lat]);
         if (Math.hypot(p.x - e.point.x, p.y - e.point.y) < DRAG_THRESHOLD_PX * 2) return;
       }
-      const { lng, lat } = e.lngLat;
-      const point = nodeId
-        ? { lon: s.doc.nodes[nodeId].lon, lat: s.doc.nodes[nodeId].lat, nodeId }
-        : way ? { lon: way.lon, lat: way.lat, wayId: way.wayId } : { lon: lng, lat };
-      s.setDrawing([...s.drawing, point]);
+      const ui = useUi.getState();
+      // In curve mode the first click after a point only bends the road; the next one ends the curve.
+      if (ui.drawCurve && last && !ui.curveControl) {
+        ui.setCurveControl({ lon: e.lngLat.lng, lat: e.lngLat.lat });
+        return;
+      }
+      const target = drawTarget(map, s.doc, e.point, e.lngLat, s.drawing, e.originalEvent.shiftKey);
+      const { snap: _snap, turn: _turn, length: _length, ...point } = target;
+      const bend = ui.drawCurve && last && ui.curveControl ? curvePoints(last, ui.curveControl, point) : [];
+      ui.setCurveControl(null);
+      s.setDrawing([...s.drawing, ...bend, point]);
     }
   }
 }
@@ -186,6 +194,8 @@ export function useMapInteractions(map: MapLibreMap | null, onPointer: (lon: num
       setPointer([e.lngLat.lng, e.lngLat.lat]);
       if (zoneEditingActive()) return;
       const s = useEditor.getState();
+      if (s.mode === 'draw') useUi.getState().setDrawTarget(drawTarget(map, s.doc, e.point, e.lngLat, s.drawing, e.originalEvent.shiftKey));
+      else if (useUi.getState().drawTarget) useUi.getState().setDrawTarget(null);
       const placing = s.mode === 'draw' || s.mode === 'building';
       const hovering = !placing && (hitNode(map, e.point) || hitWay(map, s.doc, e.point));
       map.getCanvas().style.cursor = placing ? 'crosshair' : hovering ? 'pointer' : '';

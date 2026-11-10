@@ -8,6 +8,7 @@ import { addEditorLayers, applyLayerVisibility, applyPalette, applyRoadColors, s
 import { buildScene3d } from '../map/mesh3d';
 import { junctionGeometry, laneLines, pxPerMetreZ17, zebras, type LaneStyle } from '../map/lanesGeo';
 import { drawingConflicts, drawWidth } from '../state/actions';
+import { curvePoints } from '../osm/drawGeometry';
 import { ROAD_TEMPLATES } from '../osm/tags';
 import { junctions } from '../osm/lanes';
 import { signPoints } from '../osm/signs';
@@ -130,11 +131,17 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
 
   // The road being drawn, as wide as it will be, up to the pointer; buildings in its way in red.
   const templateIndex = useEditor((s) => s.templateIndex);
+  // The pointer as it snaps (node, road, round angle) and, in curve mode, the bend being drawn.
+  const target = useUi((s) => s.drawTarget);
+  const control = useUi((s) => s.curveControl);
   const preview = useMemo(() => {
-    const points = [...drawing, ...(pointer && drawing.length ? [{ lon: pointer[0], lat: pointer[1] }] : [])];
+    const last = drawing[drawing.length - 1];
+    const end = target ?? (pointer ? { lon: pointer[0], lat: pointer[1] } : null);
+    const tail = last && end ? [...(control ? curvePoints(last, control, end) : []), end] : [];
+    const points = [...drawing, ...tail];
     const tags = ROAD_TEMPLATES[templateIndex].tags;
     return { points, tags, conflicts: points.length > 1 ? drawingConflicts(doc, points, tags) : [] };
-  }, [doc, drawing, pointer, templateIndex]);
+  }, [doc, drawing, pointer, templateIndex, target, control]);
   useEffect(() => {
     if (!map) return;
     const { points, tags, conflicts } = preview;
@@ -143,13 +150,19 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     const features = [
       ...(coords.length > 1 ? [{ type: 'Feature', properties: { w17, conflict: conflicts.length > 0, rail: Boolean(tags.railway) }, geometry: { type: 'LineString', coordinates: coords } }] : []),
       ...drawing.map((p) => ({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } })),
+      // What the pointer snaps to, and the handle of the bend in curve mode.
+      ...(target ? [{ type: 'Feature', properties: { marker: target.snap ?? 'free' }, geometry: { type: 'Point', coordinates: [target.lon, target.lat] } }] : []),
+      ...(control && drawing.length ? [
+        { type: 'Feature', properties: { marker: 'control' }, geometry: { type: 'Point', coordinates: [control.lon, control.lat] } },
+        { type: 'Feature', properties: { handle: true }, geometry: { type: 'LineString', coordinates: [[drawing[drawing.length - 1].lon, drawing[drawing.length - 1].lat], [control.lon, control.lat], ...(target ? [[target.lon, target.lat]] : [])] } },
+      ] : []),
     ];
     setData(map, 'draw', { type: 'FeatureCollection', features });
     const hit = new Set(conflicts.map((c) => c.wayId));
     setData(map, 'draw-conflicts', { type: 'FeatureCollection', features: [...hit].map((id) => ({
       type: 'Feature', properties: { id }, geometry: { type: 'Polygon', coordinates: [doc.ways[id].refs.map((r) => [doc.nodes[r].lon, doc.nodes[r].lat])] },
     })) });
-  }, [map, preview, drawing, doc]);
+  }, [map, preview, drawing, doc, target, control]);
   // In 3D the buildings in the way are tinted red on the scene, like the selection.
   useEffect(() => {
     if (!alive(map)) return;

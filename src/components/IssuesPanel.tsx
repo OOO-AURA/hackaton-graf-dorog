@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { connectCrossing, mergeNodes, setWayTags } from '../osm/edit';
+import { connectCrossing, mergeNodes, setWayTags, flipDirection, setWayTag } from '../osm/edit';
 import { groundTags } from '../osm/structures';
 import { applyLegalSpeeds } from '../osm/speeds';
 import { sanitizeDoc } from '../osm/pipelineSafety';
@@ -12,7 +12,7 @@ import { VirtualList } from './VirtualList';
 import { useSettledDoc } from '../state/settled';
 
 const KIND_LABELS: Readonly<Record<Issue['kind'], string>> = {
-  isolated: 'Изолированные участки', trap: 'Тупики по направлению', cordon: 'Обрезано границей фрагмента', crossing: 'Пересечения без узла', 'near-nodes': 'Разорванные перекрёстки', 'false-tunnel': 'Ложные тоннели под мостами', speed: 'Разная скорость в MATSim и SUMO', 'webots-crash': 'Значения, на которых падает Webots',
+  isolated: 'Изолированные участки', trap: 'Тупики по направлению', cordon: 'Обрезано границей фрагмента', crossing: 'Пересечения без узла', 'near-nodes': 'Разорванные перекрёстки', 'false-tunnel': 'Ложные тоннели под мостами', speed: 'Разная скорость в MATSim и SUMO', 'webots-crash': 'Значения, на которых падает Webots', 'head-on': 'Встречные потоки упираются', 'wrong-uturn': 'Разворот в неправильную сторону',
 };
 
 function applyFix(issue: Issue): void {
@@ -24,6 +24,8 @@ function applyFix(issue: Issue): void {
     if (fix.type === 'ground') return d.ways[fix.wayId] ? setWayTags(d, fix.wayId, groundTags(d.ways[fix.wayId].tags)) : d;
     if (fix.type === 'speed') return applyLegalSpeeds(d, [fix.wayId]);
     if (fix.type === 'sanitize') return sanitizeDoc(d, [fix.wayId]);
+    if (fix.type === 'flip') return flipDirection(d, fix.wayId);
+    if (fix.type === 'oneway') return setWayTag(d, fix.wayId, 'oneway', fix.value);
     return connectCrossing(d, fix.a, fix.b, fix.at[0], fix.at[1]);
   });
   void refreshReport();

@@ -49,7 +49,19 @@ pub struct Extras {
     /// Signal timing set in the node inspector.
     #[serde(default)]
     pub signals: Vec<SignalPlan>,
+    /// Evening rush hour instead of light random traffic: several times the cars, mostly driving
+    /// through the fragment between its edges and keeping to the wide main roads, as in a city at 18:00.
+    #[serde(default)]
+    pub rush_hour: bool,
 }
+
+/// Seconds between departures of random trips: light traffic, and the evening rush hour.
+const RANDOM_PERIOD_S: &str = "1.2";
+const RUSH_PERIOD_S: &str = "0.35";
+/// Rush hour trips mostly start and end at the edge of the fragment: through traffic.
+const RUSH_FRINGE_FACTOR: &str = "12";
+/// A rush hour trip is longer than a hop round the block.
+const RUSH_MIN_DISTANCE_M: &str = "600";
 
 /// Cycle length and the main direction's share of green for the signal at an OSM node.
 #[derive(Deserialize, Clone)]
@@ -556,15 +568,23 @@ fn run_in(dir: &Path, osm: &Path, minutes: u32, demand: Option<&Demand>, extras:
         trips = n;
         label = "od";
     } else {
-        let (_, tlog) = run(command(&python).current_dir(&dir).env("SUMO_HOME", &sh)
+        let mut cmd = command(&python);
+        cmd.current_dir(&dir).env("SUMO_HOME", &sh)
             .arg(sh.join("tools/randomTrips.py")).arg("-n").arg(&net).arg("-o").arg(dir.join("map.trips.xml"))
             .arg("-r").arg(&routes).arg("--additional-files").arg(&vtypes)
-            .args(["-e", &insert_end.to_string(), "-p", "1.2", "--validate", "--fringe-factor", "5", "--seed", "42", "--trip-attributes", "type=\"mix\""]))?;
+            .args(["-e", &insert_end.to_string(), "--validate", "--seed", "42", "--trip-attributes", "type=\"mix\""]);
+        if extras.rush_hour {
+            // Wide roads draw more trips (-L weights by lanes), fast ones too: the main roads fill first.
+            cmd.args(["-p", RUSH_PERIOD_S, "--fringe-factor", RUSH_FRINGE_FACTOR, "--min-distance", RUSH_MIN_DISTANCE_M, "-L", "--speed-exponent", "1"]);
+        } else {
+            cmd.args(["-p", RANDOM_PERIOD_S, "--fringe-factor", "5"]);
+        }
+        let (_, tlog) = run(&mut cmd)?;
         if !routes.exists() {
             return Err(format!("randomTrips не построил маршруты:\n{}", tail(&tlog, 15)));
         }
         trips = fs::read_to_string(&routes).unwrap_or_default().matches("<vehicle ").count();
-        label = "random";
+        label = if extras.rush_hour { "rush" } else { "random" };
     }
 
     let mut route_files = vec![routes.display().to_string()];
@@ -761,17 +781,17 @@ mod local_run {
         println!("od trips {} vehicles {} finished {}", r.trips, r.vehicles, r.finished);
         assert!(r.trips > 10);
         let transit: Vec<super::TransitLine> = serde_json::from_str(include_str!("testdata/transit.json")).unwrap();
-        let r = super::simulate(&text, 10, None, Some(super::Extras { transit, pedestrians: false, signals: vec![] })).unwrap();
+        let r = super::simulate(&text, 10, None, Some(super::Extras { transit, pedestrians: false, signals: vec![], rush_hour: false })).unwrap();
         println!("transit lines {} buses finished {} speed {:.1}", r.transit_lines, r.pt_finished, r.pt_mean_speed_kmh);
         let pt = r.frames.iter().map(|f| f.v.chunks(6).filter(|v| v[5] as usize == super::VTYPES.len()).count()).max().unwrap_or(0);
         println!("buses on the map at peak {pt}\n{}", r.log_tail);
         assert!(r.transit_lines > 0);
-        let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: true, signals: vec![] })).unwrap();
+        let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: true, signals: vec![], rush_hour: false })).unwrap();
         println!("persons {} walked {} loss {:.1} crossings {:?}", r.persons, r.ped_finished, r.ped_mean_time_loss_s, r.crossings.iter().take(3).collect::<Vec<_>>());
         assert!(r.persons > 10);
         let tl = r.signals.first().map(|s| (s.lon, s.lat)).unwrap();
         let plan = super::SignalPlan { node: "n".into(), lon: tl.0, lat: tl.1, cycle_s: 60.0, main_share: 0.7, adaptive: false, min_green_s: 8.0, max_green_s: 50.0, max_gap_s: 3.0 };
-        let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: false, signals: vec![plan] })).unwrap();
+        let r = super::simulate(&text, 5, None, Some(super::Extras { transit: vec![], pedestrians: false, signals: vec![plan], rush_hour: false })).unwrap();
         println!("plans {:?} loss {:.1}", r.plans.iter().map(|p| (&p.tls, p.cycle_s)).collect::<Vec<_>>(), r.mean_time_loss_s);
         assert_eq!(r.plans.len(), 1);
         println!("timeline {} ways x {} min", r.timeline.ways.len(), r.timeline.ways.first().map(|w| w.delay.len()).unwrap_or(0));
