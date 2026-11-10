@@ -1,5 +1,6 @@
 import { MAX_VPH, useCustomFlows } from '../../sim/customFlows';
 import { useSim } from '../../sim/store';
+import { Section } from '../Section';
 
 /**
  * Micro panel: the user's own flows. «Добавить поток», then two clicks on the map (where they
@@ -11,8 +12,7 @@ export function CustomFlowsSection() {
   const setDemand = useSim((s) => s.setDemand);
   const total = flows.reduce((s, f) => s + f.vph, 0);
   return (
-    <div className="section-body custom-flows">
-      <span className="micro">Свои потоки</span>
+    <Section title="Свои потоки" aside={flows.length ? <span className="mono count">{flows.length}</span> : undefined}>
       <p className="hint">Поездки, которые вы знаете по городу: откуда, куда и сколько машин в час. SUMO поведёт каждый поток по самому быстрому пути между его концами.</p>
       {flows.length > 0 && (
         <ul className="flow-list">
@@ -38,6 +38,6 @@ export function CustomFlowsSection() {
         {flows.length > 0 && !pick && <button className="btn btn-sm btn-quiet" onClick={clear}>Удалить все</button>}
       </div>
       {flows.length > 0 && <p className="hint">Всего {total} авт/ч.{demand !== 'custom' && <> <button className="link" onClick={() => setDemand('custom')}>Считать модель по ним</button></>}</p>}
-    </div>
+    </Section>
   );
 }

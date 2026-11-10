@@ -10,6 +10,7 @@ import { closeCordon } from '../state/actions';
 import { cordonPairs } from '../osm/cordon';
 import { refreshReport } from '../state/validation';
 import { VirtualList } from './VirtualList';
+import { fixAll, type FixAllResult } from '../osm/fixAll';
 import { useSettledDoc } from '../state/settled';
 
 const KIND_LABELS: Readonly<Record<Issue['kind'], string>> = {
@@ -65,6 +66,7 @@ export function IssuesPanel() {
       {report && (
         <>
           {report.issues.length === 0 && <p className="ok">Ошибок не найдено</p>}
+          <FixAllBar />
           <CordonHint />
           <PddHint />
       <SpeedHint />
@@ -83,6 +85,31 @@ export function IssuesPanel() {
           })}
         </>
       )}
+    </div>
+  );
+}
+
+/** Every fix the check offers in one step: one Ctrl+Z takes it all back. */
+function FixAllBar() {
+  const apply = useEditor((s) => s.apply);
+  const notify = useEditor((s) => s.notify);
+  const report = useEditor((s) => s.report);
+  const doc = useSettledDoc();
+  // Cut roads count only while there is a pair to join: the rest of the edge warnings stay.
+  const cordon = useMemo(() => (report?.issues.some((i) => i.kind === 'cordon') ? cordonPairs(doc).length : 0), [report, doc]);
+  const fixable = (report?.issues.filter((i) => i.fix).length ?? 0) + cordon;
+  if (!fixable) return null;
+  const run = () => {
+    let r: FixAllResult | null = null;
+    apply((d) => { r = fixAll(d); return r.doc; });
+    const done = r as FixAllResult | null;
+    if (done) notify(`Исправлено автоматически. Было замечаний и ошибок: ${done.before}, осталось: ${done.after}${done.errorsAfter ? `, из них ошибок ${done.errorsAfter} — их нужно поправить руками` : ''}`);
+    void refreshReport();
+  };
+  return (
+    <div className="fix-all">
+      <button className="btn btn-ink" onClick={run}>Исправить всё</button>
+      <span className="hint">Все исправления из списка ниже одним шагом: соединить перекрёстки, слить близкие узлы, замкнуть кордон, повернуть потоки, починить значения для Webots, знаки и скорости по ПДД. Отменяется одним ⌘Z. Изолированные участки и тупики правятся руками.</span>
     </div>
   );
 }

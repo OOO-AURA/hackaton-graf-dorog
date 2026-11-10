@@ -151,6 +151,12 @@ function crossingIssues(doc: OsmDoc, segments: Segment[]): Issue[] {
   return [...issues.values()];
 }
 
+/** A node that only carries a road sign: a sign post on the road, not a junction. */
+const isSignPost = (doc: OsmDoc, id: string): boolean => {
+  const t = doc.nodes[id]?.tags;
+  return Boolean(t && (t.traffic_sign || t.highway === 'give_way' || t.highway === 'stop'));
+};
+
 function nearNodeIssues(doc: OsmDoc, ways: OsmWay[], project: (p: LonLat) => [number, number]): Issue[] {
   const neighbours = new Map<string, Set<string>>();
   ways.forEach((w) => w.refs.forEach((r, i) => {
@@ -168,6 +174,8 @@ function nearNodeIssues(doc: OsmDoc, ways: OsmWay[], project: (p: LonLat) => [nu
     for (let dx = -1; dx <= 1; dx += 1) for (let dy = -1; dy <= 1; dy += 1) {
       (grid.get(`${cx + dx}:${cy + dy}`) ?? []).forEach((other) => {
         if (other <= id || neighbours.get(id)!.has(other)) return;
+        // A sign post stands on its own road near the edge; it is never half of a broken junction.
+        if (isSignPost(doc, id) || isSignPost(doc, other)) return;
         if (haversine(lonLat(doc, id), lonLat(doc, other)) > NEAR_NODE_M) return;
         issues.push({
           id: `near:${id}|${other}`, kind: 'near-nodes', severity: 'warning',
