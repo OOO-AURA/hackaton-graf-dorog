@@ -300,7 +300,7 @@ export function junctionGeometry(doc: OsmDoc, nodeIds: readonly string[], withEn
           const at = laneEnd(doc, arm, true, i, back, f);
           arrows.push({
             type: 'Feature',
-            properties: { node: nodeId, icon: arrowIcon(approach?.turns[i] ?? []), bearing: bearingOf([-at.out[0], -at.out[1]]), w17: w * px, raised: lifted || raisedWay(arm.wayId) },
+            properties: { node: nodeId, icon: arrowIcon(approach?.turns[i] ?? []), bearing: bearingOf([-at.out[0], -at.out[1]]), w17: px, raised: lifted || raisedWay(arm.wayId) },
             geometry: { type: 'Point', coordinates: f.back(at.p) },
           });
         });

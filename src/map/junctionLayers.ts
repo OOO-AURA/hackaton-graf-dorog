@@ -1,5 +1,5 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { provideTurnArrows, TURN_ARROW_HEIGHT } from './turnArrows';
+import { provideTurnArrows, TURN_ARROW_HEIGHT, TURN_ARROW_METRES } from './turnArrows';
 import { addRoadSignImages } from './roadSigns';
 
 /**
@@ -29,8 +29,6 @@ export const TURN_COLORS = { through: '#2CC7C9', right: '#4C8DF6', left: '#F2A33
 const turnColor = ['match', ['get', 'group'], 'right', TURN_COLORS.right, 'left', TURN_COLORS.left, 'uturn', TURN_COLORS.uturn, TURN_COLORS.through];
 
 const MINZOOM = 16.5;
-/** How long an arrow is on the road, in lane widths; its width then stays inside the lane. */
-const ARROW_LANES = 1.35;
 
 /**
  * A width of `w17` px at zoom 17 (a size in metres), doubling per zoom step like the roads, and
@@ -69,7 +67,8 @@ export function addJunctionLayers(map: MapLibreMap): void {
     layout: {
       'icon-image': ['get', 'icon'], 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-pitch-alignment': 'map',
       'icon-allow-overlap': true, 'icon-ignore-placement': true,
-      'icon-size': metres(ARROW_LANES / TURN_ARROW_HEIGHT),
+      // `w17` of an arrow is one metre: the image is laid out in metres of road.
+      'icon-size': metres(TURN_ARROW_METRES / TURN_ARROW_HEIGHT),
     } });
   addRoadSignImages(map);
   map.addLayer({ id: SIGN_LAYER, type: 'symbol', source: 'road-signs', minzoom: 16,
