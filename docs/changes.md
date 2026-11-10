@@ -1,63 +1,323 @@
 # Изменения графа: hack-team10.osm
 
-Линий: 51, узлов с атрибутами: 0, отношений: +0 / −0 / изменено 0.
+Линий: 298, узлов с атрибутами: 7, отношений: +14 / −1 / изменено 46.
 
-## Линии: добавлено (2)
+## Линии: добавлено (3)
 
+- улица Лермонтова (way 14332300430): `foot`: — → no; `highway`: — → secondary; `lanes`: — → 4; `maxspeed`: — → 60; `name`: — → улица Лермонтова; `name:etymology:wikidata`: — → Q46599; `oneway`: — → yes; `surface`: — → asphalt
 - primary (way 14332300381): `highway`: — → primary; `lanes`: — → 1; `maxspeed`: — → 60; `note`: — → cordon connector; `oneway`: — → yes; `source:maxspeed`: — → RU:urban
 - primary (way 14332300382): `highway`: — → primary; `lanes`: — → 1; `maxspeed`: — → 60; `note`: — → cordon connector; `oneway`: — → yes
 
-## Линии: изменена геометрия (4)
+## Линии: удалено (1)
+
+- service (way 1494549626)
+
+## Линии: изменена геометрия (12)
 
 - service (way 43932683)
+- улица Лермонтова (way 48803734)
 - Объездная дорога Первомайский-Университетский (way 140226629): `maxspeed`: RU:urban → 60; `source:maxspeed`: — → RU:urban
+- Объездная дорога Первомайский-Университетский (way 140226631): `turn:lanes`: — → through|through
 - Объездная дорога Первомайский-Университетский (way 140233103)
-- service (way 806941628)
+- Объездная дорога Первомайский-Университетский (way 140857791): `maxspeed`: RU:urban → 60; `source:maxspeed`: — → RU:urban
+- footway (way 154258541)
+- улица Жуковского (way 176768523)
+- service (way 806941628): `maxspeed`: — → 20
+- улица Лермонтова (way 889403167)
+- secondary_link (way 1285390204)
+- footway (way 1499812932)
 
-## Линии: изменены атрибуты (45)
+## Линии: изменены атрибуты (282)
 
 - улица Добролюбова (way 26759313): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
 - Колхозная улица (way 26759334): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
-- улица Лермонтова (way 35071296): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 28525056): `maxspeed`: — → 20
+- улица Лермонтова (way 35071296): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban; `turn:lanes:forward`: — → through|through|through
+- улица Лермонтова (way 44272640): `turn:lanes:backward`: — → through|through; `turn:lanes:forward`: — → through|through;right
 - улица Ломоносова (way 80269799): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
 - улица Грибоедова (way 80269808): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
 - улица Белинского (way 80269846): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
 - улица Герцена (way 80269964): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
 - 4-я Железнодорожная улица (way 80270029): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
 - улица Академика Курчатова (way 80347185): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 80348392): `maxspeed`: — → 20
+- service (way 80367178): `maxspeed`: — → 20
 - улица Игошина (way 80367189): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
-- улица Лермонтова (way 80402497): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- улица Лермонтова (way 80402426): `turn:lanes`: — → through|through|through
+- улица Лермонтова (way 80402497): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban; `turn:lanes`: — → through|through|through
 - unclassified (way 80838264): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 80838270): `maxspeed`: — → 20
 - улица Лермонтова (way 80838274): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
 - unclassified (way 80838321): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- secondary_link (way 81630619): `turn:lanes`: — → through
+- secondary_link (way 81630620): `psv`: — → yes
+- service (way 84280933): `maxspeed`: — → 20
+- service (way 85161556): `maxspeed`: — → 20
+- service (way 85161558): `maxspeed`: — → 20
 - улица Грибоедова (way 85161561): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 85161562): `maxspeed`: — → 20
+- service (way 85161572): `maxspeed`: — → 20
+- service (way 97394385): `maxspeed`: — → 20
 - улица Ломоносова (way 107668192): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
-- secondary_link (way 107668193): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- secondary_link (way 107668193): `lanes`: — → 1; `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 107677812): `maxspeed`: — → 20
+- service (way 107677822): `maxspeed`: — → 20
+- service (way 107677824): `maxspeed`: — → 20
+- service (way 107677825): `maxspeed`: — → 20
+- service (way 107677827): `maxspeed`: — → 20
 - улица Ивана Франко (way 108435258): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 112319049): `maxspeed`: — → 20
+- service (way 132688890): `maxspeed`: — → 20
+- service (way 132688896): `maxspeed`: — → 20
+- service (way 132688897): `maxspeed`: — → 20
+- service (way 132690053): `maxspeed`: — → 20
+- service (way 132690056): `maxspeed`: — → 20
+- service (way 132690057): `maxspeed`: — → 20
+- service (way 132690058): `maxspeed`: — → 20
+- service (way 132690064): `maxspeed`: — → 20
+- service (way 132714469): `maxspeed`: — → 20
+- service (way 132715867): `maxspeed`: — → 20
 - Колхозная улица (way 138431817): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 138911968): `maxspeed`: — → 20
+- service (way 138911971): `maxspeed`: — → 20
+- service (way 138911972): `maxspeed`: — → 20
+- primary_link (way 138911973): `turn:lanes`: — → left|left
 - Объездная дорога Первомайский-Университетский (way 140226968): `maxspeed`: RU:urban → 60; `source:maxspeed`: — → RU:urban
-- Объездная дорога Первомайский-Университетский (way 140857791): `maxspeed`: RU:urban → 60; `source:maxspeed`: — → RU:urban
-- secondary_link (way 151914921): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- secondary_link (way 151914921): `lanes`: — → 1; `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 176783098): `maxspeed`: — → 20
+- service (way 176792722): `maxspeed`: — → 20
+- service (way 176792724): `maxspeed`: — → 20
+- service (way 176792726): `maxspeed`: — → 20
+- service (way 176792727): `maxspeed`: — → 20
+- service (way 176801755): `maxspeed`: — → 20
 - улица Лермонтова (way 196047107): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
-- secondary_link (way 220314631): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 196047108): `maxspeed`: — → 20
+- service (way 196081868): `maxspeed`: — → 20
+- service (way 196081869): `maxspeed`: — → 20
+- service (way 196086065): `maxspeed`: — → 20
+- service (way 196086067): `maxspeed`: — → 20
+- service (way 196086068): `maxspeed`: — → 20
+- service (way 196086069): `maxspeed`: — → 20
+- service (way 196848722): `maxspeed`: — → 20
+- service (way 196848723): `maxspeed`: — → 20
+- service (way 196848727): `maxspeed`: — → 20
+- service (way 207923860): `maxspeed`: — → 20
+- service (way 219192002): `maxspeed`: — → 20
+- secondary_link (way 220314631): `lanes`: — → 1; `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 224472427): `maxspeed`: — → 20
+- service (way 224472431): `maxspeed`: — → 20
+- service (way 227484856): `maxspeed`: — → 20
+- service (way 230172112): `maxspeed`: — → 40; `psv`: — → yes
+- service (way 252706727): `maxspeed`: — → 20
+- service (way 258591009): `maxspeed`: — → 20
+- service (way 258591010): `maxspeed`: — → 20
+- service (way 258591011): `maxspeed`: — → 20
+- service (way 258591064): `maxspeed`: — → 20
 - улица Короленко (way 259006335): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
 - переулок Короленко (way 259006336): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 259006337): `maxspeed`: — → 20
+- service (way 259006338): `maxspeed`: — → 20
+- service (way 267366447): `maxspeed`: — → 20
+- service (way 267366448): `maxspeed`: — → 20
+- service (way 267366449): `maxspeed`: — → 20
+- service (way 304931536): `maxspeed`: — → 20
+- service (way 304931539): `maxspeed`: — → 20
+- service (way 316622793): `maxspeed`: — → 20
 - residential (way 337545698): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 363479240): `maxspeed`: — → 20
 - проезд Юрия Тена (way 376777876): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
 - проезд Юрия Тена (way 376777879): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
 - проезд Юрия Тена (way 376777900): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
 - residential (way 376777921): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 376777982): `maxspeed`: — → 20
+- service (way 376777984): `maxspeed`: — → 20
 - residential (way 376778004): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
-- улица Лермонтова (way 382974085): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- улица Лермонтова (way 382974085): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban; `turn:lanes:backward`: — → through|through;right; `turn:lanes:forward`: — → through|through
 - unclassified (way 383944395): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
 - улица Грибоедова (way 383944871): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 401559377): `maxspeed`: — → 20
+- service (way 401560396): `maxspeed`: — → 20
+- service (way 435589349): `maxspeed`: — → 20
+- service (way 435589351): `maxspeed`: — → 20
 - улица Ломоносова (way 448424773): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 448758001): `maxspeed`: — → 20
+- service (way 448758006): `maxspeed`: — → 20
+- service (way 539623412): `maxspeed`: — → 20
+- service (way 539623413): `maxspeed`: — → 20
+- service (way 539623414): `maxspeed`: — → 20
+- service (way 548608670): `maxspeed`: — → 20
+- service (way 548608673): `maxspeed`: — → 20; `service`: — → parking_aisle
+- service (way 548616619): `maxspeed`: — → 20
+- service (way 548616625): `maxspeed`: — → 20
+- service (way 646737120): `maxspeed`: — → 20
+- service (way 646737121): `maxspeed`: — → 20
 - Объездная дорога Первомайский-Университетский (way 677185647): `maxspeed`: RU:urban → 60; `source:maxspeed`: — → RU:urban
+- Объездная дорога Первомайский-Университетский (way 677185649): `turn:lanes`: — → left;through|through|through|through; `turn:lanes:forward`: left|through|through → —
+- service (way 686623800): `maxspeed`: — → 20
+- service (way 686623801): `maxspeed`: — → 20
+- service (way 686623808): `maxspeed`: — → 20
+- service (way 686623809): `maxspeed`: — → 20
+- service (way 686623810): `maxspeed`: — → 20
+- service (way 714482565): `maxspeed`: — → 20
+- service (way 780751420): `maxspeed`: — → 20
+- service (way 806580080): `maxspeed`: — → 20
+- service (way 806580081): `maxspeed`: — → 20
+- service (way 806905684): `maxspeed`: — → 20
+- service (way 806941625): `maxspeed`: — → 20
+- service (way 806941626): `maxspeed`: — → 20
+- service (way 806941627): `maxspeed`: — → 20
+- service (way 806941629): `maxspeed`: — → 20
+- service (way 807399989): `maxspeed`: — → 20
+- service (way 807399992): `maxspeed`: — → 20
+- service (way 816684047): `maxspeed`: — → 20
+- service (way 816684048): `maxspeed`: — → 20
+- service (way 816684052): `maxspeed`: — → 20
+- service (way 816684053): `maxspeed`: — → 20
+- service (way 816684054): `maxspeed`: — → 20
+- service (way 816684055): `maxspeed`: — → 20
+- service (way 816684056): `maxspeed`: — → 20
+- service (way 816684057): `maxspeed`: — → 20
+- service (way 826847542): `maxspeed`: — → 20
+- service (way 826847608): `maxspeed`: — → 20
+- service (way 826848230): `maxspeed`: — → 20
+- service (way 826848362): `maxspeed`: — → 20
+- service (way 827323324): `maxspeed`: — → 20
+- service (way 827323489): `maxspeed`: — → 20
+- service (way 827324235): `maxspeed`: — → 20
+- service (way 827324302): `maxspeed`: — → 20
+- service (way 827325177): `maxspeed`: — → 20
+- service (way 827327093): `maxspeed`: — → 20
+- service (way 827327292): `maxspeed`: — → 20
 - проезд Юрия Тена (way 842913457): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
 - проезд Юрия Тена (way 842913458): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
-- Объездная дорога Первомайский-Университетский (way 1199781528): `maxspeed`: RU:urban → 60; `source:maxspeed`: — → RU:urban
+- service (way 863833210): `maxspeed`: — → 40; `psv`: — → yes
+- улица Лермонтова (way 863833211): `turn:lanes`: — → left|through|through; `turn:lanes:forward`: left|right|right → —
+- service (way 884573302): `maxspeed`: — → 20
+- service (way 898205886): `maxspeed`: — → 20
+- service (way 914875746): `maxspeed`: — → 20
+- service (way 945744007): `maxspeed`: — → 20
+- service (way 945744015): `maxspeed`: — → 20
+- service (way 945744024): `maxspeed`: — → 20
+- service (way 945953270): `maxspeed`: — → 20
+- service (way 945954537): `maxspeed`: — → 20
+- service (way 946009429): `maxspeed`: — → 20
+- service (way 946455246): `maxspeed`: — → 20
+- service (way 946455250): `maxspeed`: — → 20
+- service (way 946455252): `maxspeed`: — → 20
+- service (way 946455267): `maxspeed`: — → 20
+- service (way 946455272): `maxspeed`: — → 20
+- service (way 947682606): `maxspeed`: — → 20
+- service (way 947682612): `maxspeed`: — → 20
+- service (way 947682622): `maxspeed`: — → 20
+- service (way 947682628): `maxspeed`: — → 20
+- service (way 947682631): `maxspeed`: — → 20
+- service (way 947682632): `maxspeed`: — → 20
+- service (way 947682636): `maxspeed`: — → 20
+- service (way 947682640): `maxspeed`: — → 20
+- service (way 948033488): `maxspeed`: — → 20
+- service (way 948033492): `maxspeed`: — → 20
+- service (way 948033495): `maxspeed`: — → 20
+- service (way 948033496): `maxspeed`: — → 20
+- service (way 948033497): `maxspeed`: — → 20
+- service (way 948033501): `maxspeed`: — → 20
+- service (way 948033509): `maxspeed`: — → 20
+- service (way 948033512): `maxspeed`: — → 20
+- service (way 948033517): `maxspeed`: — → 20
+- service (way 948033522): `maxspeed`: — → 20
+- service (way 948033524): `maxspeed`: — → 20
+- service (way 948033531): `maxspeed`: — → 20
+- service (way 948033534): `maxspeed`: — → 20
+- service (way 967765176): `maxspeed`: — → 20
+- service (way 975543504): `maxspeed`: — → 20
+- service (way 977761744): `maxspeed`: — → 20
+- улица Лермонтова (way 1024105374): `turn:lanes`: — → through|through|through
+- service (way 1062782591): `maxspeed`: — → 20
+- service (way 1120767355): `maxspeed`: — → 20
+- service (way 1120767357): `maxspeed`: — → 20
+- service (way 1120767358): `maxspeed`: — → 20
+- service (way 1120767359): `maxspeed`: — → 20
+- service (way 1120767422): `maxspeed`: — → 20
+- service (way 1120767423): `maxspeed`: — → 20; `service`: — → parking_aisle
+- service (way 1120767424): `maxspeed`: — → 20
+- service (way 1160809548): `maxspeed`: — → 20
+- service (way 1160809549): `maxspeed`: — → 20
+- Объездная дорога Первомайский-Университетский (way 1199781528): `maxspeed`: RU:urban → 60; `source:maxspeed`: — → RU:urban; `turn:lanes`: — → through|through
 - Объездная дорога Первомайский-Университетский (way 1199781529): `layer`: -1 → —; `maxspeed`: RU:urban → 60; `source:maxspeed`: — → RU:urban; `tunnel`: yes → —
+- Объездная дорога Первомайский-Университетский (way 1199781530): `turn:lanes`: — → through|through;right
 - Объездная дорога Первомайский-Университетский (way 1199781531): `layer`: -1 → —; `tunnel`: yes → —
 - secondary_link (way 1199781533): `layer`: -1 → —; `tunnel`: yes → —
-- secondary_link (way 1476181279): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 1201060214): `maxspeed`: — → 20
+- service (way 1228974236): `maxspeed`: — → 20
+- улица Лермонтова (way 1228977331): `turn:lanes`: — → left|right
+- service (way 1271854633): `maxspeed`: — → 20
+- service (way 1300126499): `maxspeed`: — → 20
+- service (way 1300126500): `maxspeed`: — → 20
+- service (way 1320611411): `maxspeed`: — → 20
+- service (way 1366216823): `maxspeed`: — → 20
+- service (way 1366216838): `maxspeed`: — → 20
+- service (way 1366216840): `maxspeed`: — → 20
+- service (way 1366216841): `maxspeed`: — → 20; `service`: — → parking_aisle
+- service (way 1366216844): `maxspeed`: — → 20
+- secondary_link (way 1473820848): `turn:lanes`: — → through|through
+- service (way 1474292174): `maxspeed`: — → 20
+- secondary_link (way 1476181279): `lanes`: — → 1; `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 1494549491): `maxspeed`: — → 20
+- service (way 1494549492): `maxspeed`: — → 20
+- service (way 1494549493): `maxspeed`: — → 20
+- service (way 1494549589): `maxspeed`: — → 20
+- service (way 1494549617): `maxspeed`: — → 20
+- service (way 1494549627): `maxspeed`: — → 20
+- service (way 1494549628): `maxspeed`: — → 20
+- service (way 1494549629): `maxspeed`: — → 20
+- service (way 1494549682): `maxspeed`: — → 20
+- service (way 1494549683): `maxspeed`: — → 20
+- service (way 1494549684): `maxspeed`: — → 20
+- service (way 1494549692): `maxspeed`: — → 20
+- service (way 1494549717): `maxspeed`: — → 20
+- service (way 1494549718): `maxspeed`: — → 20
+- service (way 1494549724): `maxspeed`: — → 20
+- service (way 1494549725): `maxspeed`: — → 20
+- service (way 1494549733): `maxspeed`: — → 20
+- service (way 1494549734): `maxspeed`: — → 20
+- service (way 1494549735): `maxspeed`: — → 20
+- service (way 1494549736): `maxspeed`: — → 20
+- service (way 1494549737): `maxspeed`: — → 20
+- service (way 1494549738): `maxspeed`: — → 20
+- service (way 1494549774): `maxspeed`: — → 20
+- service (way 1494549775): `maxspeed`: — → 20
+- service (way 1494549776): `maxspeed`: — → 20
+- service (way 1494549786): `maxspeed`: — → 20
+- service (way 1495613159): `maxspeed`: — → 20
+- service (way 1495613160): `maxspeed`: — → 20
+- service (way 1495613161): `maxspeed`: — → 20
+- service (way 1495613162): `maxspeed`: — → 20
+- service (way 1495613168): `maxspeed`: — → 20
+- service (way 1495613197): `maxspeed`: — → 20
+- service (way 1495613199): `maxspeed`: — → 20
+- service (way 1495613201): `maxspeed`: — → 20
+- service (way 1495613203): `maxspeed`: — → 20
+- service (way 1495613204): `maxspeed`: — → 20
+- service (way 1495613205): `maxspeed`: — → 20
+- service (way 1495613206): `maxspeed`: — → 20
+- service (way 1495613238): `maxspeed`: — → 20
+- service (way 1495613241): `maxspeed`: — → 20
+- service (way 1495613242): `maxspeed`: — → 20; `service`: — → parking_aisle
+- service (way 1495613243): `maxspeed`: — → 20; `service`: — → parking_aisle
+- service (way 1495613244): `maxspeed`: — → 20
+- service (way 1495613245): `maxspeed`: — → 20
+- service (way 1495613246): `maxspeed`: — → 20
+- service (way 1495613247): `maxspeed`: — → 20
 - secondary (way 1499789683): `maxspeed`: — → 60; `source:maxspeed`: — → RU:urban
+- service (way 1570705062): `maxspeed`: — → 20
+- service (way 1570705063): `maxspeed`: — → 20
+- service (way 1573500146): `maxspeed`: — → 20
+
+## Узлы (7)
+
+- node 14332300416, добавлено: `bus`: — → yes; `name`: — → Институт МВД; `public_transport`: — → stop_position; `tp:stop_area`: — → node/994308601; `trolleybus`: — → yes
+- node 14332300418, добавлено: `bus`: — → yes; `name`: — → Институт МВД; `public_transport`: — → stop_position; `tp:stop_area`: — → node/994308606; `trolleybus`: — → yes
+- node 14332300420, добавлено: `bus`: — → yes; `name`: — → Технический университет; `public_transport`: — → stop_position; `tp:stop_area`: — → node/1110273772; `trolleybus`: — → yes
+- node 14332300422, добавлено: `bus`: — → yes; `name`: — → Жуковского; `public_transport`: — → stop_position; `tp:stop_area`: — → node/1110273776
+- node 14332300424, добавлено: `bus`: — → yes; `name`: — → станция Академическая; `public_transport`: — → stop_position; `tp:stop_area`: — → node/5299948717; `trolleybus`: — → yes
+- node 14332300426, добавлено: `bus`: — → yes; `name`: — → Юрия Тена; `public_transport`: — → stop_position; `tp:stop_area`: — → node/11127517930; `trolleybus`: — → yes
+- node 14332300428, добавлено: `bus`: — → yes; `name`: — → Библитека им. Распутина; `public_transport`: — → stop_position; `tp:stop_area`: — → node/11663474718; `trolleybus`: — → yes
