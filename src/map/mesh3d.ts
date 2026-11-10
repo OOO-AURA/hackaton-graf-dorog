@@ -340,8 +340,6 @@ function addShadow(shadows: Buf, [l0, l1, r0, r1]: readonly P2[], z0: number, z1
   quad(shadows, SHADOW, 0, at(r0, z0), at(r1, z1), at(l1, z1), at(l0, z0));
 }
 
-/** Embankment slopes: metres sideways per metre of height, as road embankments are built (1:1.5). */
-const SLOPE = 1.5;
 /** Below this the road lies on the ground and the 2D line shows it. */
 const ON_GROUND = 0.05;
 
@@ -361,30 +359,19 @@ function densifyWithHeight(pts: readonly P2[], zs: readonly number[], step: numb
 }
 
 /**
- * A road on an embankment up to a bridge: the carriageway at its height with lane markings, and
- * earth slopes down to the ground on both sides, wider the higher the road.
+ * A road on an embankment up to a bridge: the carriageway at its height with lane markings, without
+ * earth slopes at the sides.
  */
 function addEmbankment(solid: Buf, mask: Buf, raw: P2[], rawZ: number[], tags: Record<string, string>, tapers: readonly Taper[] | undefined, colors: Scene3dColors) {
   const { pts, z } = densifyWithHeight(raw, rawZ, tapers ? TAPER_STEP : RAMP_STEP);
   const { dist, sections } = sectionsAlong(pts, tags, tapers);
   const { left, right } = carriageway(pts, sections);
-  // Unit offsets (mitred) give the feet of the slopes, which move out with the height.
-  const unit = offsets(pts, 1);
-  // The foot of each slope sits out from the carriageway edge on its side (left here is the right of travel).
-  const reach = (i: number, edge: number) => edge + z[i] * SLOPE;
-  const foot = (side: P2[], i: number): P2 => {
-    const edge = side === unit.left ? sections[i].right : sections[i].left;
-    return [pts[i][0] + (side[i][0] - pts[i][0]) * reach(i, edge), pts[i][1] + (side[i][1] - pts[i][1]) * reach(i, edge)];
-  };
   const road = colors.deck((tags.highway ?? '').replace(/_link$/, ''));
   for (let i = 0; i < pts.length - 1; i += 1) {
     const [z0, z1] = [z[i], z[i + 1]];
     if (z0 < ON_GROUND && z1 < ON_GROUND) continue;
     const [l0, l1, r0, r1] = [left[i], left[i + 1], right[i], right[i + 1]];
     quad(solid, road, 0, [r0[0], r0[1], z0], [r1[0], r1[1], z1], [l1[0], l1[1], z1], [l0[0], l0[1], z0]);
-    const [fl0, fl1, fr0, fr1] = [foot(unit.left, i), foot(unit.left, i + 1), foot(unit.right, i), foot(unit.right, i + 1)];
-    quad(solid, colors.embankment, 0, [l0[0], l0[1], z0], [l1[0], l1[1], z1], [fl1[0], fl1[1], 0], [fl0[0], fl0[1], 0]);
-    quad(solid, colors.embankment, 0, [r1[0], r1[1], z1], [r0[0], r0[1], z0], [fr0[0], fr0[1], 0], [fr1[0], fr1[1], 0]);
     ribbon(mask, l0, l1, r0, r1, z0 + 0.05, z1 + 0.05);
   }
   addMarkings(solid, pts, z, dist, sections, colors);
