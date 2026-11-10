@@ -9,6 +9,7 @@ import { checkSumo, levelOfService, series, simEnd, SPEED_BANDS, useSim } from '
 import { LOS_COLORS, SIGNAL_COLORS, statsByWay } from '../../sim/overlay';
 import type { SimResult } from '../../sim/types';
 import { currentSelection, useEditor } from '../../state/store';
+import { Bottlenecks } from '../CapacityParts';
 
 const TYPE_LABELS: Readonly<Record<string, string>> = {
   car: 'Легковой, 4,5 м', van: 'Фургон до 3,5 т, 5,5 м', truck: 'Грузовой, 9 м', trailer: 'Автопоезд, 16,5 м', bus: 'Автобус, 12 м', bus18: 'Автобус, 18 м', ptbus: 'Автобус маршрута ОТ', ped: 'Пешеход',
@@ -180,6 +181,7 @@ export function MicroPanel() {
               {baseline && <button className="btn" onClick={dropBaseline}>Сбросить</button>}
             </div>
           </div>
+          <Bottlenecks result={result} baseline={b ?? null} />
           <div className="section-body">
             <span className="micro">Выбранная дорога</span>
             <SelectedWay result={result} baseline={b} />

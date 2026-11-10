@@ -4,7 +4,7 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import { useEffect, useMemo, useState } from 'react';
 import { docBounds } from '../map/geojson';
 import { useEditor, type Basemap } from '../state/store';
-import { drawingConflicts, finishDrawing } from '../state/actions';
+import { builtPoints, drawingConflicts, finishDrawing } from '../state/actions';
 import { LAYER_IDS, useUi, type LayerId } from '../state/ui';
 import { THEMATIC, type RoadColorMode } from '../map/thematic';
 import { ROAD_TEMPLATES } from '../osm/tags';
@@ -53,8 +53,12 @@ function FloatingTools() {
   const points = useEditor((s) => s.drawing.length);
   const drawing = useEditor((s) => s.drawing);
   const doc = useEditor((s) => s.doc);
-  // Only the points already placed: that is what Enter would build.
-  const conflicts = useMemo(() => (mode === 'draw' && drawing.length > 1 ? drawingConflicts(doc, drawing, ROAD_TEMPLATES[template].tags) : []), [mode, drawing, doc, template]);
+  // Only the points already placed, rounded as they will be built: that is what Enter would build.
+  const conflicts = useMemo(() => {
+    if (mode !== 'draw' || drawing.length < 2) return [];
+    const tags = ROAD_TEMPLATES[template].tags;
+    return drawingConflicts(doc, builtPoints(drawing, tags), tags);
+  }, [mode, drawing, doc, template]);
   return (
     <>
       <div className="float float-tools" role="toolbar" aria-label="Инструменты">

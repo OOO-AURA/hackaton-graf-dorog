@@ -1,4 +1,4 @@
-import { bearingDeg, curvePoints, distanceM, snapAngle, turnDeg } from './drawGeometry';
+import { bearingDeg, curvePoints, distanceM, roundCorners, snapAngle, turnDeg } from './drawGeometry';
 
 const M_LON = 1 / (111_195 * Math.cos((52 * Math.PI) / 180));
 const M_LAT = 1 / 111_195;
@@ -44,5 +44,34 @@ describe('drawing geometry', () => {
     const ys = pts.map((p) => (p.lat - 52) / M_LAT);
     expect(Math.max(...ys)).toBeGreaterThan(25);
     expect(bearingDeg(pts[pts.length - 2], pts[pts.length - 1])).toBeGreaterThan(140);
+  });
+});
+
+describe('rounded corners', () => {
+  test('a right angle drawn by hand becomes an arc between the two straights', () => {
+    const pts = roundCorners([at(0, 0), at(0, 60), at(60, 60)], 15);
+    expect(pts.length).toBeGreaterThan(5);
+    // The corner point itself is gone; the arc starts 15 m before it and ends 15 m after.
+    const xy = pts.map((p) => [(p.lon - 104) / M_LON, (p.lat - 52) / M_LAT]);
+    expect(xy.some(([x, y]) => Math.abs(x) < 0.1 && Math.abs(y - 60) < 0.1)).toBe(false);
+    expect(xy[1][0]).toBeCloseTo(0, 1);
+    expect(xy[1][1]).toBeCloseTo(45, 1);
+    expect(xy[xy.length - 2][0]).toBeCloseTo(15, 1);
+    // No turn along the result is sharp any more.
+    for (let i = 1; i < pts.length - 1; i += 1) {
+      expect(Math.abs(turnDeg(bearingDeg(pts[i - 1], pts[i]), bearingDeg(pts[i], pts[i + 1])))).toBeLessThan(20);
+    }
+  });
+
+  test('points on a node or road stay, and a nearly straight point is left alone', () => {
+    const joined = { ...at(0, 60), nodeId: '7' };
+    expect(roundCorners([at(0, 0), joined, at(60, 60)], 15)).toContain(joined);
+    expect(roundCorners([at(0, 0), at(1, 60), at(0, 120)], 15)).toHaveLength(3);
+  });
+
+  test('on short segments the arc is smaller than asked', () => {
+    const pts = roundCorners([at(0, 0), at(0, 10), at(10, 10)], 50);
+    const first = pts[1];
+    expect(distanceM(first, at(0, 10))).toBeLessThanOrEqual(4.6);
   });
 });

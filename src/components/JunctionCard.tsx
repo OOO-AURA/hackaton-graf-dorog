@@ -12,6 +12,7 @@ import { TURN_GLYPHS } from './LaneTurnsSection';
 import { Icon } from './icons';
 import type { OsmDoc } from '../osm/types';
 import { useSettledDoc } from '../state/settled';
+import { JunctionCapacitySection } from './CapacityParts';
 
 /**
  * The junction being edited, on the map next to it: every approach with its number of lanes
@@ -105,6 +106,7 @@ export function JunctionCard() {
       <div className="jc-body">
         {lanes.approaches.map((a) => <ApproachRow key={armKey(a.arm)} nodeId={nodeId} lanes={lanes} approach={a} />)}
       </div>
+      <JunctionCapacitySection nodeId={nodeId} />
       <PickedLink />
       <div className="jc-templates">
         <button className="btn btn-sm" onClick={() => apply((d) => applyJunctionTemplate(d, nodeId, 'usual'))}>Как обычно</button>
