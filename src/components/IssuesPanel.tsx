@@ -1,5 +1,5 @@
 import { applyRules, countsLine } from '../osm/rules';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { connectCrossing, mergeNodes, setWayTags, flipDirection, setWayTag } from '../osm/edit';
 import { groundTags } from '../osm/structures';
 import { applyLegalSpeeds } from '../osm/speeds';
@@ -10,7 +10,7 @@ import { closeCordon } from '../state/actions';
 import { cordonPairs } from '../osm/cordon';
 import { refreshReport } from '../state/validation';
 import { VirtualList } from './VirtualList';
-import { fixAll, type FixAllResult } from '../osm/fixAll';
+import { clearAlong, fixAll, type FixAllResult } from '../osm/fixAll';
 import { useSettledDoc } from '../state/settled';
 
 const KIND_LABELS: Readonly<Record<Issue['kind'], string>> = {
@@ -29,6 +29,7 @@ function applyFix(issue: Issue): void {
     if (fix.type === 'pdd') return applyRules(d, { ways: new Set([fix.wayId]), nodes: new Set() }).doc;
     if (fix.type === 'flip') return flipDirection(d, fix.wayId);
     if (fix.type === 'oneway') return setWayTag(d, fix.wayId, 'oneway', fix.value);
+    if (fix.type === 'clear') return clearAlong(d, fix.wayId, fix.buildingIds);
     return connectCrossing(d, fix.a, fix.b, fix.at[0], fix.at[1]);
   });
   void refreshReport();
@@ -98,8 +99,11 @@ function FixAllBar() {
   // Cut roads count only while there is a pair to join: the rest of the edge warnings stay.
   const cordon = useMemo(() => (report?.issues.some((i) => i.kind === 'cordon') ? cordonPairs(doc).length : 0), [report, doc]);
   const fixable = (report?.issues.filter((i) => i.fix).length ?? 0) + cordon;
+  const [busy, setBusy] = useState(false);
   if (!fixable) return null;
-  const run = () => {
+  // A few seconds on a big graph: the button says so first, then the work runs after the paint.
+  const run = () => { setBusy(true); window.setTimeout(() => { try { work(); } finally { setBusy(false); } }, 30); };
+  const work = () => {
     let r: FixAllResult | null = null;
     apply((d) => { r = fixAll(d); return r.doc; });
     const done = r as FixAllResult | null;
@@ -108,8 +112,8 @@ function FixAllBar() {
   };
   return (
     <div className="fix-all">
-      <button className="btn btn-ink" onClick={run}>Исправить всё</button>
-      <span className="hint">Все исправления из списка ниже одним шагом: соединить перекрёстки, слить близкие узлы, замкнуть кордон, повернуть потоки, починить значения для Webots, знаки и скорости по ПДД. Отменяется одним ⌘Z. Изолированные участки и тупики правятся руками.</span>
+      <button className="btn btn-ink" onClick={run} disabled={busy} aria-busy={busy}>{busy ? 'Исправляю…' : 'Исправить всё'}</button>
+      <span className="hint">Все исправления из списка ниже одним шагом: соединить перекрёстки, слить близкие узлы, срезать здания над дорогами, замкнуть кордон, повернуть потоки, починить значения для Webots, знаки и скорости по ПДД. Отменяется одним ⌘Z. Изолированные участки и тупики правятся руками.</span>
     </div>
   );
 }

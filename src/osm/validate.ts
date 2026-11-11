@@ -20,6 +20,8 @@ export type IssueFix =
   | { type: 'speed'; wayId: string }
   | { type: 'sanitize'; wayId: string }
   | { type: 'pdd'; wayId: string }
+  /** Cut the buildings back along the road's carriageway, with a metre of room to the walls. */
+  | { type: 'clear'; wayId: string; buildingIds: readonly string[] }
   | FlowFix;
 
 export interface Issue {
@@ -157,6 +159,9 @@ const isSignPost = (doc: OsmDoc, id: string): boolean => {
   return Boolean(t && (t.traffic_sign || t.highway === 'give_way' || t.highway === 'stop'));
 };
 
+/** Class names for messages about roads without a name. */
+const HIGHWAY_RU: Readonly<Record<string, string>> = { service: 'Проезд', residential: 'Жилая улица', living_street: 'Жилая зона', unclassified: 'Улица', tertiary: 'Улица местного значения' };
+
 function nearNodeIssues(doc: OsmDoc, ways: OsmWay[], project: (p: LonLat) => [number, number]): Issue[] {
   const neighbours = new Map<string, Set<string>>();
   ways.forEach((w) => w.refs.forEach((r, i) => {
@@ -224,13 +229,16 @@ export function validate(doc: OsmDoc): ValidationReport {
         fix: g.wayId ? { type: 'pdd', wayId: g.wayId } : undefined,
       };
     }),
-    // Roads whose lanes make them wider than the room between the houses.
-    ...roadBuildingOverlaps(doc, ways.filter((w) => w.tags.lanes || w.tags.width), (w) => roadWidthMetres(w.tags)).map((o): Issue => {
+    // Carriageways, as wide as their lanes draw them, that run under buildings: on the map, in 3D
+    // and in Webots the road goes through the walls. The fix cuts the buildings back along the road.
+    ...roadBuildingOverlaps(doc, ways, (w) => roadWidthMetres(w.tags)).map((o): Issue => {
       const w = doc.ways[o.wayId];
       const mid = doc.nodes[w.refs[Math.floor(w.refs.length / 2)]];
+      const lanes = w.tags.lanes ? `${w.tags.lanes} пол.` : 'полос не указано';
       return {
         id: `under:${o.wayId}`, kind: 'under-building', severity: 'warning', at: [mid.lon, mid.lat], wayIds: [o.wayId], nodeIds: [],
-        message: `${w.tags.name || w.tags.highway}: проезжая часть ${Math.round(o.width)} м (${w.tags.lanes ?? '?'} пол.) заходит под здания на ${Math.round(o.overlap)} м². Уменьшите число полос или сдвиньте дорогу`,
+        message: `${w.tags.name || HIGHWAY_RU[w.tags.highway ?? ''] || w.tags.highway}: проезжая часть ${Math.round(o.width)} м (${lanes}) заходит под здания на ${Math.round(o.overlap)} м². «Исправить» срежет здания по краю дороги; или уменьшите полосы, сдвиньте дорогу`,
+        fix: { type: 'clear', wayId: o.wayId, buildingIds: o.buildingIds },
       };
     }),
     ...speedMismatches(doc).map((m): Issue => {

@@ -1,5 +1,7 @@
 import { connectCrossing, flipDirection, mergeNodes, setWayTag, setWayTags } from './edit';
 import { addAllCordonConnectors } from './cordon';
+import { cutBuildings } from './clearance';
+import { roadWidthMetres } from '../map/lanesGeo';
 import { sanitizeDoc } from './pipelineSafety';
 import { applyRules } from './rules';
 import { applyLegalSpeeds } from './speeds';
@@ -48,6 +50,22 @@ export function fixAll(doc: OsmDoc): FixAllResult {
   d = geo.doc;
   fixed += geo.fixed;
 
+  // Buildings under carriageways are cut back along the road, after the junctions are joined.
+  // A cut replaces a building with new pieces, so each round re-checks and touches a building once.
+  for (let round = 0; round < MAX_ROUNDS; round++) {
+    const used = new Set<string>();
+    let done = 0;
+    for (const i of validate(d).issues) {
+      const f = i.fix;
+      if (f?.type !== 'clear' || f.buildingIds.some((b) => used.has(b) || !d.ways[b])) continue;
+      f.buildingIds.forEach((b) => used.add(b));
+      d = clearAlong(d, f.wayId, f.buildingIds);
+      done++;
+    }
+    fixed += done;
+    if (!done) break;
+  }
+
   const cordon = addAllCordonConnectors(d);
   d = cordon.doc;
   fixed += cordon.added;
@@ -63,6 +81,14 @@ export function fixAll(doc: OsmDoc): FixAllResult {
 
   const last = validate(d).issues;
   return { doc: d, fixed, before: first.length, after: last.length, errorsAfter: last.filter((i) => i.severity === 'error').length };
+}
+
+/** Cuts the buildings back along a road's carriageway, as wide as the map draws it. */
+export function clearAlong(doc: OsmDoc, wayId: string, buildingIds: readonly string[]): OsmDoc {
+  const way = doc.ways[wayId];
+  if (!way) return doc;
+  const road = way.refs.map((r) => doc.nodes[r]).filter(Boolean).map((n) => ({ lon: n.lon, lat: n.lat }));
+  return cutBuildings(doc, buildingIds, road, roadWidthMetres(way.tags));
 }
 
 /**
