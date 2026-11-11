@@ -11054,7 +11054,7 @@
    <nd ref="1498865595"/>
    <tag k="foot" v="no"/>
    <tag k="highway" v="primary"/>
-   <tag k="lanes" v="2"/>
+   <tag k="lanes" v="3"/>
    <tag k="lit" v="yes"/>
    <tag k="maxheight" v="default"/>
    <tag k="maxspeed" v="40"/>
@@ -19315,7 +19315,7 @@
   <nd ref="1498787069"/>
   <tag k="foot" v="no"/>
   <tag k="highway" v="primary"/>
-  <tag k="lanes" v="2"/>
+  <tag k="lanes" v="3"/>
   <tag k="lit" v="yes"/>
   <tag k="maxheight" v="default"/>
   <tag k="maxspeed" v="40"/>
@@ -19323,7 +19323,7 @@
   <tag k="oneway" v="yes"/>
   <tag k="sidewalk" v="no"/>
   <tag k="surface" v="asphalt"/>
-  <tag k="turn:lanes" v="through|through;right"/>
+  <tag k="turn:lanes" v="through|through|right"/>
  </way>
  <way id="1199781531" visible="true" version="4" changeset="180753581" timestamp="2026-04-02T07:40:15Z" user="Alexey_ND" uid="515330">
    <nd ref="1498865595"/>
@@ -19332,7 +19332,7 @@
    <nd ref="1498865586"/>
    <tag k="foot" v="no"/>
    <tag k="highway" v="primary"/>
-   <tag k="lanes" v="2"/>
+   <tag k="lanes" v="3"/>
    <tag k="lit" v="yes"/>
    <tag k="maxheight" v="default"/>
    <tag k="maxspeed" v="40"/>
