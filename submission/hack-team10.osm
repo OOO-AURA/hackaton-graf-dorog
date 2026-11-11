@@ -396,7 +396,7 @@
  <node id="938272207" visible="true" version="1" changeset="5959229" timestamp="2010-10-05T07:48:03Z" user="LexIgnatov" uid="316868" lat="52.2595661" lon="104.263904"/>
  <node id="938272214" visible="true" version="5" changeset="179303353" timestamp="2026-03-03T13:53:57Z" user="literan" uid="830106" lat="52.2548199" lon="104.2579991"/>
  <node id="938272215" visible="true" version="2" changeset="105412494" timestamp="2021-05-27T09:24:47Z" user="Vladimir Syroezhkin" uid="3871350" lat="52.2601129" lon="104.2664749"/>
- <node id="938272219" visible="true" version="5" changeset="9797638" timestamp="2011-11-11T16:24:26Z" user="LexIgnatov" uid="316868" lat="52.2540971" lon="104.2632567"/>
+ <node id="938272219" visible="true" version="5" changeset="9797638" timestamp="2011-11-11T16:24:26Z" user="LexIgnatov" uid="316868" lat="52.2540953" lon="104.2631936"/>
  <node id="938272222" visible="true" version="1" changeset="5959229" timestamp="2010-10-05T07:48:04Z" user="LexIgnatov" uid="316868" lat="52.258997" lon="104.2625394"/>
  <node id="938272229" visible="true" version="2" changeset="105162810" timestamp="2021-05-23T11:59:52Z" user="Vladimir Syroezhkin" uid="3871350" lat="52.259331" lon="104.2621544"/>
  <node id="938272233" visible="true" version="2" changeset="93579700" timestamp="2020-11-05T06:22:46Z" user="TeraByte" uid="415861" lat="52.2590709" lon="104.2605961"/>
@@ -711,8 +711,8 @@
    <tag k="shop" v="no"/>
  </node>
  <node id="951154060" visible="true" version="1" changeset="6054443" timestamp="2010-10-16T04:48:55Z" user="darkringfire" uid="72900" lat="52.2537089" lon="104.2623615"/>
- <node id="951154062" visible="true" version="4" changeset="9797638" timestamp="2011-11-11T16:24:31Z" user="LexIgnatov" uid="316868" lat="52.2542786" lon="104.2633056"/>
- <node id="951411539" visible="true" version="5" changeset="9797638" timestamp="2011-11-11T16:24:31Z" user="LexIgnatov" uid="316868" lat="52.2542177" lon="104.2632978"/>
+ <node id="951154062" visible="true" version="4" changeset="9797638" timestamp="2011-11-11T16:24:31Z" user="LexIgnatov" uid="316868" lat="52.2542751" lon="104.2631801"/>
+ <node id="951411539" visible="true" version="5" changeset="9797638" timestamp="2011-11-11T16:24:31Z" user="LexIgnatov" uid="316868" lat="52.2542145" lon="104.2631846"/>
  <node id="980243065" visible="true" version="3" changeset="9797638" timestamp="2011-11-11T16:25:10Z" user="LexIgnatov" uid="316868" lat="52.253795" lon="104.2646907"/>
  <node id="980243067" visible="true" version="4" changeset="34856366" timestamp="2015-10-25T10:06:20Z" user="LexIgnatov" uid="316868" lat="52.2537099" lon="104.2645956"/>
  <node id="980243068" visible="true" version="5" changeset="85570727" timestamp="2020-05-21T19:27:13Z" user="Tzene19" uid="10228239" lat="52.2536224" lon="104.2643636"/>
@@ -1545,15 +1545,15 @@
  <node id="1498865359" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:17Z" user="LexIgnatov" uid="316868" lat="52.2539749" lon="104.2652865"/>
  <node id="1498865368" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:17Z" user="LexIgnatov" uid="316868" lat="52.2539847" lon="104.2649371"/>
  <node id="1498865374" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:18Z" user="LexIgnatov" uid="316868" lat="52.2539944" lon="104.2618376"/>
- <node id="1498865379" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:18Z" user="LexIgnatov" uid="316868" lat="52.2540185" lon="104.2634975"/>
+ <node id="1498865379" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:18Z" user="LexIgnatov" uid="316868" lat="52.2540200" lon="104.2635517"/>
  <node id="1498865380" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:18Z" user="LexIgnatov" uid="316868" lat="52.2540323" lon="104.2632091"/>
  <node id="1498865389" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:18Z" user="LexIgnatov" uid="316868" lat="52.2540708" lon="104.2654158"/>
  <node id="1498865390" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:18Z" user="LexIgnatov" uid="316868" lat="52.2540764" lon="104.2649834"/>
- <node id="1498865392" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:18Z" user="LexIgnatov" uid="316868" lat="52.2540857" lon="104.2634591"/>
+ <node id="1498865392" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:18Z" user="LexIgnatov" uid="316868" lat="52.2540882" lon="104.2635466"/>
  <node id="1498865409" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:18Z" user="LexIgnatov" uid="316868" lat="52.254153" lon="104.2650025"/>
- <node id="1498865410" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:19Z" user="LexIgnatov" uid="316868" lat="52.2541541" lon="104.2632807"/>
+ <node id="1498865410" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:19Z" user="LexIgnatov" uid="316868" lat="52.2541515" lon="104.2631893"/>
  <node id="1498865411" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:19Z" user="LexIgnatov" uid="316868" lat="52.2541562" lon="104.2655553"/>
- <node id="1498865413" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:19Z" user="LexIgnatov" uid="316868" lat="52.2541582" lon="104.2634295"/>
+ <node id="1498865413" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:19Z" user="LexIgnatov" uid="316868" lat="52.2541613" lon="104.2635411"/>
  <node id="1498865420" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:19Z" user="LexIgnatov" uid="316868" lat="52.254212" lon="104.2617219"/>
  <node id="1498865425" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:19Z" user="LexIgnatov" uid="316868" lat="52.2542145" lon="104.2656812"/>
  <node id="1498865440" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:19Z" user="LexIgnatov" uid="316868" lat="52.2542314" lon="104.2650052"/>
@@ -11054,7 +11054,6 @@
    <nd ref="1498865595"/>
    <tag k="foot" v="no"/>
    <tag k="highway" v="primary"/>
-   <tag k="lanes" v="3"/>
    <tag k="lit" v="yes"/>
    <tag k="maxheight" v="default"/>
    <tag k="maxspeed" v="40"/>
@@ -11062,6 +11061,7 @@
    <tag k="oneway" v="yes"/>
    <tag k="sidewalk" v="no"/>
    <tag k="surface" v="asphalt"/>
+  <tag k="lanes" v="3"/>
  </way>
  <way id="140226968" visible="true" version="14" changeset="181472551" timestamp="2026-04-17T18:46:19Z" user="zaqwedcxsx" uid="23955951">
    <nd ref="1498827450"/>
@@ -19315,7 +19315,6 @@
   <nd ref="1498787069"/>
   <tag k="foot" v="no"/>
   <tag k="highway" v="primary"/>
-  <tag k="lanes" v="3"/>
   <tag k="lit" v="yes"/>
   <tag k="maxheight" v="default"/>
   <tag k="maxspeed" v="40"/>
@@ -19323,6 +19322,7 @@
   <tag k="oneway" v="yes"/>
   <tag k="sidewalk" v="no"/>
   <tag k="surface" v="asphalt"/>
+  <tag k="lanes" v="3"/>
   <tag k="turn:lanes" v="through|through|right"/>
  </way>
  <way id="1199781531" visible="true" version="4" changeset="180753581" timestamp="2026-04-02T07:40:15Z" user="Alexey_ND" uid="515330">
@@ -19332,7 +19332,6 @@
    <nd ref="1498865586"/>
    <tag k="foot" v="no"/>
    <tag k="highway" v="primary"/>
-   <tag k="lanes" v="3"/>
    <tag k="lit" v="yes"/>
    <tag k="maxheight" v="default"/>
    <tag k="maxspeed" v="40"/>
@@ -19340,6 +19339,7 @@
    <tag k="oneway" v="yes"/>
    <tag k="sidewalk" v="no"/>
    <tag k="surface" v="asphalt"/>
+  <tag k="lanes" v="3"/>
  </way>
  <way id="1199781532" visible="true" version="3" changeset="181679843" timestamp="2026-04-22T15:42:46Z" user="ылоаритйтЗЩВ" uid="24031307">
    <nd ref="286122970"/>
