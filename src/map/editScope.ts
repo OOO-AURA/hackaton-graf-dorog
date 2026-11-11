@@ -1,5 +1,6 @@
 import { isDrivable } from '../osm/tags';
 import { isRailWay } from '../osm/rail';
+import { isParkingArea } from '../osm/parking';
 import type { OsmDoc, OsmWay } from '../osm/types';
 import type { Lens } from './lens';
 
@@ -10,13 +11,13 @@ import type { Lens } from './lens';
  * keeps everything open; the load view is for looking only.
  */
 
-export type ObjectKind = 'road' | 'junction' | 'control' | 'walk' | 'rail' | 'transit' | 'building' | 'other';
+export type ObjectKind = 'road' | 'junction' | 'control' | 'walk' | 'rail' | 'transit' | 'building' | 'parking' | 'other';
 
-const ALL: readonly ObjectKind[] = ['road', 'junction', 'control', 'walk', 'rail', 'transit', 'building', 'other'];
+const ALL: readonly ObjectKind[] = ['road', 'junction', 'control', 'walk', 'rail', 'transit', 'building', 'parking', 'other'];
 
 export const EDITABLE: Readonly<Record<Lens, ReadonlySet<ObjectKind>>> = {
   all: new Set(ALL),
-  car: new Set(['road', 'junction']),
+  car: new Set(['road', 'junction', 'parking']),
   signs: new Set(['control']),
   walk: new Set(['walk']),
   transit: new Set(['transit', 'rail']),
@@ -27,8 +28,8 @@ export const EDITABLE: Readonly<Record<Lens, ReadonlySet<ObjectKind>>> = {
 
 /** Tools that make sense in each mode; the others are greyed out and the map falls back to selecting. */
 export const TOOLS_IN: Readonly<Record<Lens, ReadonlySet<string>>> = {
-  all: new Set(['view', 'select', 'draw', 'insert', 'building', 'signal']),
-  car: new Set(['view', 'select', 'draw', 'insert']),
+  all: new Set(['view', 'select', 'draw', 'insert', 'building', 'parking', 'signal']),
+  car: new Set(['view', 'select', 'draw', 'insert', 'parking']),
   signs: new Set(['view', 'select', 'signal']),
   walk: new Set(['view', 'select', 'draw', 'insert', 'signal']),
   transit: new Set(['view', 'select', 'draw', 'insert', 'signal']),
@@ -41,6 +42,8 @@ const WALK_HIGHWAY = new Set(['footway', 'path', 'pedestrian', 'steps', 'cyclewa
 const CONTROL_HIGHWAY = new Set(['traffic_signals', 'stop', 'give_way']);
 
 export function wayKind(w: OsmWay): ObjectKind {
+  // A multi-storey car park is a building too; it is picked and edited as a car park.
+  if (isParkingArea(w)) return 'parking';
   if (w.tags.building) return 'building';
   if (isRailWay(w.tags)) return 'rail';
   if (WALK_HIGHWAY.has(w.tags.highway ?? '')) return 'walk';

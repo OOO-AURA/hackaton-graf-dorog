@@ -11,6 +11,7 @@ import { cumulative, frame, slice } from './polyline';
 import { sectionAt, sectionOf, taperBreaks, type Taper } from './section';
 import { drawnRoads, roadShifts, wayPoints } from './shift';
 import { SIDEWALK_W, sidewalkWidth } from '../osm/sidewalks';
+import { isParkingArea, isParkingTags } from '../osm/parking';
 
 /** How far road pieces reach into their neighbours, metres. */
 const OVERLAP = 0.3;
@@ -141,6 +142,24 @@ export function contextGeoJson(doc: OsmDoc) {
     }
   });
   return { lines: collection(lines), buildings: collection(polygons) };
+}
+
+/** Car parks: each area with its outline, and a P sign in its middle; a car park mapped as a point gets the sign alone. */
+export function parkingGeoJson(doc: OsmDoc): FeatureCollection<Point | Polygon, Props> {
+  const features: Array<Feature<Point | Polygon, Props>> = [];
+  for (const w of Object.values(doc.ways)) {
+    if (!isParkingArea(w)) continue;
+    const c = coords(doc, w);
+    if (c.length < 4) continue;
+    features.push({ type: 'Feature', properties: { id: w.id, kind: 'area' }, geometry: { type: 'Polygon', coordinates: [c] } });
+    const ring = c.slice(0, -1);
+    const at = ring.reduce((m, p) => [m[0] + p[0] / ring.length, m[1] + p[1] / ring.length], [0, 0]);
+    features.push({ type: 'Feature', properties: { id: w.id, kind: 'sign' }, geometry: { type: 'Point', coordinates: at } });
+  }
+  for (const n of Object.values(doc.nodes)) {
+    if (isParkingTags(n.tags)) features.push({ type: 'Feature', properties: { id: n.id, kind: 'sign' }, geometry: { type: 'Point', coordinates: [n.lon, n.lat] } });
+  }
+  return { type: 'FeatureCollection', features };
 }
 
 const isYes = (v: string | undefined) => Boolean(v && v !== 'no');

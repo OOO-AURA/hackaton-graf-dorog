@@ -98,9 +98,15 @@ function coversRoad(ring: readonly P[], segments: ReadonlyArray<{ a: P; b: P; ha
   });
 }
 
-/** The ghost of template `template` at `center`: lined up with the nearest road unless `free`. */
-export function ghostAt(doc: OsmDoc, center: LonLat, template: number, turn: number, free: boolean): Ghost {
-  const t = BUILDING_TEMPLATES[template] ?? BUILDING_TEMPLATES[0];
+/** Size of what a ghost stands for, metres: across and along its long axis. */
+export interface Footprint { readonly width: number; readonly length: number }
+
+/**
+ * The ghost of template `template` (a building template's index, or any footprint, such as a car
+ * park) at `center`: lined up with the nearest road unless `free`.
+ */
+export function ghostAt(doc: OsmDoc, center: LonLat, template: number | Footprint, turn: number, free: boolean): Ghost {
+  const t: Footprint = typeof template === 'number' ? (BUILDING_TEMPLATES[template] ?? BUILDING_TEMPLATES[0]) : template;
   const { m, c, segments } = nearbySegments(doc, center, Math.max(ALIGN_RADIUS, t.length));
   const nearest = segments.filter((s) => s.d <= ALIGN_RADIUS).sort((x, y) => x.d - y.d)[0];
   const aligned = !free && Boolean(nearest);

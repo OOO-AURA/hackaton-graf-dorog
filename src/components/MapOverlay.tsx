@@ -14,6 +14,8 @@ import { EmptyState } from './EmptyState';
 import { SimBar } from './sim/SimBar';
 import { HeightHandle } from './HeightHandle';
 import { useBuildingTool } from '../map/buildingTool';
+import { useParkingTool } from '../map/parkingTool';
+import { PARKING_TEMPLATES, placesFor } from '../osm/parking';
 import { BUILDING_TEMPLATES } from '../osm/buildingShape';
 import { MapHint } from './MapHint';
 import { ViewNote } from './ViewNote';
@@ -29,6 +31,28 @@ function BuildingBar() {
         {BUILDING_TEMPLATES.map((t, i) => (
           <button key={t.id} role="radio" aria-checked={template === i} className={template === i ? 'on' : ''} onClick={() => setTemplate(i)}
             title={`${t.width}×${t.length} м, ${t.levels} эт. (${i + 1})`}>
+            <kbd>{i + 1}</kbd>{t.label}
+          </button>
+        ))}
+      </div>
+      <span className={`building-hint${ghost?.onRoad ? ' warn' : ''}`}>
+        {ghost?.onRoad ? 'На дороге' : ghost?.aligned ? 'Вдоль дороги' : 'Свободно'}
+      </span>
+    </div>
+  );
+}
+
+/** Size picker and hints of the car park tool, next to the tools; places by the area of each size. */
+function ParkingBar() {
+  const template = useParkingTool((s) => s.template);
+  const setTemplate = useParkingTool((s) => s.setTemplate);
+  const ghost = useParkingTool((s) => s.ghost);
+  return (
+    <div className="float float-draw float-building">
+      <div className="seg" role="radiogroup" aria-label="Размер парковки">
+        {PARKING_TEMPLATES.map((t, i) => (
+          <button key={t.id} role="radio" aria-checked={template === i} className={template === i ? 'on' : ''} onClick={() => setTemplate(i)}
+            title={`${t.width}×${t.length} м, около ${placesFor(t.width * t.length)} мест (${i + 1})`}>
             <kbd>{i + 1}</kbd>{t.label}
           </button>
         ))}
@@ -66,6 +90,7 @@ function FloatingTools() {
       </div>
       <PresetDock />
       {mode === 'building' && <BuildingBar />}
+      {mode === 'parking' && <ParkingBar />}
       {mode === 'draw' && (
         <div className="float float-draw">
           <DrawShape />

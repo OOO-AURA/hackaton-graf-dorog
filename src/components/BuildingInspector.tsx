@@ -17,8 +17,8 @@ import { duplicateSelected, setBuildingAngle, setBuildingSize, squareUpSelected 
 const num = (v: string) => Number.parseFloat(v.replace(',', '.'));
 const fmt = (x: number) => String(Math.round(x * 10) / 10);
 
-/** Size and turn of the outline in numbers, and the shape tools that go with them. */
-function ShapeSection({ way }: { way: OsmWay }) {
+/** Size and turn of the outline in numbers, and the shape tools that go with them; also for car parks. */
+export function ShapeSection({ way, parking = false }: { way: OsmWay; parking?: boolean }) {
   const doc = useEditor((s) => s.doc);
   const local = localOutline(doc, way.id);
   if (!local) return null;
@@ -36,10 +36,10 @@ function ShapeSection({ way }: { way: OsmWay }) {
         <dt>Площадь</dt><dd className="mono">{Math.round(area(local.ring))} м²</dd>
         <dt>Углов</dt><dd className="mono">{corners}</dd>
       </dl>
-      {crossed && <p className="hint warn">Стороны контура пересекаются: Webots такое здание не построит. Перетащите углы или выровняйте их.</p>}
+      {crossed && <p className="hint warn">Стороны контура пересекаются: {parking ? 'площадь и число мест посчитаются неверно' : 'Webots такое здание не построит'}. Перетащите углы или выровняйте их.</p>}
       <p className="hint">
         На карте: углы тянутся с прилипанием к прямому углу (Alt — без него), точка на середине стороны добавляет угол, сторону можно сдвинуть,
-        розовая ручка поворачивает, перетаскивание внутри двигает. Клик по углу и Delete убирают угол. Ширина и длина — по сторонам здания, поворот — азимут длинной стороны.
+        розовая ручка поворачивает, перетаскивание внутри двигает. Клик по углу и Delete убирают угол. Ширина и длина — по сторонам {parking ? 'парковки' : 'здания'}, поворот — азимут длинной стороны.
       </p>
       <div className="buttons">
         <button className="btn" onClick={squareUpSelected} title="Все углы станут прямыми">Выровнять углы</button>

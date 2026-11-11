@@ -201,7 +201,7 @@ MATSim 2026.0 берётся архивом с [matsim.org](https://matsim.org/d
   - маршрут «Отсюда / Сюда»;
   - у перекрёстка: кнопка «Редактор перекрёстка», «Полосы» (полосы въездов − / +, направления каждой полосы, шаблоны), «Знаки приоритета» (без знака, главная дорога, уступи дорогу, STOP на каждом въезде), «Пропускная способность», «Сведения»;
   - «Все теги OSM».
-- **Улица целиком** (`StreetInspector.tsx`), **несколько дорог** (`MultiInspector.tsx`), **здание** (`BuildingInspector.tsx`), **ж/д путь и станция** (`RailInspector.tsx`).
+- **Улица целиком** (`StreetInspector.tsx`), **несколько дорог** (`MultiInspector.tsx`), **здание** (`BuildingInspector.tsx`), **парковка** (`ParkingInspector.tsx`: вид, места по площади и для инвалидов, оплата, доступ, форма), **ж/д путь и станция** (`RailInspector.tsx`).
 - В режимах «Дорога» и «ОДД» инспектор показывает каталог шаблонов дорог с поперечным профилем и палитру знаков (`ToolCatalog.tsx`).
 
 ### Редактор перекрёстка (`src/components/JunctionEditor.tsx`)
@@ -403,7 +403,8 @@ MATSim 2026.0 берётся архивом с [matsim.org](https://matsim.org/d
 
 | Клавиша | Действие |
 |---|---|
-| V / D / N / T / B | Выбор / Рисовать дорогу / Узел на дороге / Объект ОДД / Здание |
+| V / D / N / T / B / K | Выбор / Рисовать дорогу / Узел на дороге / Объект ОДД / Здание / Парковка |
+| K, затем 1–3, R, Shift+R | Парковка: размер, поворот на 90° и на 15° |
 | Enter, двойной клик | Завершить дорогу |
 | Esc | Отменить рисование / снять выделение |
 | 1–9 | Шаблон новой дороги |
@@ -457,7 +458,8 @@ MATSim 2026.0 берётся архивом с [matsim.org](https://matsim.org/d
 |---|---|---|
 | [AreaMenu.tsx](../src/components/AreaMenu.tsx) | Меню «Из OSM»: город, видимая область, готовые районы | `AreaMenu` |
 | [BottomDock.tsx](../src/components/BottomDock.tsx) | Нижняя панель: вкладки текущего шага | `TAB_LABELS`, `BottomDock` |
-| [BuildingInspector.tsx](../src/components/BuildingInspector.tsx) | Инспектор здания: размеры, поворот, форма, высота | `BuildingInspector` |
+| [BuildingInspector.tsx](../src/components/BuildingInspector.tsx) | Инспектор здания: размеры, поворот, форма, высота | `BuildingInspector`, `ShapeSection` |
+| [ParkingInspector.tsx](../src/components/ParkingInspector.tsx) | Инспектор парковки: вид, места по площади и для инвалидов, оплата, доступ, форма | `ParkingInspector` |
 | [BundleSection.tsx](../src/components/BundleSection.tsx) | Кнопка «Кто едет по…» и список пар зон пучка | `BundleSection` |
 | [BusParts.tsx](../src/components/BusParts.tsx) | Поля полосы для маршрутных ТС и блок остановки | `BusLaneFields`, `StopSection` |
 | [CapacityParts.tsx](../src/components/CapacityParts.tsx) | Пропускная способность перекрёстка и список узких мест | `JunctionCapacitySection`, `Bottlenecks` |
@@ -530,7 +532,8 @@ MATSim 2026.0 берётся архивом с [matsim.org](https://matsim.org/d
 
 | Файл | За что отвечает | Что внутри |
 |---|---|---|
-| [buildingTool.ts](../src/map/buildingTool.ts) | Инструмент «Здание»: призрак под курсором и постановка | `Ghost`, `useBuildingTool`, `ghostAt`, `placeGhost`, `useBuildingGhost` |
+| [buildingTool.ts](../src/map/buildingTool.ts) | Инструмент «Здание»: призрак под курсором и постановка | `Ghost`, `Footprint`, `useBuildingTool`, `ghostAt`, `placeGhost`, `useBuildingGhost` |
+| [parkingTool.ts](../src/map/parkingTool.ts) | Инструмент «Парковка» (K): призрак площадки вдоль дороги и постановка | `useParkingTool`, `parkingGhostAt`, `placeParkingGhost`, `useParkingGhost` |
 | [camera.ts](../src/map/camera.ts) | Запоминание положения камеры по файлу | `SavedCamera`, `loadCamera`, `saveCamera` |
 | [drawSnap.ts](../src/map/drawSnap.ts) | Куда встанет следующая точка дороги: магнит к узлу и дороге, шаг угла | `DrawSnap`, `DrawTarget`, `drawTarget` |
 | [elevation.ts](../src/map/elevation.ts) | Высоты дорог у мостов для 3D | `APPROACH_LENGTH`, `deckHeight`, `nodeElevations`, `isLifted`, `isLiftedNode` |
@@ -574,6 +577,7 @@ MATSim 2026.0 берётся архивом с [matsim.org](https://matsim.org/d
 | [buildingEdit.ts](../src/osm/buildingEdit.ts) | Создание, форма, копия и удаление зданий | `LonLat`, `templateTags`, `metres`, `outlineOf`, `addBuilding`, `placeTemplate`, `templateRing`, `setOutline`, `localOutline`, `reshape` … |
 | [buildingShape.ts](../src/osm/buildingShape.ts) | Геометрия контуров зданий | `P`, `BuildingTemplate`, `BUILDING_TEMPLATES`, `centroid`, `area`, `rectangle`, `translate`, `rotate`, `Box`, `orientedBox` … |
 | [busLanes.ts](../src/osm/busLanes.ts) | Полосы для маршрутных ТС (psv) | `Travel`, `psvLanes`, `hasPsvLane`, `canHavePsvLane`, `setPsvLane`, `travels` |
+| [parking.ts](../src/osm/parking.ts) | Парковки в тегах OSM: виды, места по площади (СП 42.13330), места для инвалидов (СП 59.13330), шаблоны, места вдоль улицы | `isParkingArea`, `isOutlineWay`, `parkingInfo`, `placesFor`, `disabledFor`, `withParkingKind`, `retagKind`, `retagLevels`, `placeParking`, `streetPlaces` |
 | [capacity.ts](../src/osm/capacity.ts) | Пропускная способность перекрёстка и узкие места | `ApproachRole`, `LANE_CAPACITY`, `ROLE_LABEL`, `ApproachCapacity`, `JunctionCapacity`, `junctionCapacity`, `WayFlow`, `JunctionLoad`, `junctionLoad`, `bottlenecks` |
 | [clearance.ts](../src/osm/clearance.ts) | Здания на пути новой дороги; дороги, которые заходят под здания | `CLEARANCE_MARGIN`, `BuildingConflict`, `buildingConflicts`, `demolishBuildings`, `cutBuildings`, `RoadOverlap`, `roadBuildingOverlaps` |
 | [components.ts](../src/osm/components.ts) | Компоненты связности графа | `weakComponents`, `strongComponents`, `largestGroup` |

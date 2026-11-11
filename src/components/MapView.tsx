@@ -24,7 +24,7 @@ import { vehiclePoses, vehicleShapes } from '../sim/poses';
 import { losFeatures, signalFeatures } from '../sim/overlay';
 import { useMacro } from '../macro/store';
 import { useZoneEditing } from '../macro/useZoneEditing';
-import { contextGeoJson, docBounds, nodesGeoJson, roadsGeoJson, railGeoJson, stationGeoJson } from '../map/geojson';
+import { contextGeoJson, docBounds, nodesGeoJson, parkingGeoJson, roadsGeoJson, railGeoJson, stationGeoJson } from '../map/geojson';
 import { useMapInteractions } from '../map/useMapInteractions';
 import { currentSelection, useEditor } from '../state/store';
 import { useSettledDoc } from '../state/settled';
@@ -85,6 +85,7 @@ function useSyncedSources(map: MapLibreMap | null, pointer: [number, number] | n
     const context = contextGeoJson(doc);
     setData(map, 'buildings', context.buildings);
     setData(map, 'context', context.lines);
+    setData(map, 'parking', parkingGeoJson(doc));
     const roads = roadsGeoJson(doc);
     setData(map, 'roads', roads);
     setData(map, 'sidewalks', sidewalkLines(roads));

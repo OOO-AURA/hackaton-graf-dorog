@@ -14,6 +14,8 @@ import { curvePoints } from '../osm/drawGeometry';
 import { isBuilding } from '../osm/building';
 import { useBoxSelect } from './useBoxSelect';
 import { placeGhost, useBuildingGhost } from './buildingTool';
+import { placeParkingGhost, useParkingGhost } from './parkingTool';
+import { isParkingArea } from '../osm/parking';
 import { HANDLE_LAYERS, useBuildingEditing } from './useBuildingEditing';
 import { setPointer } from '../state/buildingActions';
 import { laneLinkAt, useLaneEditing } from './useLaneEditing';
@@ -65,7 +67,7 @@ async function pickAt(map: MapLibreMap, point: { x: number; y: number }): Promis
   const st = useEditor.getState();
   const picked = id && pickableWay(st.doc, id) ? st.doc.ways[id] : null;
   // A bridge deck picked in 3D: the stretch under the cursor, as a click on a flat road picks.
-  if (picked && !isBuilding(picked.tags)) st.select({ type: 'way', id: picked.id, piece: deckPiece(map, st.doc, picked.id, point) });
+  if (picked && !isBuilding(picked.tags) && !isParkingArea(picked)) st.select({ type: 'way', id: picked.id, piece: deckPiece(map, st.doc, picked.id, point) });
   // A click on a road picks the stretch between the junctions on either side of it.
   else if (way) st.select({ type: 'way', id: way.wayId, piece: pieceAround(st.doc, way.wayId, way.index) ?? undefined });
   else st.select(picked ? { type: 'way', id: picked.id } : null);
@@ -155,6 +157,11 @@ function handleClick(map: MapLibreMap, e: MapMouseEvent): void {
     }
     case 'building': {
       const id = placeGhost();
+      if (id) useEditor.getState().select({ type: 'way', id });
+      return;
+    }
+    case 'parking': {
+      const id = placeParkingGhost();
       if (id) useEditor.getState().select({ type: 'way', id });
       return;
     }
@@ -291,6 +298,7 @@ export function useMapInteractions(map: MapLibreMap | null, onPointer: (lon: num
   useBoxSelect(map);
   useLaneEditing(map);
   useBuildingGhost(map);
+  useParkingGhost(map);
   useBuildingEditing(map);
   useEffect(() => {
     if (!map) return undefined;
@@ -305,7 +313,7 @@ export function useMapInteractions(map: MapLibreMap | null, onPointer: (lon: num
       const kind = useUi.getState().featureKind;
       const signing = s.mode === 'signal' && kind.startsWith('ts:');
       showSignGhost(map, signing ? signSnap(map, s.doc, e.point, e.lngLat) : null, signing ? kind.slice(3) : null, useUi.getState().signValue);
-      const placing = s.mode === 'draw' || s.mode === 'building';
+      const placing = s.mode === 'draw' || s.mode === 'building' || s.mode === 'parking';
       const hovering = !placing && (pickNode(map, e.point) || pickWay(map, s.doc, e.point));
       map.getCanvas().style.cursor = placing ? 'crosshair' : hovering ? 'pointer' : '';
     };

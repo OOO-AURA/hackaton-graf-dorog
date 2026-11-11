@@ -48,6 +48,8 @@ export const SIGN_SVG: Record<string, string> = {
   main_road: `<path d="M24 2 L46 24 L24 46 L2 24 Z" fill="${INK}"/><path d="M24 4 L44 24 L24 44 L4 24 Z" fill="#fff"/><path d="M24 10 L38 24 L24 38 L10 24 Z" fill="${YELLOW}"/>`,
   // 5.19.1 «Пешеходный переход».
   crossing: service(`<path d="M24 7 L42 40 H6 Z" fill="#fff"/><path d="M12.5 37.5 H35.5" stroke="${INK}" stroke-width="3.2" stroke-dasharray="2.6 1.6"/>${pedestrian(23.5, 25, 1.05, INK)}`),
+  // 6.4 «Парковка (парковочное место)».
+  parking: service(`<text x="24" y="34" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="28" fill="#fff">P</text>`),
   // 5.16 «Место остановки автобуса».
   bus_stop: service(bus('#fff', BLUE)),
   // 5.17 «Место остановки трамвая».

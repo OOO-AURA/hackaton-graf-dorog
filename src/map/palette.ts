@@ -24,6 +24,9 @@ export interface MapPalette {
   building: string;
   buildingLine: string;
   building3d: string;
+  /** Car parks: a light fill with a blue edge and the P sign of 6.4. */
+  parking: string;
+  parkingLine: string;
   /** Sides of bridge decks, piers and tunnel portals in 3D. */
   bridgeSide: string;
   /** Tops of bridge parapets in 3D: a light outline of the deck. */
@@ -78,6 +81,8 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     building: '#C9B48A',
     buildingLine: '#8C7350',
     building3d: '#D9C69C',
+    parking: 'rgba(63, 139, 196, 0.16)',
+    parkingLine: '#2D6A99',
     bridgeSide: '#8C7350',
     bridgeParapet: '#F4EBDD',
     embankment: '#A3A07A',
@@ -121,6 +126,8 @@ export const MAP_PALETTE: Record<Theme, MapPalette> = {
     building: '#34343A',
     buildingLine: '#4C4C54',
     building3d: '#4A4A52',
+    parking: 'rgba(95, 163, 214, 0.14)',
+    parkingLine: '#7DB6E3',
     bridgeSide: '#5C5C66',
     bridgeParapet: '#D9D9E0',
     embankment: '#3E4437',

@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import { isParkingArea } from '../osm/parking';
 import { currentSelection, useEditor } from '../state/store';
 import { useUi } from '../state/ui';
 import { deleteSelection, flipSelected, reverseSelected, splitAtSelected, toggleSignalSelected } from '../state/actions';
@@ -38,6 +39,17 @@ function useItems(): { title: string; items: Item[] } | null {
   }
   const way = doc.ways[sel.id];
   if (!way) return null;
+  if (isParkingArea(way)) {
+    return {
+      title: way.tags.name || 'Парковка',
+      items: [
+        { label: 'Копия рядом', icon: 'parking', key: '⌘D', run: duplicateSelected, edits: true },
+        { label: 'Скопировать', key: '⌘C', run: () => { copySelected(); } },
+        { label: 'Выровнять углы до прямых', run: squareUpSelected, edits: true },
+        { label: 'Удалить парковку', icon: 'trash', key: 'Del', run: deleteSelection, danger: true, edits: true },
+      ],
+    };
+  }
   if (isBuilding(way.tags)) {
     return {
       title: 'Здание',

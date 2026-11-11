@@ -1,4 +1,4 @@
-import { isBuilding } from '../osm/building';
+import { isOutlineWay } from '../osm/parking';
 import { addBuilding, duplicateBuilding, localOutline, metres, reshape, type LonLat } from '../osm/buildingEdit';
 import { centroid, orientedBox, resize, rotate, squareUp, translate, type P } from '../osm/buildingShape';
 import type { Tags } from '../osm/types';
@@ -23,7 +23,7 @@ export function selectedBuildingId(): string | null {
   const sel = currentSelection(s);
   if (sel?.type !== 'way') return null;
   const w = s.doc.ways[sel.id];
-  return w && isBuilding(w.tags) ? w.id : null;
+  return w && isOutlineWay(w) ? w.id : null;
 }
 
 const change = (fn: (ring: P[]) => P[]) => {

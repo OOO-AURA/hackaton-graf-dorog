@@ -6,6 +6,7 @@ import {
 } from '../osm/buildingShape';
 import { localOutline, setOutline } from '../osm/buildingEdit';
 import { isBuilding } from '../osm/building';
+import { isParkingArea } from '../osm/parking';
 import type { OsmDoc } from '../osm/types';
 import { currentSelection, useEditor } from '../state/store';
 
@@ -38,7 +39,8 @@ export function selectedBuilding(): string | null {
   const sel = currentSelection(s);
   if (!sel || sel.type !== 'way' || s.mode !== 'select') return null;
   const way = s.doc.ways[sel.id];
-  return way && isBuilding(way.tags) ? way.id : null;
+  // A car park is shaped with the same handles.
+  return way && (isBuilding(way.tags) || isParkingArea(way)) ? way.id : null;
 }
 
 /** Removes the picked corner of the selected building; false when there is none to remove. */
