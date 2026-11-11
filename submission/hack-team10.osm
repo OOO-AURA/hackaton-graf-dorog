@@ -2,6 +2,8 @@
 <osm version="0.6" generator="hackaton-graf-dorog" copyright="OpenStreetMap and contributors" attribution="http://www.openstreetmap.org/copyright" license="http://opendatacommons.org/licenses/odbl/1-0/">
  <bounds minlat="52.2511300" minlon="104.2565600" maxlat="52.2694200" maxlon="104.2677000"/>
  <node id="285992834" visible="true" version="8" changeset="180776038" timestamp="2026-04-02T16:10:58Z" user="zaqwedcxsx" uid="23955951" lat="52.2522145" lon="104.2736181"/>
+ <node id="1498865552" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:21Z" user="LexIgnatov" uid="316868" lat="52.2546356" lon="104.2644532"/>
+ <node id="1498865607" visible="true" version="1" changeset="9797638" timestamp="2011-11-11T16:24:23Z" user="LexIgnatov" uid="316868" lat="52.2547272" lon="104.2623238"/>
  <node id="286122970" visible="true" version="5" changeset="163484632" timestamp="2025-03-11T13:13:52Z" user="SkArCh" uid="403931" lat="52.2568469" lon="104.2628152"/>
  <node id="286123816" visible="true" version="3" changeset="5959229" timestamp="2010-10-05T07:49:08Z" user="LexIgnatov" uid="316868" lat="52.2547963" lon="104.2584272"/>
  <node id="286123817" visible="true" version="5" changeset="68193901" timestamp="2019-03-16T01:33:54Z" user="Semaa1" uid="8994827" lat="52.2548749" lon="104.257472"/>
@@ -11010,7 +11012,7 @@
  </way>
  <way id="140226629" visible="true" version="9" changeset="181472551" timestamp="2026-04-17T18:46:19Z" user="zaqwedcxsx" uid="23955951">
    <nd ref="1498787069"/>
-   <nd ref="1498865536"/>
+   <nd ref="1498865552"/>
    <nd ref="1498865542"/>
    <nd ref="1498865528"/>
    <nd ref="1498865520"/>
@@ -11100,7 +11102,7 @@
    <nd ref="1498865587"/>
    <nd ref="1498865594"/>
    <nd ref="1498865599"/>
-   <nd ref="1498865592"/>
+   <nd ref="1498865607"/>
    <nd ref="1498865605"/>
    <tag k="foot" v="no"/>
    <tag k="highway" v="primary"/>
