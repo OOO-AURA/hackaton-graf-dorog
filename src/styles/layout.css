@@ -63,7 +63,7 @@ body.resizing-y .app { transition: none; }
   -webkit-backdrop-filter: none; backdrop-filter: none;
 }
 .navigator { display: flex; flex-direction: column; }
-.side-toggle { position: absolute; top: 6px; z-index: 2; width: 22px; height: 22px; }
+.side-toggle { position: absolute; top: 6px; z-index: 10; width: 22px; height: 22px; }
 .side-left .side-toggle { right: 6px; }
 .side-right .side-toggle { left: 6px; }
 .side.collapsed .side-toggle { left: 3px; right: auto; }
