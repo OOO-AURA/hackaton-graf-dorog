@@ -13,9 +13,9 @@ export type RoadLook = 'graph' | 'engineering' | 'scheme';
 export type BottomTab = 'issues' | 'check' | 'flows' | 'transit' | 'scenarios' | 'journal' | 'errors';
 /** Tab of the navigator: objects of the graph, how the map looks, the legend. */
 export type NavTab = 'objects' | 'view' | 'legend';
-export type LayerId = 'roads' | 'sidewalks' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'tram' | 'signs' | 'transit' | 'changes';
+export type LayerId = 'roads' | 'sidewalks' | 'junctions' | 'signals' | 'crossings' | 'bridges' | 'tunnels' | 'buildings' | 'parking' | 'tram' | 'signs' | 'transit' | 'changes';
 
-export const LAYER_IDS: readonly LayerId[] = ['roads', 'sidewalks', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'tram', 'signs', 'transit', 'changes'];
+export const LAYER_IDS: readonly LayerId[] = ['roads', 'sidewalks', 'junctions', 'signals', 'crossings', 'bridges', 'tunnels', 'buildings', 'parking', 'tram', 'signs', 'transit', 'changes'];
 
 /** Layers that start hidden: they are overlays for a particular task. */
 const OFF_BY_DEFAULT: ReadonlySet<LayerId> = new Set(['transit', 'changes']);

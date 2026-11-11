@@ -12,6 +12,7 @@ import { signUrl } from '../map/signArt';
 import { junctions } from '../osm/lanes';
 import { ViewSettings } from './ViewSettings';
 import { useSettledDoc } from '../state/settled';
+import { isParkingArea, parkingInfo, parkingKind, PARKING_KINDS } from '../osm/parking';
 
 interface Street { name: string; wayIds: string[]; bounds: [number, number, number, number] }
 
@@ -58,6 +59,19 @@ function controlsOf(doc: OsmDoc): Control[] {
   return out;
 }
 
+interface ParkingLot { id: string; name: string; places: number | null; bounds: [number, number, number, number] }
+
+/** Car parks drawn as areas, named or by their kind, the largest first. */
+function parkingsOf(doc: OsmDoc): ParkingLot[] {
+  return Object.values(doc.ways).filter(isParkingArea).map((w) => {
+    const pts = w.refs.map((r) => doc.nodes[r]).filter(Boolean);
+    const bounds: [number, number, number, number] = [Math.min(...pts.map((n) => n.lon)), Math.min(...pts.map((n) => n.lat)), Math.max(...pts.map((n) => n.lon)), Math.max(...pts.map((n) => n.lat))];
+    const info = parkingInfo(doc, w.id);
+    const kind = PARKING_KINDS.find(([v]) => v === parkingKind(w.tags))?.[1] ?? 'Парковка';
+    return { id: w.id, name: w.tags.name || kind, places: info ? info.capacity ?? info.estimate : null, bounds };
+  }).sort((a, b) => (b.places ?? 0) - (a.places ?? 0));
+}
+
 const around = (lon: number, lat: number, d = 0.0012): [number, number, number, number] => [lon - d, lat - d * 0.6, lon + d, lat + d * 0.6];
 
 function Group({ title, count, open, onToggle, children }: { title: string; count: number; open: boolean; onToggle: () => void; children: React.ReactNode }) {
@@ -81,9 +95,11 @@ function Objects() {
   const streets = useMemo(() => streetsOf(doc), [doc]);
   const juncs = useMemo(() => junctionsOf(doc), [doc]);
   const controls = useMemo(() => controlsOf(doc), [doc]);
+  const parkings = useMemo(() => parkingsOf(doc), [doc]);
   const q = query.trim().toLowerCase();
   const fStreets = q ? streets.filter((s) => s.name.toLowerCase().includes(q)) : streets;
   const fJuncs = q ? juncs.filter((j) => j.name.toLowerCase().includes(q)) : juncs;
+  const fParkings = q ? parkings.filter((p) => p.name.toLowerCase().includes(q) || 'парковка'.includes(q)) : parkings;
   const byKind = NODE_FEATURES.map((f) => ({ f, items: controls.filter((c) => c.kind === f.id) })).filter((g) => g.items.length && (!q || g.f.label.toLowerCase().includes(q)));
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }));
   const openStreet = (s: Street) => { flyTo(s.bounds); select(s.wayIds.length > 1 ? { type: 'street', id: s.name } : { type: 'way', id: s.wayIds[0] }); };
@@ -103,6 +119,12 @@ function Objects() {
       <Group title="Перекрёстки" count={fJuncs.length} open={open.junctions} onToggle={() => toggle('junctions')}>
         <VirtualList className="street-list" items={fJuncs} rowHeight={25} keyOf={(j) => j.id}
           render={(j) => <button onClick={() => openNode(j.id, j.lon, j.lat)}><span>{j.name}</span></button>} />
+      </Group>
+      <Group title="Парковки" count={fParkings.length} open={open.parking || (Boolean(q) && fParkings.length > 0)} onToggle={() => toggle('parking')}>
+        {fParkings.length
+          ? <VirtualList className="street-list" items={fParkings} rowHeight={25} keyOf={(p) => p.id}
+              render={(p) => <button onClick={() => { flyTo(p.bounds); select({ type: 'way', id: p.id }); }}><span>{p.name}</span>{p.places !== null && <span className="mono count">{p.places} м.</span>}</button>} />
+          : <p className="hint">Парковок нет. Поставить: инструмент «Парковка», клавиша K</p>}
       </Group>
       <Group title="ТСОДД" count={controls.length} open={open.controls} onToggle={() => toggle('controls')}>
         <ul className="control-list">
@@ -129,6 +151,7 @@ function Legend() {
         <li><img className="legend-sign" src={signUrl('signal')} alt="" />Светофор</li>
         <li><img className="legend-sign" src={signUrl('crossing')} alt="" />Переход</li>
         <li><img className="legend-sign" src={signUrl('bump')} alt="" />Лежачий полицейский</li>
+        <li><img className="legend-sign" src={signUrl('parking')} alt="" />Парковка</li>
         <li><i className="swatch-ring" style={{ borderColor: p.error }} />Ошибка графа, запрет поворота</li>
         <li><i className="swatch-ring" style={{ borderColor: p.warning }} />Замечание</li>
         <li><i className="swatch-ring" style={{ borderColor: p.cordon }} />Граница фрагмента</li>

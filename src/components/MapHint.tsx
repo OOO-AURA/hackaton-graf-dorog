@@ -1,4 +1,5 @@
 import { currentSelection, useEditor } from '../state/store';
+import { isParkingArea } from '../osm/parking';
 import { useSettledDoc } from '../state/settled';
 import { isBuildingWay } from '../osm/building';
 import { useUi } from '../state/ui';
@@ -22,6 +23,7 @@ function useHintText(): string {
   if (selection.type === 'street') return 'Выбрана вся улица: правка справа меняет все её участки сразу.';
   if (selection.type === 'node') return 'Выбран узел. Тащите его мышью; брошенный на другой узел, он сделает перекрёсток. S ставит светофор, X разрезает дороги.';
   const way = doc.ways[selection.id];
+  if (isParkingArea(way)) return 'Выбрана парковка. Тяните углы и стороны, чтобы поменять форму; места, оплата и доступ справа. Delete удаляет её.';
   if (way && isBuildingWay(way)) return 'Выбрано здание. Тяните углы и стороны, чтобы поменять форму; размеры и этажность справа.';
   return selection.piece
     ? 'Выбран участок дороги между перекрёстками: правка справа меняет только его. Delete удаляет участок, Esc снимает выбор.'

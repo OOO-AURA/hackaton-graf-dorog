@@ -6,6 +6,8 @@ import { NODE_FEATURES } from '../map/features';
 import { signUrl } from '../map/signArt';
 import { PRESETS, TOOLS_IN } from '../map/editScope';
 import { useBuildingTool } from '../map/buildingTool';
+import { useParkingTool } from '../map/parkingTool';
+import { PARKING_TEMPLATES, placesFor } from '../osm/parking';
 import { useEditor } from '../state/store';
 import { useUi } from '../state/ui';
 import { gabarit, Profile, RuleSigns } from './ToolCatalog';
@@ -13,16 +15,17 @@ import { Icon, type IconName } from './icons';
 
 /**
  * Ready-made pieces at the bottom of the map, in a capsule: closed it is a row of round buttons,
- * one per kind (roads, buildings, signs and traffic control, stations); a click opens the capsule
+ * one per kind (roads, buildings, car parks, signs and traffic control, stations); a click opens the capsule
  * upwards into a strip of cards of that kind. A card picks its tool with that piece and the
  * capsule closes again, showing what is picked. Only kinds the view mode allows are offered.
  */
 
-type Tab = 'roads' | 'buildings' | 'signs' | 'stations';
+type Tab = 'roads' | 'buildings' | 'parking' | 'signs' | 'stations';
 
 const TABS: ReadonlyArray<{ id: Tab; label: string; icon: IconName; tool: string }> = [
   { id: 'roads', label: 'Дороги', icon: 'road', tool: 'draw' },
   { id: 'buildings', label: 'Здания', icon: 'building', tool: 'building' },
+  { id: 'parking', label: 'Парковки', icon: 'parking', tool: 'parking' },
   { id: 'signs', label: 'Знаки и ОДД', icon: 'signal', tool: 'signal' },
   { id: 'stations', label: 'Станции', icon: 'node', tool: 'signal' },
 ];
@@ -91,6 +94,31 @@ function BuildingCards({ close }: { close: () => void }) {
   );
 }
 
+function ParkingCards({ close }: { close: () => void }) {
+  const template = useParkingTool((s) => s.template);
+  const mode = useEditor((s) => s.mode);
+  return (
+    <div className="pd-group">
+      <span className="pd-group-title">Парковки</span>
+      <div className="pd-cards">
+        {PARKING_TEMPLATES.map((t, i) => {
+          const on = mode === 'parking' && template === i;
+          const w = 14 + (t.length / 60) * 26;
+          const h = 6 + (t.width / 45) * 14;
+          return (
+            <button key={t.id} className={`pd-card${on ? ' on' : ''}`} aria-pressed={on} title={`${t.label}: клавиша ${i + 1}, R поворачивает`}
+              onClick={() => { useParkingTool.getState().setTemplate(i); useEditor.getState().setMode('parking'); close(); }}>
+              <svg className="tpl-profile" viewBox="0 0 72 26" aria-hidden="true"><rect x={36 - w / 2} y={13 - h / 2} width={w} height={h} rx="1.5" fill="#3F8BC4" fillOpacity="0.3" stroke="#7DB6E3" strokeDasharray="3 1.5" /><text x="36" y="17" textAnchor="middle" fontSize="11" fontWeight="700" fill="#7DB6E3">P</text></svg>
+              <b>{t.label}</b>
+              <span className="mono">{t.width}×{t.length} м · ≈{placesFor(t.width * t.length)} мест</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SignCards({ close }: { close: () => void }) {
   const kind = useUi((s) => s.featureKind);
   const mode = useEditor((s) => s.mode);
@@ -149,9 +177,11 @@ function usePicked(): string | null {
   const mode = useEditor((s) => s.mode);
   const template = useEditor((s) => s.templateIndex);
   const building = useBuildingTool((s) => s.template);
+  const parking = useParkingTool((s) => s.template);
   const kind = useUi((s) => s.featureKind);
   if (mode === 'draw') return ROAD_TEMPLATES[template]?.label ?? null;
   if (mode === 'building') return `Здание: ${BUILDING_TEMPLATES[building]?.label.toLowerCase()}`;
+  if (mode === 'parking') return `Парковка: ${PARKING_TEMPLATES[parking]?.label.toLowerCase()}`;
   if (mode === 'signal') {
     if (kind.startsWith('ts:')) { const d = signDef(kind.slice(3)); return d ? `${d.code.startsWith('signal') ? '' : `${d.code} `}${d.name}` : null; }
     return NODE_FEATURES.find((f) => f.id === kind)?.label ?? null;
@@ -173,6 +203,7 @@ export function PresetDock() {
   const has: Record<Tab, boolean> = {
     roads: ROAD_TEMPLATES.some((t) => PRESETS[lens].road(t.tags)),
     buildings: lens === 'all',
+    parking: lens === 'all' || lens === 'car',
     signs: SIGNS.some((s) => PRESETS[lens].sign(s.code)),
     stations: NODE_FEATURES.some((f) => STATION_IDS.has(f.id) && PRESETS[lens].station(f.id)),
   };
@@ -194,6 +225,7 @@ export function PresetDock() {
         <div className="pd-inner">
           {open === 'roads' && <RoadCards close={close} />}
           {open === 'buildings' && <BuildingCards close={close} />}
+          {open === 'parking' && <ParkingCards close={close} />}
           {open === 'signs' && <SignCards close={close} />}
           {open === 'stations' && <StationCards close={close} />}
         </div>

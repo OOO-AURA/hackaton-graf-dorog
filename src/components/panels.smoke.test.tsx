@@ -9,6 +9,9 @@ import { WayInspector } from './WayInspector';
 import { ChangesSummary } from './ChangesSummary';
 import { BundleSection } from './BundleSection';
 import { Inspector } from './Inspector';
+import { ParkingInspector } from './ParkingInspector';
+import { placeParking, PARKING_TEMPLATES } from '../osm/parking';
+import { deleteSelection } from '../state/actions';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -92,5 +95,21 @@ describe('railway panels', () => {
     expect(r.text()).toContain('Мельниково');
     expect(r.text()).toContain('Остановочный пункт');
     r.done();
+  });
+
+  test('car park inspector shows places by area, the disabled places the rules ask for, and switches kind', () => {
+    let id = '';
+    act(() => useEditor.getState().apply((d) => { const r = placeParking(d, [104.001, 52.0005], PARKING_TEMPLATES[1], 0); id = r.id; return r.doc; }));
+    act(() => useEditor.getState().select({ type: 'way', id }));
+    const r = render(<Inspector />);
+    expect(r.text()).toContain('Парковка');
+    expect(r.text()).toContain('≈ 40 мест');
+    expect(r.text()).toContain('СП 59.13330');
+    r.done();
+    const p = render(<ParkingInspector way={useEditor.getState().doc.ways[id]} />);
+    expect(p.text()).toContain('Места по площади');
+    p.done();
+    act(() => deleteSelection());
+    expect(useEditor.getState().doc.ways[id]).toBeUndefined();
   });
 });

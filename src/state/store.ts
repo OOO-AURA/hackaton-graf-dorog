@@ -9,7 +9,7 @@ import type { Piece } from '../osm/pieces';
 import { applyRules, countsLine, networkChange } from '../osm/rules';
 
 /** `view` looks only: objects are picked and shown, nothing is changed. */
-export type Mode = 'view' | 'select' | 'draw' | 'insert' | 'signal' | 'building';
+export type Mode = 'view' | 'select' | 'draw' | 'insert' | 'signal' | 'building' | 'parking';
 /** `street` selects every drivable way named `id` (see osm/street.ts). */
 /** What is selected; a way may be picked only between two of its junctions (`piece`, see osm/pieces.ts). */
 export type Selection = { type: 'node' | 'way' | 'street'; id: string; piece?: Piece } | null;

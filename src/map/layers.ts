@@ -12,10 +12,10 @@ import type { RoadLook } from '../state/ui';
 
 const EMPTY = { type: 'FeatureCollection', features: [] } as const;
 
-export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'vehicle-shapes', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, ...RAIL_SOURCES, 'draw-conflicts', 'sidewalks', 'issue-ways', 'custom-flows', 'turns', 'changes', 'route', 'ghost', 'building-handles', 'sign-ghost'] as const;
+export const SOURCES = ['buildings', 'context', 'roads', 'nodes', 'selection', 'issues', 'draw', 'vehicles', 'vehicle-shapes', 'macro', 'signals', 'transit', 'lanes', 'lane-links', 'lane-ends', ...JUNCTION_SOURCES, ...RAIL_SOURCES, 'draw-conflicts', 'sidewalks', 'issue-ways', 'custom-flows', 'turns', 'changes', 'route', 'ghost', 'building-handles', 'sign-ghost', 'parking', 'parking-ghost'] as const;
 export type SourceId = (typeof SOURCES)[number];
 
-export const HIT_LAYERS = { nodes: ['signals', 'signs', 'road-signs', 'crossings', 'nodes', ...RAIL_HIT_POINTS], roads: ['roads', 'roads-bridge', ...RAIL_HIT_LINES], buildings: ['buildings'], laneEnds: ['lane-ends'], laneLinks: ['lane-links', 'lane-ribbons'] } as const;
+export const HIT_LAYERS = { nodes: ['signals', 'signs', 'road-signs', 'crossings', 'nodes', ...RAIL_HIT_POINTS], roads: ['roads', 'roads-bridge', ...RAIL_HIT_LINES], buildings: ['buildings'], parking: ['parking-fill'], laneEnds: ['lane-ends'], laneLinks: ['lane-links', 'lane-ribbons'] } as const;
 
 function arrowImage(color: string): ImageData | null {
   const size = 24;
@@ -34,7 +34,7 @@ function arrowImage(color: string): ImageData | null {
 
 /** Small sign icons for nodes (crossing, bus stop, bump), from the shared SVG art (signArt.ts). */
 function addSignImages(map: MapLibreMap): void {
-  ['crossing', 'bus_stop', 'bump', 'signal', 'tram_stop'].forEach((name) => {
+  ['crossing', 'bus_stop', 'bump', 'signal', 'tram_stop', 'parking'].forEach((name) => {
     void signBitmap(name, 40).then((img) => {
       if (img && !map.hasImage(`sign-${name}`)) map.addImage(`sign-${name}`, img, { pixelRatio: 2 });
     });
@@ -158,7 +158,12 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
   addSignImages(map);
   addZoneBadges(map);
 
+  // Car parks under the buildings: a multi-storey one is a building too and stands over its lot.
+  map.addLayer({ id: 'parking-fill', type: 'fill', source: 'parking', filter: ['==', ['get', 'kind'], 'area'] });
+  map.addLayer({ id: 'parking-line', type: 'line', source: 'parking', filter: ['==', ['get', 'kind'], 'area'], paint: { 'line-width': 1.5, 'line-dasharray': [3, 1.5] } });
   map.addLayer({ id: 'buildings', type: 'fill', source: 'buildings', paint: { 'fill-opacity': 0.55 } });
+  map.addLayer({ id: 'parking-sign', type: 'symbol', source: 'parking', filter: ['==', ['get', 'kind'], 'sign'], minzoom: 15,
+    layout: { 'icon-image': 'sign-parking', 'icon-allow-overlap': false, 'icon-size': ['interpolate', ['linear'], ['zoom'], 15, 0.45, 18, 0.7, 20, 0.9] } });
   // Footpaths at their real width from zoom 16: walks, pedestrian streets, cycleways, steps, trails.
   const metres = (m: unknown, extra = 0) => ['interpolate', ['exponential', 2], ['zoom'], 13, 0.6 + extra, 16, ['+', ['max', 1.2, ['*', m, 0.68]], extra], 22, ['+', ['*', m, 0.68 * 64], extra]] as never;
   const pathW = ['match', ['get', 'path'], 'square', 8, 'cycle', 2, 'steps', 2.5, 'walk', 2.25, 1.4];
@@ -313,6 +318,10 @@ export function addEditorLayers(map: MapLibreMap, p: MapPalette): void {
     paint: { 'fill-extrusion-color': ['case', ['get', 'warn'], '#E5392A', '#E54489'], 'fill-extrusion-height': ['get', 'height'], 'fill-extrusion-opacity': 0.55 } });
   map.addLayer({ id: 'ghost-line', type: 'line', source: 'ghost',
     paint: { 'line-color': ['case', ['get', 'warn'], '#E5392A', '#E54489'], 'line-width': 2, 'line-dasharray': [2, 1.5] } });
+  // The car park tool's ghost: a flat see-through lot under the cursor.
+  map.addLayer({ id: 'parking-ghost-fill', type: 'fill', source: 'parking-ghost', paint: { 'fill-opacity': 0.9 } });
+  map.addLayer({ id: 'parking-ghost-line', type: 'line', source: 'parking-ghost',
+    paint: { 'line-color': ['case', ['get', 'warn'], '#E5392A', '#3F8BC4'], 'line-width': 2, 'line-dasharray': [2, 1.5] } });
   // Handles of the selected building (map/useBuildingEditing.ts); the sides only catch the mouse.
   const kind = (k: string) => ['==', ['get', 'kind'], k] as never;
   map.addLayer({ id: 'bh-edge', type: 'line', source: 'building-handles', filter: kind('edge'), paint: { 'line-width': 14, 'line-opacity': 0.01, 'line-color': '#E54489' } });
@@ -353,6 +362,9 @@ export function applyPalette(map: MapLibreMap, p: MapPalette): void {
   const issueColor = ['case', ['==', ['get', 'kind'], 'cordon'], p.cordon, ['==', ['get', 'severity'], 'error'], p.error, p.warning];
   setArrowImage(map, p.arrow);
   set('buildings', 'fill-color', p.building);
+  set('parking-fill', 'fill-color', p.parking);
+  set('parking-line', 'line-color', p.parkingLine);
+  set('parking-ghost-fill', 'fill-color', p.parking);
   set('buildings', 'fill-outline-color', p.buildingLine);
   set('context', 'line-color', ['match', ['get', 'path'], 'cycle', p.cycle, 'square', p.square, 'trail', p.trail, p.walk] as never);
   set('sidewalk-left', 'line-color', p.walk);
@@ -412,6 +424,9 @@ export function applyRoadColors(map: MapLibreMap, p: MapPalette, mode: RoadColor
 const ROAD_LAYERS = ['roads-casing', 'bridge-casing', 'roads', 'roads-bridge', 'roads-arrows', 'selection-line', 'lanes', 'bus-lanes', 'bus-lane-letters', 'lane-marks-casing', 'lane-marks-dash', 'lane-marks-solid', ...JUNCTION_LAYERS];
 
 /** Applies the layer toggles from the bottom bar. Bridges and tunnels are filters on the road layers. */
+/** Layers of the car parks, shown and hidden together. */
+const PARKING_LAYERS = ['parking-fill', 'parking-line', 'parking-sign'] as const;
+
 export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boolean>, view3d = false): void {
   const show = (layer: string, visible: boolean) => map.setLayoutProperty(layer, 'visibility', visible ? 'visible' : 'none');
   ROAD_LAYERS.forEach((l) => show(l, on.roads));
@@ -429,6 +444,7 @@ export function applyLayerVisibility(map: MapLibreMap, on: Record<LayerId, boole
   show('crossings', on.crossings);
   show('signs', on.signs);
   show('buildings', on.buildings && !view3d);
+  PARKING_LAYERS.forEach((l) => show(l, on.parking));
   RAIL_LAYERS.forEach((l) => show(l, on.tram));
   show('changes-line', on.changes);
   show('changes-point', on.changes);

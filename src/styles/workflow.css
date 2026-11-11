@@ -159,6 +159,10 @@
   .float-view { left: auto; right: 60px; transform: none; justify-items: end; }
   .float-hint { max-width: calc(100% - 24px); }
 }
+/* A tool's options bar (road, building, car park) and the island share the top row only on a wide map; on a narrower one the island steps down a row. */
+@container (max-width: 980px) {
+  .stage:has(.float-draw) .float-view { top: 58px; }
+}
 /* Narrower still: the island keeps only the mode, so it clears the tools on the left. */
 @container (max-width: 560px) {
   .island:not(.open) { width: auto; max-width: calc(100cqw - 210px); }

@@ -5,16 +5,19 @@ import { useEditor, type Mode } from './store';
 import { useUi } from './ui';
 import { removePickedLink } from './laneActions';
 import { useBuildingTool } from '../map/buildingTool';
+import { useParkingTool } from '../map/parkingTool';
+import { PARKING_TEMPLATES } from '../osm/parking';
 import { removePickedCorner } from '../map/useBuildingEditing';
 import { copySelected, duplicateSelected, pasteBuilding, selectedBuildingId } from './buildingActions';
 import { BUILDING_TEMPLATES } from '../osm/buildingShape';
 import { deleteSelection, openFile, saveOsm, finishDrawing, flipSelected, nudgeSelected, reverseSelected, splitAtSelected, toggleSignalSelected } from './actions';
 import { usePanels } from './panels';
 
-const MODE_KEYS: Readonly<Record<string, Mode>> = { h: 'view', v: 'select', d: 'draw', n: 'insert', t: 'signal', b: 'building' };
+const MODE_KEYS: Readonly<Record<string, Mode>> = { h: 'view', v: 'select', d: 'draw', n: 'insert', t: 'signal', b: 'building', k: 'parking' };
 
 export const HOTKEYS: ReadonlyArray<[string, string]> = [
-  ['V / D / N / T / B', 'Выбор / Рисовать дорогу / Узел на дороге / Объект ОДД / Здание'],
+  ['V / D / N / T / B / K', 'Выбор / Рисовать дорогу / Узел на дороге / Объект ОДД / Здание / Парковка'],
+  ['K, затем 1–3, R, Shift+R', 'Парковка: размер, поворот на 90° и на 15°'],
   ['Enter, двойной клик', 'Завершить дорогу'],
   ['Esc', 'Отменить рисование / снять выделение'],
   ['1–9', 'Шаблон новой дороги'],
@@ -72,6 +75,14 @@ function handleKey(e: KeyboardEvent): void {
     const tool = useBuildingTool.getState();
     const n = Number.parseInt(key, 10);
     if (n >= 1 && n <= BUILDING_TEMPLATES.length) { tool.setTemplate(n - 1); return; }
+    if (key === 'r') { e.preventDefault(); tool.rotate(e.shiftKey ? 15 : 90); return; }
+    if (key === 'escape') { s.setMode('select'); return; }
+  }
+  // So has the car park tool: size and turn of the lot.
+  if (s.mode === 'parking') {
+    const tool = useParkingTool.getState();
+    const n = Number.parseInt(key, 10);
+    if (n >= 1 && n <= PARKING_TEMPLATES.length) { tool.setTemplate(n - 1); return; }
     if (key === 'r') { e.preventDefault(); tool.rotate(e.shiftKey ? 15 : 90); return; }
     if (key === 'escape') { s.setMode('select'); return; }
   }

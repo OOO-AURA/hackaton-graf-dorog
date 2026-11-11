@@ -1,9 +1,9 @@
 import { hasRepairs, OsmParseError, parseOsmChecked, type OsmRepairs } from '../osm/parse';
+import { isOutlineWay } from '../osm/parking';
 import { serializeOsm } from '../osm/serialize';
 import { commitDrawing } from '../osm/draw';
 import { deleteNode, deleteWay, flipDirection, moveNode, reverseWay, splitWay, toggleSignal, waysOfNode } from '../osm/edit';
 import { ROAD_TEMPLATES } from '../osm/tags';
-import { isBuilding } from '../osm/building';
 import { deleteBuilding, reshape } from '../osm/buildingEdit';
 import { translate } from '../osm/buildingShape';
 import { buildingConflicts, cutBuildings, demolishBuildings, type BuildingConflict } from '../osm/clearance';
@@ -173,7 +173,7 @@ export function deleteSelection(): void {
   if (!sel) return;
   if (sel.type === 'street') return;
   // A building takes the corners only it used along; other ways keep their nodes.
-  const building = sel.type === 'way' && s.doc.ways[sel.id] && isBuilding(s.doc.ways[sel.id].tags);
+  const building = sel.type === 'way' && isOutlineWay(s.doc.ways[sel.id]);
   // A stretch picked between two junctions goes alone; the rest of the way stays.
   s.apply((d) => (sel.type === 'node' ? deleteNode(d, sel.id) : building ? deleteBuilding(d, sel.id) : deleteWay(sel.piece ? isolatePiece(d, sel.id, sel.piece) : d, sel.id)));
   s.select(null);
@@ -239,7 +239,7 @@ export function nudgeSelected(east: number, north: number): boolean {
     return true;
   }
   const w = s.doc.ways[sel.id];
-  if (!w || !isBuilding(w.tags)) return false;
+  if (!isOutlineWay(w)) return false;
   s.apply((d) => reshape(d, sel.id, (ring) => translate(ring, [east, north])));
   return true;
 }

@@ -14,11 +14,11 @@ import { TOOLS_IN } from '../map/editScope';
 
 export const LAYER_LABELS: Readonly<Record<LayerId, string>> = {
   sidewalks: 'Тротуары', roads: 'Дороги', junctions: 'Перекрёстки', signals: 'Светофоры', crossings: 'Переходы',
-  bridges: 'Мосты', tunnels: 'Тоннели', buildings: 'Здания', tram: 'Ж/д и трамвай', signs: 'Знаки', transit: 'Маршруты ОТ', changes: 'Изменения',
+  bridges: 'Мосты', tunnels: 'Тоннели', buildings: 'Здания', parking: 'Парковки', tram: 'Ж/д и трамвай', signs: 'Знаки', transit: 'Маршруты ОТ', changes: 'Изменения',
 };
 
 const LAYER_GROUPS: ReadonlyArray<readonly [string, readonly LayerId[]]> = [
-  ['Улично-дорожная сеть', ['roads', 'sidewalks', 'junctions', 'bridges', 'tunnels']],
+  ['Улично-дорожная сеть', ['roads', 'sidewalks', 'junctions', 'bridges', 'tunnels', 'parking']],
   ['ТСОДД', ['signals', 'crossings', 'signs']],
   ['Транспорт', ['tram', 'transit']],
   ['Окружение и анализ', ['buildings', 'changes']],

@@ -64,8 +64,11 @@ const in3d = (map: MapLibreMap) => map.getLayoutProperty(SCENE3D_LAYER, 'visibil
  * 2D the flat building layer is queried. Resolves to the OSM way id or null.
  */
 export async function hitBuilding(map: MapLibreMap, point: { x: number; y: number }): Promise<string | null> {
-  if (in3d(map)) return (await sceneOf(map)?.pick(point.x, point.y)) ?? null;
-  const features = map.queryRenderedFeatures([point.x, point.y], { layers: ['buildings'] });
+  const scene = in3d(map) ? (await sceneOf(map)?.pick(point.x, point.y)) ?? null : null;
+  if (scene) return scene;
+  // Car parks lie flat on the ground in 3D as well; a building standing on one wins.
+  const layers = (in3d(map) ? [...HIT_LAYERS.parking] : [...HIT_LAYERS.buildings, ...HIT_LAYERS.parking]).filter((l) => map.getLayer(l) && map.getLayoutProperty(l, 'visibility') !== 'none');
+  const features = layers.length ? map.queryRenderedFeatures([point.x, point.y], { layers }) : [];
   return features.length ? String(features[0].properties?.id) : null;
 }
 

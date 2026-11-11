@@ -6,6 +6,8 @@ import { Icon } from './icons';
 import { WayInspector } from './WayInspector';
 import { NodeInspector } from './NodeInspector';
 import { BuildingInspector } from './BuildingInspector';
+import { ParkingInspector } from './ParkingInspector';
+import { isParkingArea } from '../osm/parking';
 import { StreetInspector } from './StreetInspector';
 import { isBuildingWay } from '../osm/building';
 import { Why } from './Why';
@@ -82,7 +84,9 @@ export function Inspector() {
       {mode === 'view' && <p className="insp-viewonly"><Icon name="eye" size={14} /> Просмотр: поля только для чтения</p>}
       {mode !== 'draw' && mode !== 'signal' && <fieldset disabled={mode === 'view'} key={multi.length > 1 ? `multi${multi.length}` : selection ? `${selection.type}${selection.id}` : 'none'} className="insp-swap">
         {multi.length > 1 && <MultiInspector ids={multi} />}
-        {multi.length < 2 && selection?.type === 'way' && (isBuildingWay(doc.ways[selection.id])
+        {multi.length < 2 && selection?.type === 'way' && (isParkingArea(doc.ways[selection.id])
+          ? <ParkingInspector way={doc.ways[selection.id]} />
+          : isBuildingWay(doc.ways[selection.id])
           ? <BuildingInspector way={doc.ways[selection.id]} />
           : isRailWay(doc.ways[selection.id].tags) ? <RailInspector way={doc.ways[selection.id]} />
           : <WayInspector way={doc.ways[selection.id]} />)}
